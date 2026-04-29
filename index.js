@@ -4,7 +4,7 @@ const http = require('http');
 const { URL } = require('url');
 const { DatabaseSync } = require('node:sqlite');
 
-const rootDir = path.resolve(__dirname, '..');
+const rootDir = __dirname;
 const publicDir = path.join(rootDir, 'public');
 const dataDir = path.join(rootDir, 'data');
 const uploadsDir = path.join(rootDir, 'uploads');
