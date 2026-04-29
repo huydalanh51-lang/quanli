@@ -1,0 +1,17 @@
+{
+  "name": "phan-mem-chu-chuyen-dat-dai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web dong Node.js + Express cho bang chu chuyen dat dai.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
