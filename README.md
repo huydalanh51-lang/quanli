@@ -158,7 +158,8 @@ Luu y bao mat: tren moi truong web khong the chong tai xuong/copy/chup man hinh 
 - Co tra cuu theo ma thua, chu su dung, ma loai dat, dia danh va quy hoach.
 - Co popup thong tin, bang thuoc tinh, highlight dong/doi tuong, do khoang cach, do dien tich, in ban do, chup anh ban do va hien toa do con tro.
 - Co file du lieu mau tai `public/webgis/sample-land-data.geojson`.
-- Cong cu quan tri WebGIS hien la ban demo cuc bo: upload GeoJSON, them layer moi va sua thuoc tinh doi tuong dang chon tren trinh duyet.
+- Khi upload GeoJSON, bat/tat layer, doi do trong suot hoac sua thuoc tinh doi tuong, WebGIS se tu dong luu vao API `projects` voi ma rieng `webgis-default`; neu server loi thi co ban luu tam trong trinh duyet.
+- Cong cu quan tri WebGIS hien la ban demo: upload GeoJSON, them layer moi va sua thuoc tinh doi tuong dang chon. Du lieu da add se duoc nap lai sau khi reload trang neu backend con du lieu.
 
 Huong nang cap: khi du lieu lon, nen chuyen GeoJSON sang backend Node.js + PostgreSQL/PostGIS, phan trang/loc theo bbox, hoac tao vector tile de ban do nhe hon. Voi nhieu diem, nen dung clustering hoac tile point layer.
 

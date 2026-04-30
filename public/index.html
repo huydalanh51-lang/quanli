@@ -253,6 +253,23 @@ body.webgis-mode .docs-page {
   flex-wrap: wrap;
   gap: 8px;
 }
+.webgis-save-status {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+.webgis-save-status.error {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+}
 .webgis-actions button,
 .webgis-map-tools button,
 .webgis-search button,
@@ -1827,6 +1844,7 @@ td.search-hit {
         <div id="webgisSearchResults" class="webgis-search-results" hidden></div>
       </div>
       <div class="webgis-actions">
+        <span id="webgisSaveStatus" class="webgis-save-status">Chưa nạp dữ liệu</span>
         <button id="webgisOpenTableBtn" type="button">Bảng thuộc tính</button>
         <button id="webgisAdminBtn" class="primary" type="button">Quản trị dữ liệu</button>
         <button id="webgisHomeBtn" type="button">Màn chính</button>
@@ -2168,6 +2186,7 @@ const webgisLandColors = {
 
 let webgisState = {
   initialized: false,
+  initializing: null,
   map: null,
   layerDefs: [],
   overlayLayers: new Map(),
@@ -2181,6 +2200,10 @@ let webgisState = {
   measurePoints: [],
   measureLayer: null
 };
+
+const webgisStorageKey = 'webgis-state-v1';
+const webgisProjectId = 'webgis-default';
+let webgisSaveTimer = 0;
 
 function webgisEl(id) {
   return document.getElementById(id);
@@ -2220,6 +2243,130 @@ function webgisNormalizeFeatures(collection, defaultLayer = '') {
       props.__id = props.__id || `${props.layer}-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
       return { ...feature, properties: props };
     });
+}
+
+function webgisNormalizeLayerDefs(savedDefs = []) {
+  const savedById = new Map(
+    (Array.isArray(savedDefs) ? savedDefs : [])
+      .filter(def => def && def.id)
+      .map(def => [String(def.id), def])
+  );
+  const defaultIds = new Set(webgisLayerDefs.map(def => def.id));
+  const defaults = webgisLayerDefs.map(def => {
+    const saved = savedById.get(def.id) || {};
+    return {
+      ...def,
+      ...saved,
+      id: def.id,
+      label: saved.label || def.label,
+      color: saved.color || def.color,
+      opacity: Number.isFinite(Number(saved.opacity)) ? Number(saved.opacity) : 78,
+      visible: saved.visible !== false
+    };
+  });
+  const custom = Array.from(savedById.values())
+    .filter(def => !defaultIds.has(String(def.id)))
+    .map(def => ({
+      id: String(def.id),
+      label: String(def.label || def.id),
+      color: String(def.color || '#2563eb'),
+      visible: def.visible !== false,
+      opacity: Number.isFinite(Number(def.opacity)) ? Number(def.opacity) : 78,
+      custom: true
+    }));
+  return [...defaults, ...custom];
+}
+
+function webgisStatePayload() {
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    layerDefs: webgisState.layerDefs.map(def => ({
+      id: def.id,
+      label: def.label,
+      color: def.color,
+      visible: def.visible !== false,
+      opacity: Number(def.opacity || 78),
+      custom: Boolean(def.custom)
+    })),
+    features: webgisState.features
+  };
+}
+
+function webgisValidPayload(data) {
+  return data && typeof data === 'object' && Array.isArray(data.layerDefs) && Array.isArray(data.features);
+}
+
+function webgisSetSaveStatus(text, isError = false) {
+  const status = webgisEl('webgisSaveStatus');
+  if (!status) return;
+  status.textContent = text;
+  status.classList.toggle('error', Boolean(isError));
+}
+
+function webgisSaveLocal(data) {
+  try {
+    localStorage.setItem(webgisStorageKey, JSON.stringify(data));
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function webgisLoadLocal() {
+  try {
+    const raw = localStorage.getItem(webgisStorageKey);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return webgisValidPayload(data) ? data : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function webgisLoadSavedData() {
+  const localData = webgisLoadLocal();
+  try {
+    const response = await fetch(`${apiBase}/${encodeURIComponent(webgisProjectId)}`, { cache: 'no-store' });
+    if (response.ok) {
+      const payload = await response.json();
+      if (webgisValidPayload(payload.data)) {
+        webgisSaveLocal(payload.data);
+        webgisSetSaveStatus('Đã nạp dữ liệu đã lưu');
+        return payload.data;
+      }
+    }
+    if (response.status !== 404) throw new Error('Không nạp được dữ liệu WebGIS từ server.');
+  } catch (error) {
+    if (localData) webgisSetSaveStatus('Đang dùng bản lưu tạm', true);
+  }
+  if (localData) return localData;
+  webgisSetSaveStatus('Đang dùng dữ liệu mẫu');
+  return null;
+}
+
+async function webgisSaveNow() {
+  if (!webgisState.initialized) return;
+  const data = webgisStatePayload();
+  const savedLocal = webgisSaveLocal(data);
+  webgisSetSaveStatus('Đang tự lưu...');
+  try {
+    const response = await fetch(`${apiBase}/${encodeURIComponent(webgisProjectId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    webgisSetSaveStatus(`Đã tự lưu ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`);
+  } catch (error) {
+    webgisSetSaveStatus(savedLocal ? 'Đã lưu tạm trên trình duyệt' : 'Không lưu được dữ liệu', true);
+  }
+}
+
+function webgisScheduleSave() {
+  if (!webgisState.initialized) return;
+  clearTimeout(webgisSaveTimer);
+  webgisSaveTimer = setTimeout(() => webgisSaveNow(), 600);
 }
 
 function webgisStyle(feature) {
@@ -2316,6 +2463,11 @@ function webgisRebuildOverlays() {
     webgisState.overlayLayers.set(def.id, layer);
     if (def.visible !== false) layer.addTo(webgisState.map);
   });
+  if (webgisState.selectedFeatureId && !webgisState.features.some(feature => feature.properties.__id === webgisState.selectedFeatureId)) {
+    webgisState.selectedFeatureId = null;
+    webgisState.selectedVector = null;
+    webgisRenderFeatureDetail(null);
+  }
   webgisRenderLayerList();
   webgisRenderLegend();
   webgisPopulateAttrLayerSelect();
@@ -2541,6 +2693,7 @@ async function webgisImportGeoJson() {
   webgisState.features.push(...features);
   webgisRebuildOverlays();
   webgisFitLayer(layerId);
+  webgisScheduleSave();
   alert(`Đã thêm ${features.length} đối tượng vào layer "${name}".`);
 }
 
@@ -2563,6 +2716,7 @@ function webgisSaveSelectedFeatureProps() {
   webgisRebuildOverlays();
   webgisZoomToFeature(id);
   webgisRenderAttributeTable();
+  webgisScheduleSave();
 }
 
 function webgisBindEvents() {
@@ -2575,12 +2729,22 @@ function webgisBindEvents() {
       const layer = webgisState.overlayLayers.get(toggleId);
       if (event.target.checked) layer?.addTo(webgisState.map);
       else if (layer) webgisState.map.removeLayer(layer);
+      webgisScheduleSave();
     }
     if (opacityId) {
       const def = webgisState.layerDefs.find(layer => layer.id === opacityId);
       if (def) def.opacity = Number(event.target.value);
       webgisUpdateLayerStyle(opacityId);
+      webgisScheduleSave();
     }
+  });
+  webgisEl('webgisLayerList').addEventListener('input', event => {
+    const opacityId = event.target?.dataset?.webgisLayerOpacity;
+    if (!opacityId) return;
+    const def = webgisState.layerDefs.find(layer => layer.id === opacityId);
+    if (def) def.opacity = Number(event.target.value);
+    webgisUpdateLayerStyle(opacityId);
+    webgisScheduleSave();
   });
   webgisEl('webgisLayerList').addEventListener('click', event => {
     const layerId = event.target?.dataset?.webgisLayerZoom;
@@ -2629,8 +2793,13 @@ function webgisBindEvents() {
   webgisEl('webgisFullscreenBtn').addEventListener('click', () => webgisEl('webgisPage').requestFullscreen?.());
 }
 
-function initializeWebGIS() {
+async function initializeWebGIS() {
   if (webgisState.initialized) {
+    setTimeout(() => webgisState.map?.invalidateSize(), 80);
+    return;
+  }
+  if (webgisState.initializing) {
+    await webgisState.initializing;
     setTimeout(() => webgisState.map?.invalidateSize(), 80);
     return;
   }
@@ -2638,29 +2807,40 @@ function initializeWebGIS() {
     webgisEl('webgisMap').innerHTML = '<div class="webgis-detail-empty">Không tải được Leaflet.js. Vui lòng kiểm tra kết nối mạng hoặc CDN.</div>';
     return;
   }
-  const sample = JSON.parse(document.getElementById('webgisSampleData').textContent);
-  webgisState.layerDefs = webgisLayerDefs.map(item => ({ ...item, opacity: 78 }));
-  webgisState.features = webgisNormalizeFeatures(sample);
-  const map = L.map('webgisMap', { zoomControl: false, preferCanvas: true }).setView([21.0405, 105.8520], 15);
-  webgisState.map = map;
-  L.control.zoom({ position: 'bottomright' }).addTo(map);
-  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-  const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
-  const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenTopoMap contributors' });
-  L.control.layers({ OpenStreetMap: osm, 'Ảnh vệ tinh': satellite, 'Địa hình': terrain }, null, { position: 'topright', collapsed: true }).addTo(map);
-  webgisRebuildOverlays();
-  webgisBindEvents();
-  map.on('mousemove', event => {
-    webgisEl('webgisCoordinateBar').textContent = `Tọa độ: ${event.latlng.lat.toFixed(6)}, ${event.latlng.lng.toFixed(6)}`;
-  });
-  map.on('click', event => webgisHandleMeasureClick(event.latlng));
-  map.on('locationfound', event => {
-    L.circleMarker(event.latlng, { radius: 8, color: '#0f766e', fillColor: '#14b8a6', fillOpacity: 0.85 }).addTo(map)
-      .bindPopup('Vị trí hiện tại của bạn').openPopup();
-  });
-  map.on('locationerror', () => alert('Không xác định được vị trí. Hãy cho phép trình duyệt truy cập vị trí nếu cần.'));
-  webgisFitAll();
-  webgisState.initialized = true;
+  webgisState.initializing = (async () => {
+    try {
+      const sample = JSON.parse(document.getElementById('webgisSampleData').textContent);
+      const savedData = await webgisLoadSavedData();
+      webgisState.layerDefs = webgisNormalizeLayerDefs(savedData?.layerDefs);
+      webgisState.features = webgisNormalizeFeatures(
+        { type: 'FeatureCollection', features: savedData?.features || sample.features },
+        ''
+      );
+      const map = L.map('webgisMap', { zoomControl: false, preferCanvas: true }).setView([21.0405, 105.8520], 15);
+      webgisState.map = map;
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+      const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
+      const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenTopoMap contributors' });
+      L.control.layers({ OpenStreetMap: osm, 'Ảnh vệ tinh': satellite, 'Địa hình': terrain }, null, { position: 'topright', collapsed: true }).addTo(map);
+      webgisRebuildOverlays();
+      webgisBindEvents();
+      map.on('mousemove', event => {
+        webgisEl('webgisCoordinateBar').textContent = `Tọa độ: ${event.latlng.lat.toFixed(6)}, ${event.latlng.lng.toFixed(6)}`;
+      });
+      map.on('click', event => webgisHandleMeasureClick(event.latlng));
+      map.on('locationfound', event => {
+        L.circleMarker(event.latlng, { radius: 8, color: '#0f766e', fillColor: '#14b8a6', fillOpacity: 0.85 }).addTo(map)
+          .bindPopup('Vị trí hiện tại của bạn').openPopup();
+      });
+      map.on('locationerror', () => alert('Không xác định được vị trí. Hãy cho phép trình duyệt truy cập vị trí nếu cần.'));
+      webgisFitAll();
+      webgisState.initialized = true;
+    } finally {
+      webgisState.initializing = null;
+    }
+  })();
+  await webgisState.initializing;
 }
 
 let libraryDocuments = [];
@@ -4564,7 +4744,10 @@ function showWebGisPage() {
   $('#pdfReader').hidden = true;
   $('#importLog').hidden = true;
   closeMainMenu();
-  initializeWebGIS();
+  initializeWebGIS().catch(error => {
+    webgisSetSaveStatus('Không khởi động được WebGIS', true);
+    alert(error.message || String(error));
+  });
 }
 
 $('#menuBtn').addEventListener('click', event => {
