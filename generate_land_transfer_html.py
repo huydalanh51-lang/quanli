@@ -1764,7 +1764,7 @@ td.search-hit {{
       <button id="libraryAccessLoginBtn" class="primary" type="button">&#272;&#259;ng nh&#7853;p</button>
       <div id="libraryAccessMsg" class="library-empty" hidden></div>
     </div>
-    <p class="library-access-hint">T&#224;i kho&#7843;n kh&#225;ch ch&#7881; &#273;&#432;&#7907;c &#273;&#7885;c t&#224;i li&#7879;u. T&#224;i kho&#7843;n admin c&#243; th&#7875; upload, s&#7917;a, &#7849;n/hi&#7879;n v&#224; x&#243;a t&#224;i li&#7879;u.</p>
+    <p class="library-access-hint">N&#7871;u ch&#432;a c&#243; t&#224;i kho&#7843;n li&#234;n h&#7879; tr&#7921;c ti&#7871;p admin &#273;&#7875; &#273;&#432;&#7907;c cung c&#7845;p!</p>
   </div>
 </section>
 <section id="libraryAdminPanel" class="library-admin" hidden>
