@@ -811,21 +811,6 @@ body.docs-mode .home-page {{
   user-select: none;
   -webkit-user-select: none;
 }}
-.reader-loading {{
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 5px 10px;
-  color: #ffffff;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.78);
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
-  font-size: 13px;
-}}
 @media (max-width: 820px) {{
   .library-head {{
     flex-direction: column;
@@ -1715,7 +1700,6 @@ td.search-hit {{
   <div id="pdfStage" class="pdf-stage">
     <div id="pdfCanvasWrap" class="pdf-canvas-wrap">
       <canvas id="pdfCanvas"></canvas>
-      <div id="readerLoading" class="reader-loading" hidden>Đang tải tài liệu...</div>
     </div>
   </div>
 </section>
@@ -3481,42 +3465,36 @@ function drawPdfWatermark(ctx, width, height) {{
 async function renderPdfPage() {{
   if (!activePdf) return;
   const serial = ++activePdfRenderSerial;
-  $('#readerLoading').hidden = false;
   try {{
     if (activePdfRenderTask) activePdfRenderTask.cancel();
   }} catch (error) {{}}
-  try {{
-    const page = await activePdf.getPage(activePdfPage);
-    if (serial !== activePdfRenderSerial) return;
-    const canvas = $('#pdfCanvas');
-    const ctx = canvas.getContext('2d', {{ alpha: false }});
-    const cssViewport = page.getViewport({{ scale: activePdfScale }});
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);
-    const renderViewport = page.getViewport({{ scale: activePdfScale * pixelRatio }});
-    canvas.width = Math.floor(renderViewport.width);
-    canvas.height = Math.floor(renderViewport.height);
-    canvas.style.width = `${{Math.floor(cssViewport.width)}}px`;
-    canvas.style.height = `${{Math.floor(cssViewport.height)}}px`;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    activePdfRenderTask = page.render({{ canvasContext: ctx, viewport: renderViewport }});
-    await activePdfRenderTask.promise.catch(error => {{
-      if (error?.name !== 'RenderingCancelledException') throw error;
-    }});
-    if (serial !== activePdfRenderSerial) return;
-    drawPdfWatermark(ctx, canvas.width, canvas.height);
-    $('#readerPageInput').value = activePdfPage;
-    $('#readerPageTotal').textContent = `/ ${{activePdf.numPages}}`;
-    $('#readerPrevBtn').disabled = activePdfPage <= 1;
-    $('#readerNextBtn').disabled = activePdfPage >= activePdf.numPages;
-  }} finally {{
-    if (serial === activePdfRenderSerial) $('#readerLoading').hidden = true;
-  }}
+  const page = await activePdf.getPage(activePdfPage);
+  if (serial !== activePdfRenderSerial) return;
+  const canvas = $('#pdfCanvas');
+  const ctx = canvas.getContext('2d', {{ alpha: false }});
+  const cssViewport = page.getViewport({{ scale: activePdfScale }});
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);
+  const renderViewport = page.getViewport({{ scale: activePdfScale * pixelRatio }});
+  canvas.width = Math.floor(renderViewport.width);
+  canvas.height = Math.floor(renderViewport.height);
+  canvas.style.width = `${{Math.floor(cssViewport.width)}}px`;
+  canvas.style.height = `${{Math.floor(cssViewport.height)}}px`;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  activePdfRenderTask = page.render({{ canvasContext: ctx, viewport: renderViewport }});
+  await activePdfRenderTask.promise.catch(error => {{
+    if (error?.name !== 'RenderingCancelledException') throw error;
+  }});
+  if (serial !== activePdfRenderSerial) return;
+  drawPdfWatermark(ctx, canvas.width, canvas.height);
+  $('#readerPageInput').value = activePdfPage;
+  $('#readerPageTotal').textContent = `/ ${{activePdf.numPages}}`;
+  $('#readerPrevBtn').disabled = activePdfPage <= 1;
+  $('#readerNextBtn').disabled = activePdfPage >= activePdf.numPages;
 }}
 
 async function openPdfReader(doc) {{
   $('#pdfReader').hidden = false;
-  $('#readerLoading').hidden = false;
   $('#readerTitle').textContent = doc.title;
   const tokenResponse = await fetch(`${{libraryApiBase}}/documents/${{doc.id}}/view-token`, {{ method: 'POST' }});
   const tokenPayload = await tokenResponse.json().catch(() => ({{}}));
