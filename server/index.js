@@ -97,9 +97,9 @@ const libraryAdminSessions = new Map();
 const libraryViewTokens = new Map();
 const libraryTokenTtlMs = 10 * 60 * 1000;
 const adminSessionTtlMs = 8 * 60 * 60 * 1000;
-const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/+$/, '');
-const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '');
-const supabaseBucket = String(process.env.SUPABASE_BUCKET || 'library-documents');
+const supabaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/\s+/g, '').replace(/\/+$/, '');
+const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const supabaseBucket = String(process.env.SUPABASE_BUCKET || 'library-documents').trim();
 const supabaseLibraryIndexKey = '_metadata/library_documents.json';
 
 function loadEnvFile(filePath) {
@@ -336,10 +336,11 @@ async function getLibraryDocument(id, { includeHidden = false } = {}) {
   return row;
 }
 
-function supabaseObjectUrl(key) {
+function supabaseObjectUrl(key, { authenticated = false } = {}) {
   const encodedBucket = encodeURIComponent(supabaseBucket);
   const encodedKey = String(key).split('/').map(part => encodeURIComponent(part)).join('/');
-  return `${supabaseUrl}/storage/v1/object/${encodedBucket}/${encodedKey}`;
+  const route = authenticated ? 'object/authenticated' : 'object';
+  return `${supabaseUrl}/storage/v1/${route}/${encodedBucket}/${encodedKey}`;
 }
 
 function supabaseBaseHeaders(extra = {}) {
@@ -368,7 +369,7 @@ async function supabaseUploadObject(key, buffer, mime) {
 
 async function supabaseDownloadObject(key) {
   if (!key) return null;
-  const response = await fetch(supabaseObjectUrl(key), {
+  const response = await fetch(supabaseObjectUrl(key, { authenticated: true }), {
     method: 'GET',
     headers: supabaseBaseHeaders()
   });
