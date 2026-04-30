@@ -232,13 +232,16 @@ body.docs-mode .home-page {
 }
 .library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 260px));
   gap: 14px;
+  align-items: stretch;
 }
 .library-card {
   display: flex;
   flex-direction: column;
-  min-height: 348px;
+  width: 100%;
+  min-height: 358px;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.30);
   border-radius: 10px;
@@ -246,28 +249,46 @@ body.docs-mode .home-page {
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.10);
 }
 .library-cover {
-  height: 172px;
+  position: relative;
+  height: 164px;
+  overflow: hidden;
   background: linear-gradient(135deg, #e0f2fe, #dcfce7);
   display: grid;
   place-items: center;
 }
 .library-cover img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+.library-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(15,23,42,0.08));
+}
 .library-cover-placeholder {
+  max-width: 100%;
   padding: 12px;
   color: #0f172a;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
+  line-height: 1.3;
   text-align: center;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 .library-card-body {
   display: flex;
   flex-direction: column;
   gap: 7px;
   flex: 1;
+  min-width: 0;
   padding: 12px;
 }
 .library-card h3 {
@@ -275,6 +296,12 @@ body.docs-mode .home-page {
   color: #0f172a;
   font-size: 15px;
   line-height: 1.3;
+  min-height: 39px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .library-meta {
   display: flex;
@@ -282,21 +309,40 @@ body.docs-mode .home-page {
   gap: 5px;
   color: #475569;
   font-size: 12px;
+  min-width: 0;
+}
+.library-author {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .library-pill {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
   min-height: 22px;
   padding: 2px 7px;
   border: 1px solid #cbd5e1;
   border-radius: 999px;
   background: #f8fafc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .library-description {
   flex: 1;
   color: #475569;
   font-size: 13px;
   line-height: 1.45;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.library-read-btn {
+  margin-top: auto;
 }
 .library-empty {
   padding: 28px;
@@ -2929,7 +2975,7 @@ function renderLibraryGrid(documents) {
           <span class="library-pill">${escapeHtml(doc.category || 'Chưa phân loại')}</span>
           <span class="library-pill">${doc.year || 'Không rõ năm'}</span>
         </div>
-        <div class="library-meta">${escapeHtml(doc.author || 'Chưa rõ tác giả')}</div>
+        <div class="library-meta library-author">${escapeHtml(doc.author || 'Chưa rõ tác giả')}</div>
         <div class="library-description">${escapeHtml(doc.description || '')}</div>
         <button class="primary library-read-btn" type="button" data-id="${doc.id}">Đọc trực tuyến</button>
       </div>
