@@ -8,16 +8,25 @@ const { URL } = require('url');
 const { DatabaseSync } = require('node:sqlite');
 
 const rootDir = path.resolve(__dirname, '..');
-const publicDir = path.join(rootDir, 'public');
-const dataDir = path.join(rootDir, 'data');
-const uploadsDir = path.join(rootDir, 'uploads');
-const exportsDir = path.join(rootDir, 'exports');
-const protectedUploadsDir = path.join(rootDir, 'protected_uploads');
-const libraryPdfDir = path.join(protectedUploadsDir, 'pdf');
-const libraryCoverDir = path.join(protectedUploadsDir, 'covers');
 const envPath = path.join(rootDir, '.env');
 
 loadEnvFile(envPath);
+
+const storageRootDir = resolveStorageDir(
+  process.env.APP_STORAGE_DIR || process.env.PERSISTENT_STORAGE_DIR || process.env.RENDER_DISK_PATH,
+  rootDir
+);
+const publicDir = path.join(rootDir, 'public');
+const dataDir = path.join(storageRootDir, 'data');
+const uploadsDir = path.join(storageRootDir, 'uploads');
+const exportsDir = path.join(storageRootDir, 'exports');
+const protectedUploadsDir = path.join(storageRootDir, 'protected_uploads');
+const libraryPdfDir = path.join(protectedUploadsDir, 'pdf');
+const libraryCoverDir = path.join(protectedUploadsDir, 'covers');
+const legacyDataDir = path.join(rootDir, 'data');
+const legacyUploadsDir = path.join(rootDir, 'uploads');
+const legacyExportsDir = path.join(rootDir, 'exports');
+const legacyProtectedUploadsDir = path.join(rootDir, 'protected_uploads');
 
 process.on('uncaughtException', error => {
   console.error('UNCAUGHT_EXCEPTION', error && error.stack ? error.stack : error);
@@ -29,6 +38,13 @@ process.on('unhandledRejection', error => {
 
 for (const dir of [publicDir, dataDir, uploadsDir, exportsDir, protectedUploadsDir, libraryPdfDir, libraryCoverDir]) {
   fs.mkdirSync(dir, { recursive: true });
+}
+
+if (!isSamePath(storageRootDir, rootDir)) {
+  migrateLegacyStorage(legacyDataDir, dataDir);
+  migrateLegacyStorage(legacyUploadsDir, uploadsDir);
+  migrateLegacyStorage(legacyExportsDir, exportsDir);
+  migrateLegacyStorage(legacyProtectedUploadsDir, protectedUploadsDir);
 }
 
 const dbPath = path.join(dataDir, 'projects.sqlite');
@@ -96,6 +112,43 @@ function loadEnvFile(filePath) {
     }
     if (key && process.env[key] === undefined) process.env[key] = value;
   }
+}
+
+function resolveStorageDir(rawPath, fallbackDir) {
+  const value = String(rawPath || '').trim();
+  if (!value) return fallbackDir;
+  return path.isAbsolute(value) ? path.resolve(value) : path.resolve(fallbackDir, value);
+}
+
+function isSamePath(firstPath, secondPath) {
+  return path.resolve(firstPath).toLowerCase() === path.resolve(secondPath).toLowerCase();
+}
+
+function hasUsefulFiles(dirPath) {
+  if (!fs.existsSync(dirPath)) return false;
+  return fs.readdirSync(dirPath).some(name => name !== '.gitkeep');
+}
+
+function copyDirectoryIfMissing(sourceDir, targetDir) {
+  if (!fs.existsSync(sourceDir)) return;
+  fs.mkdirSync(targetDir, { recursive: true });
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    if (entry.name === '.gitkeep') continue;
+    const sourcePath = path.join(sourceDir, entry.name);
+    const targetPath = path.join(targetDir, entry.name);
+    if (fs.existsSync(targetPath)) continue;
+    if (entry.isDirectory()) {
+      copyDirectoryIfMissing(sourcePath, targetPath);
+    } else if (entry.isFile()) {
+      fs.copyFileSync(sourcePath, targetPath);
+    }
+  }
+}
+
+function migrateLegacyStorage(sourceDir, targetDir) {
+  if (isSamePath(sourceDir, targetDir) || !hasUsefulFiles(sourceDir) || hasUsefulFiles(targetDir)) return;
+  copyDirectoryIfMissing(sourceDir, targetDir);
+  console.log(`Da copy du lieu cu sang thu muc luu tru ben vung: ${path.relative(rootDir, targetDir) || targetDir}`);
 }
 
 function normalizeProjectId(rawId) {
@@ -614,7 +667,13 @@ function createExpressServer() {
   app.use('/exports', express.static(exportsDir));
 
   app.get('/api/health', (req, res) => {
-    res.json({ ok: true, mode: 'express', database: path.relative(rootDir, dbPath) });
+    res.json({
+      ok: true,
+      mode: 'express',
+      database: path.relative(rootDir, dbPath),
+      storage: path.relative(rootDir, storageRootDir) || '.',
+      persistentStorage: !isSamePath(storageRootDir, rootDir)
+    });
   });
 
   app.get('/api/projects/:id', (req, res) => {
@@ -857,7 +916,13 @@ function createFallbackServer() {
 
     try {
       if (url.pathname === '/api/health' && req.method === 'GET') {
-        sendJson(res, 200, { ok: true, mode: 'native-fallback', database: path.relative(rootDir, dbPath) });
+        sendJson(res, 200, {
+          ok: true,
+          mode: 'native-fallback',
+          database: path.relative(rootDir, dbPath),
+          storage: path.relative(rootDir, storageRootDir) || '.',
+          persistentStorage: !isSamePath(storageRootDir, rootDir)
+        });
         return;
       }
       if (projectMatch && req.method === 'GET') {

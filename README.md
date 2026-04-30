@@ -33,6 +33,7 @@ GEMINI_MODEL=gemini-2.5-flash
 GEMINI_FALLBACK_MODEL=gemini-2.0-flash-lite
 LIBRARY_ADMIN_USER=admin
 LIBRARY_ADMIN_PASSWORD=mat-khau-manh-cua-ban
+APP_STORAGE_DIR=
 PORT=3000
 ```
 
@@ -89,6 +90,31 @@ Content-Type: application/json
 ```
 
 Database duoc tao tu dong tai `data/projects.sqlite`.
+
+## Luu du lieu ben vung tren Render
+
+Render co filesystem tam. Neu khong gan Persistent Disk, database SQLite va file PDF upload se mat khi deploy hoac restart.
+
+De giu du lieu PDF va SQLite:
+
+1. Vao service tren Render, mo trang `Disks`.
+2. Them Persistent Disk, mount path nen dat la `/var/data`.
+3. Vao `Environment`, them bien:
+
+```text
+APP_STORAGE_DIR=/var/data
+```
+
+4. Chon `Save, rebuild, and deploy`.
+
+Khi co `APP_STORAGE_DIR`, phan mem se luu:
+
+- SQLite: `/var/data/data/projects.sqlite`
+- PDF bao ve: `/var/data/protected_uploads/pdf`
+- Anh bia: `/var/data/protected_uploads/covers`
+- Upload/xuat tam: `/var/data/uploads`, `/var/data/exports`
+
+Luu y: du lieu da bi xoa tren filesystem tam cua Render thuong khong the khoi phuc neu truoc do chua gan Persistent Disk hoac chua co ban sao luu.
 
 ## Thu vien so PDF
 
