@@ -33,6 +33,8 @@ GEMINI_MODEL=gemini-2.5-flash
 GEMINI_FALLBACK_MODEL=gemini-2.0-flash-lite
 LIBRARY_ADMIN_USER=admin
 LIBRARY_ADMIN_PASSWORD=mat-khau-manh-cua-ban
+LIBRARY_GUEST_USER=khach
+LIBRARY_GUEST_PASSWORD=khach
 APP_STORAGE_DIR=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -141,6 +143,7 @@ Khi co cac bien nay, phan mem se luu metadata thu vien tai `_metadata/library_do
 - Trang chu co menu `Thu vien tai lieu`.
 - File PDF duoc luu trong `protected_uploads/`, khong nam trong `public/`.
 - Admin dang nhap bang `LIBRARY_ADMIN_USER` va `LIBRARY_ADMIN_PASSWORD`.
+- Tai khoan khach dang nhap bang `LIBRARY_GUEST_USER` va `LIBRARY_GUEST_PASSWORD` de chi doc tai lieu. Neu khong cau hinh, backend dung mac dinh `khach` / `khach`.
 - Upload tai lieu bang giao dien quan tri: ten tai lieu, tac gia/don vi, nam, mo ta, danh muc, PDF va anh bia.
 - Trinh doc PDF dung PDF.js de render len canvas, khong hien nut tai xuong/in va co watermark tren trang doc.
 

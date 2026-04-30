@@ -589,6 +589,18 @@ body.docs-mode .home-page {{
   flex-wrap: wrap;
   gap: 8px;
 }}
+.library-session-badge {{
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  color: #115e59;
+  background: #f0fdfa;
+  font-size: 12px;
+  font-weight: 700;
+}}
 .library-controls {{
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(150px, 220px) minmax(130px, 180px) auto;
@@ -601,6 +613,7 @@ body.docs-mode .home-page {{
 }}
 .library-controls input,
 .library-controls select,
+.library-access input,
 .library-admin input,
 .library-admin select,
 .library-admin textarea,
@@ -740,6 +753,7 @@ body.docs-mode .home-page {{
   background: #f8fafc;
 }}
 .library-admin,
+.library-access,
 .pdf-reader {{
   position: fixed;
   inset: 88px 18px 18px;
@@ -751,8 +765,50 @@ body.docs-mode .home-page {{
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.30);
 }}
 .library-admin[hidden],
+.library-access[hidden],
 .pdf-reader[hidden] {{
   display: none;
+}}
+.library-access {{
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.22);
+}}
+.library-access-card {{
+  width: min(420px, calc(100vw - 32px));
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.26);
+}}
+.library-access-card h2 {{
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+}}
+.library-access-card p {{
+  margin: 8px 0 12px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+}}
+.library-access-form {{
+  display: grid;
+  gap: 10px;
+}}
+.library-access-form label {{
+  display: grid;
+  gap: 4px;
+  color: #475569;
+  font-size: 12px;
+}}
+.library-access-hint {{
+  padding: 10px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
 }}
 .library-admin-inner {{
   display: grid;
@@ -899,6 +955,7 @@ body.docs-mode .home-page {{
     grid-template-columns: 1fr;
   }}
   .library-admin,
+  .library-access,
   .pdf-reader {{
     inset: 74px 8px 8px;
   }}
@@ -1674,7 +1731,9 @@ td.search-hit {{
         <p>Tài liệu được đọc trực tuyến trong trình xem riêng của phần mềm. File PDF được lưu ở vùng bảo vệ trên server, không đặt trong thư mục public.</p>
       </div>
       <div class="library-head-actions">
+        <span id="librarySessionBadge" class="library-session-badge" hidden></span>
         <button id="libraryHomeBtn" type="button">Màn chính</button>
+        <button id="libraryLogoutBtn" type="button" hidden>Đăng xuất</button>
         <button id="libraryAdminOpenBtn" class="primary" type="button">Quản trị</button>
       </div>
     </div>
@@ -1688,6 +1747,26 @@ td.search-hit {{
     <div id="libraryEmpty" class="library-empty" hidden>Chưa có tài liệu phù hợp.</div>
   </section>
 </main>
+<section id="libraryAccessPanel" class="library-access" hidden>
+  <div class="library-access-card">
+    <div class="library-admin-actions">
+      <h2 style="flex:1">&#272;&#259;ng nh&#7853;p th&#432; vi&#7879;n</h2>
+      <button id="libraryAccessCloseBtn" type="button">&#272;&#243;ng</button>
+    </div>
+    <p>Vui l&#242;ng &#273;&#259;ng nh&#7853;p tr&#432;&#7899;c khi v&#224;o th&#432; vi&#7879;n t&#224;i li&#7879;u.</p>
+    <div class="library-access-form">
+      <label>T&#224;i kho&#7843;n
+        <input id="libraryAccessUser" type="text" autocomplete="username">
+      </label>
+      <label>M&#7853;t kh&#7849;u
+        <input id="libraryAccessPassword" type="password" autocomplete="current-password">
+      </label>
+      <button id="libraryAccessLoginBtn" class="primary" type="button">&#272;&#259;ng nh&#7853;p</button>
+      <div id="libraryAccessMsg" class="library-empty" hidden></div>
+    </div>
+    <p class="library-access-hint">T&#224;i kho&#7843;n kh&#225;ch ch&#7881; &#273;&#432;&#7907;c &#273;&#7885;c t&#224;i li&#7879;u. T&#224;i kho&#7843;n admin c&#243; th&#7875; upload, s&#7917;a, &#7849;n/hi&#7879;n v&#224; x&#243;a t&#224;i li&#7879;u.</p>
+  </div>
+</section>
 <section id="libraryAdminPanel" class="library-admin" hidden>
   <div class="library-admin-toolbar">
     <h2>Qu&#7843;n tr&#7883; th&#432; vi&#7879;n PDF</h2>
@@ -1873,7 +1952,11 @@ let projectTitlesConfirmed = false;
 let gtpFileHandle = null;
 let gtpFileName = '';
 let libraryDocuments = [];
-let libraryAdminToken = localStorage.getItem('library-admin-token') || '';
+const librarySessionTokenKey = 'library-session-token';
+const librarySessionRoleKey = 'library-session-role';
+let librarySessionToken = localStorage.getItem(librarySessionTokenKey) || localStorage.getItem('library-admin-token') || '';
+let librarySessionRole = localStorage.getItem(librarySessionRoleKey) || (librarySessionToken ? 'admin' : '');
+let libraryAdminToken = librarySessionRole === 'admin' ? librarySessionToken : '';
 let activePdf = null;
 let activePdfPage = 1;
 let activePdfScale = 1.2;
@@ -3272,10 +3355,6 @@ async function loadProjectFromServer() {{
   return false;
 }}
 
-function libraryAdminHeaders() {{
-  return libraryAdminToken ? {{ Authorization: `Bearer ${{libraryAdminToken}}` }} : {{}};
-}}
-
 function showLibraryMessage(target, message, isError = false) {{
   const box = $(target);
   if (!box) return;
@@ -3284,6 +3363,62 @@ function showLibraryMessage(target, message, isError = false) {{
   box.style.borderColor = isError ? '#f4b0a1' : '#bbf7d0';
   box.style.background = isError ? '#fff1ed' : '#f0fdf4';
   box.style.color = isError ? '#7a271a' : '#166534';
+}}
+
+function libraryAuthHeaders() {{
+  return librarySessionToken ? {{ Authorization: `Bearer ${{librarySessionToken}}` }} : {{}};
+}}
+
+function libraryAdminHeaders() {{
+  return librarySessionRole === 'admin' && librarySessionToken ? {{ Authorization: `Bearer ${{librarySessionToken}}` }} : {{}};
+}}
+
+function updateLibrarySessionUi() {{
+  const logged = Boolean(librarySessionToken);
+  const isAdmin = logged && librarySessionRole === 'admin';
+  const badge = $('#librarySessionBadge');
+  if (badge) {{
+    badge.hidden = !logged;
+    badge.textContent = isAdmin ? 'Admin' : 'Khách';
+  }}
+  const logoutBtn = $('#libraryLogoutBtn');
+  if (logoutBtn) logoutBtn.hidden = !logged;
+  const adminBtn = $('#libraryAdminOpenBtn');
+  if (adminBtn) adminBtn.hidden = !isAdmin;
+}}
+
+function setLibrarySession(payload) {{
+  librarySessionToken = payload.token || '';
+  librarySessionRole = payload.role || 'guest';
+  libraryAdminToken = librarySessionRole === 'admin' ? librarySessionToken : '';
+  localStorage.setItem(librarySessionTokenKey, librarySessionToken);
+  localStorage.setItem(librarySessionRoleKey, librarySessionRole);
+  if (libraryAdminToken) localStorage.setItem('library-admin-token', libraryAdminToken);
+  else localStorage.removeItem('library-admin-token');
+  updateLibrarySessionUi();
+}}
+
+function clearLibrarySession() {{
+  librarySessionToken = '';
+  librarySessionRole = '';
+  libraryAdminToken = '';
+  localStorage.removeItem(librarySessionTokenKey);
+  localStorage.removeItem(librarySessionRoleKey);
+  localStorage.removeItem('library-admin-token');
+  $('#libraryAdminPanel').hidden = true;
+  updateLibrarySessionUi();
+}}
+
+function showLibraryAccessPanel(message = '') {{
+  closeMainMenu();
+  $('#libraryAccessPanel').hidden = false;
+  showLibraryMessage('#libraryAccessMsg', message);
+  setTimeout(() => $('#libraryAccessUser')?.focus(), 0);
+}}
+
+function hideLibraryAccessPanel() {{
+  $('#libraryAccessPanel').hidden = true;
+  showLibraryMessage('#libraryAccessMsg', '');
 }}
 
 function escapeHtml(value) {{
@@ -3336,10 +3471,18 @@ function libraryQueryString(includeHidden = false) {{
 }}
 
 async function fetchLibraryDocuments(includeHidden = false) {{
+  if (!librarySessionToken) {{
+    showLibraryAccessPanel();
+    throw new Error('Bạn cần đăng nhập để vào thư viện tài liệu.');
+  }}
   const response = await fetch(`${{libraryApiBase}}/documents${{libraryQueryString(includeHidden)}}`, {{
-    headers: includeHidden ? libraryAdminHeaders() : {{}}
+    headers: includeHidden ? libraryAdminHeaders() : libraryAuthHeaders()
   }});
   const payload = await response.json().catch(() => ({{}}));
+  if (response.status === 401) {{
+    clearLibrarySession();
+    showLibraryAccessPanel(payload.error || 'Phiên đăng nhập thư viện đã hết hạn. Vui lòng đăng nhập lại.');
+  }}
   if (!response.ok) throw new Error(payload.error || 'Không tải được thư viện tài liệu.');
   libraryDocuments = payload.documents || [];
   renderLibraryFilters(payload);
@@ -3426,6 +3569,11 @@ function fillLibraryDocForm(doc) {{
 }}
 
 async function openLibraryAdminPanel() {{
+  if (librarySessionRole !== 'admin') {{
+    if (!librarySessionToken) showLibraryAccessPanel('Vui lòng đăng nhập bằng tài khoản admin để quản trị thư viện.');
+    else alert('Tài khoản khách chỉ được đọc tài liệu. Vui lòng đăng nhập admin để upload hoặc chỉnh sửa.');
+    return;
+  }}
   $('#libraryAdminPanel').hidden = false;
   showLibraryMessage('#libraryLoginMsg', '');
   showLibraryMessage('#libraryLoginStatus', '');
@@ -3439,8 +3587,7 @@ async function openLibraryAdminPanel() {{
     try {{
       await fetchLibraryDocuments(true);
     }} catch (error) {{
-      libraryAdminToken = '';
-      localStorage.removeItem('library-admin-token');
+      clearLibrarySession();
       $('#libraryLoginBox').hidden = false;
       $('#libraryUploadCard').hidden = true;
       $('#libraryDocForm').hidden = true;
@@ -3450,18 +3597,33 @@ async function openLibraryAdminPanel() {{
   }}
 }}
 
+async function libraryAccessLogin() {{
+  const username = $('#libraryAccessUser').value.trim();
+  const password = $('#libraryAccessPassword').value;
+  const response = await fetch(`${{libraryApiBase}}/login`, {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{ username, password }})
+  }});
+  const payload = await response.json().catch(() => ({{}}));
+  if (!response.ok) throw new Error(payload.error || 'Không đăng nhập được thư viện.');
+  setLibrarySession(payload);
+  hideLibraryAccessPanel();
+  showDocumentLibraryPage();
+}}
+
 async function libraryAdminLogin() {{
   const username = $('#libraryAdminUser').value.trim();
   const password = $('#libraryAdminPassword').value;
-  const response = await fetch(`${{libraryApiBase}}/admin/login`, {{
+  const response = await fetch(`${{libraryApiBase}}/login`, {{
     method: 'POST',
     headers: {{ 'Content-Type': 'application/json' }},
     body: JSON.stringify({{ username, password }})
   }});
   const payload = await response.json().catch(() => ({{}}));
   if (!response.ok) throw new Error(payload.error || 'Không đăng nhập được.');
-  libraryAdminToken = payload.token;
-  localStorage.setItem('library-admin-token', libraryAdminToken);
+  if (payload.role !== 'admin') throw new Error('Tài khoản khách chỉ được đọc tài liệu, không thể quản trị.');
+  setLibrarySession(payload);
   $('#libraryLoginBox').hidden = true;
   $('#libraryUploadCard').hidden = false;
   $('#libraryDocForm').hidden = false;
@@ -3589,7 +3751,10 @@ async function renderPdfPage() {{
 async function openPdfReader(doc) {{
   $('#pdfReader').hidden = false;
   $('#readerTitle').textContent = doc.title;
-  const tokenResponse = await fetch(`${{libraryApiBase}}/documents/${{doc.id}}/view-token`, {{ method: 'POST' }});
+  const tokenResponse = await fetch(`${{libraryApiBase}}/documents/${{doc.id}}/view-token`, {{
+    method: 'POST',
+    headers: libraryAuthHeaders()
+  }});
   const tokenPayload = await tokenResponse.json().catch(() => ({{}}));
   if (!tokenResponse.ok) throw new Error(tokenPayload.error || 'Không tạo được phiên đọc tài liệu.');
   const pdfjs = await loadPdfJs();
@@ -3642,6 +3807,7 @@ function showHomePage() {{
   document.body.classList.remove('docs-mode');
   $('#reportPanel').hidden = true;
   $('#aiPanel').hidden = true;
+  $('#libraryAccessPanel').hidden = true;
   $('#importLog').hidden = true;
   closeMainMenu();
 }}
@@ -3650,11 +3816,16 @@ function showLandTransferPage() {{
   document.body.classList.add('module-mode');
   document.body.classList.remove('home-mode');
   document.body.classList.remove('docs-mode');
+  $('#libraryAccessPanel').hidden = true;
   closeMainMenu();
   recalc();
 }}
 
 function showDocumentLibraryPage() {{
+  if (!librarySessionToken) {{
+    showLibraryAccessPanel();
+    return;
+  }}
   document.body.classList.add('docs-mode');
   document.body.classList.remove('home-mode');
   document.body.classList.remove('module-mode');
@@ -3662,6 +3833,7 @@ function showDocumentLibraryPage() {{
   $('#aiPanel').hidden = true;
   $('#importLog').hidden = true;
   closeMainMenu();
+  updateLibrarySessionUi();
   fetchLibraryDocuments().catch(error => alert(error.message || String(error)));
 }}
 
@@ -3675,6 +3847,21 @@ $('#openLandTransferBtn').addEventListener('click', showLandTransferPage);
 $('#openDocumentLibraryBtn').addEventListener('click', showDocumentLibraryPage);
 $('#homeBtn').addEventListener('click', showHomePage);
 $('#libraryHomeBtn').addEventListener('click', showHomePage);
+$('#libraryLogoutBtn').addEventListener('click', () => {{
+  clearLibrarySession();
+  libraryDocuments = [];
+  renderLibraryGrid([]);
+  showLibraryAccessPanel('Đã đăng xuất. Vui lòng đăng nhập lại để vào thư viện.');
+}});
+$('#libraryAccessCloseBtn').addEventListener('click', () => $('#libraryAccessPanel').hidden = true);
+$('#libraryAccessLoginBtn').addEventListener('click', () => {{
+  libraryAccessLogin().catch(error => showLibraryMessage('#libraryAccessMsg', error.message || String(error), true));
+}});
+['libraryAccessUser', 'libraryAccessPassword'].forEach(id => {{
+  $(`#${{id}}`).addEventListener('keydown', event => {{
+    if (event.key === 'Enter') libraryAccessLogin().catch(error => showLibraryMessage('#libraryAccessMsg', error.message || String(error), true));
+  }});
+}});
 $('#libraryAdminOpenBtn').addEventListener('click', openLibraryAdminPanel);
 $('#libraryAdminCloseBtn').addEventListener('click', () => $('#libraryAdminPanel').hidden = true);
 $('#libraryLoginBtn').addEventListener('click', () => {{
@@ -4086,6 +4273,7 @@ const saved = localStorage.getItem(storageKey);
 if (saved) applyInputs(JSON.parse(saved));
 normalizeAllInputs();
 applyHideZeroState(localStorage.getItem(hideZeroKey) === '1');
+updateLibrarySessionUi();
 $('#statusMissing').textContent = meta.missingCodes.length ? `Thiếu mã: ${{meta.missingCodes.join(', ')}}` : 'Đủ mã nhập';
 $('#statusMissing').classList.toggle('warn', meta.missingCodes.length > 0);
 recalc();

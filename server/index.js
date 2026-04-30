@@ -94,9 +94,11 @@ const openaiModel = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const geminiFallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash-lite';
 const libraryAdminSessions = new Map();
+const libraryAccessSessions = new Map();
 const libraryViewTokens = new Map();
 const libraryTokenTtlMs = 10 * 60 * 1000;
 const adminSessionTtlMs = 8 * 60 * 60 * 1000;
+const librarySessionTtlMs = 8 * 60 * 60 * 1000;
 const supabaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/\s+/g, '').replace(/\/+$/, '');
 const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 const supabaseBucket = String(process.env.SUPABASE_BUCKET || 'library-documents').trim();
@@ -610,10 +612,23 @@ function ensureAdminConfigured() {
   return { user, password };
 }
 
-function createAdminSession() {
+function libraryGuestCredentials() {
+  return {
+    user: process.env.LIBRARY_GUEST_USER || 'khach',
+    password: process.env.LIBRARY_GUEST_PASSWORD || 'khach'
+  };
+}
+
+function createLibrarySession(role) {
   const token = randomToken(32);
-  libraryAdminSessions.set(token, Date.now() + adminSessionTtlMs);
+  const expires = Date.now() + librarySessionTtlMs;
+  libraryAccessSessions.set(token, { role, expires });
+  if (role === 'admin') libraryAdminSessions.set(token, expires);
   return token;
+}
+
+function createAdminSession() {
+  return createLibrarySession('admin');
 }
 
 function isAdminToken(token) {
@@ -626,9 +641,64 @@ function isAdminToken(token) {
   return true;
 }
 
+function librarySessionFromToken(token) {
+  const rawToken = String(token || '');
+  const record = libraryAccessSessions.get(rawToken);
+  if (record) {
+    if (Date.now() > record.expires) {
+      libraryAccessSessions.delete(rawToken);
+      if (record.role === 'admin') libraryAdminSessions.delete(rawToken);
+      return null;
+    }
+    return record;
+  }
+  if (isAdminToken(rawToken)) {
+    const expires = Date.now() + adminSessionTtlMs;
+    const adminRecord = { role: 'admin', expires };
+    libraryAccessSessions.set(rawToken, adminRecord);
+    return adminRecord;
+  }
+  return null;
+}
+
+function librarySessionFromRequest(req) {
+  return librarySessionFromToken(adminTokenFromAuthorization(req.headers.authorization));
+}
+
+function requireLibrarySession(req, res) {
+  const session = librarySessionFromRequest(req);
+  if (!session) {
+    res.status(401).json({ error: 'Ban can dang nhap de vao thu vien tai lieu.' });
+    return null;
+  }
+  return session;
+}
+
 function adminTokenFromAuthorization(headerValue) {
   const raw = String(headerValue || '');
   return raw.startsWith('Bearer ') ? raw.slice(7) : '';
+}
+
+function loginLibraryAccount(username, inputPassword) {
+  const userName = String(username || '');
+  const password = String(inputPassword || '');
+  try {
+    const admin = ensureAdminConfigured();
+    if (timingSafeStringEqual(userName, admin.user) && timingSafeStringEqual(password, admin.password)) {
+      const token = createLibrarySession('admin');
+      return { token, role: 'admin', username: admin.user, expiresIn: Math.floor(librarySessionTtlMs / 1000) };
+    }
+  } catch (error) {
+    // Admin login is optional for read-only library access.
+  }
+  const guest = libraryGuestCredentials();
+  if (timingSafeStringEqual(userName, guest.user) && timingSafeStringEqual(password, guest.password)) {
+    const token = createLibrarySession('guest');
+    return { token, role: 'guest', username: guest.user, expiresIn: Math.floor(librarySessionTtlMs / 1000) };
+  }
+  const error = new Error('Sai tai khoan hoac mat khau thu vien.');
+  error.status = 401;
+  throw error;
 }
 
 function requireLibraryAdmin(req, res, next) {
@@ -966,8 +1036,18 @@ function createExpressServer() {
     }
   });
 
+  app.post('/api/library/login', (req, res) => {
+    try {
+      res.json(loginLibraryAccount(req.body?.username, req.body?.password));
+    } catch (error) {
+      res.status(error.status || 401).json({ error: error.message || 'Khong dang nhap duoc thu vien.' });
+    }
+  });
+
   app.get('/api/library/documents', async (req, res) => {
-    const includeHidden = req.query.includeHidden === '1' && isAdminToken(String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''));
+    const session = requireLibrarySession(req, res);
+    if (!session) return;
+    const includeHidden = req.query.includeHidden === '1' && session.role === 'admin';
     try {
       res.json({
         documents: await libraryQuery({
@@ -985,6 +1065,8 @@ function createExpressServer() {
   });
 
   app.get('/api/library/categories', async (req, res) => {
+    const session = requireLibrarySession(req, res);
+    if (!session) return;
     try {
       res.json({ categories: await libraryCategories(), years: await libraryYears() });
     } catch (error) {
@@ -1035,6 +1117,8 @@ function createExpressServer() {
   });
 
   app.post('/api/library/documents/:id/view-token', async (req, res) => {
+    const session = requireLibrarySession(req, res);
+    if (!session) return;
     const document = await getLibraryDocument(req.params.id);
     if (!document) {
       res.status(404).json({ error: 'Không tìm thấy tài liệu hoặc tài liệu đang bị ẩn.' });
@@ -1223,8 +1307,22 @@ function createFallbackServer() {
         }
         return;
       }
+      if (url.pathname === '/api/library/login' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        try {
+          sendJson(res, 200, loginLibraryAccount(body.username, body.password));
+        } catch (error) {
+          sendJson(res, error.status || 401, { error: error.message || 'Khong dang nhap duoc thu vien.' });
+        }
+        return;
+      }
       if (url.pathname === '/api/library/documents' && req.method === 'GET') {
-        const includeHidden = url.searchParams.get('includeHidden') === '1' && isAdminToken(adminTokenFromAuthorization(req.headers.authorization));
+        const session = librarySessionFromRequest(req);
+        if (!session) {
+          sendJson(res, 401, { error: 'Ban can dang nhap de vao thu vien tai lieu.' });
+          return;
+        }
+        const includeHidden = url.searchParams.get('includeHidden') === '1' && session.role === 'admin';
         sendJson(res, 200, {
           documents: await libraryQuery({
             includeHidden,
@@ -1238,6 +1336,11 @@ function createFallbackServer() {
         return;
       }
       if (url.pathname === '/api/library/categories' && req.method === 'GET') {
+        const session = librarySessionFromRequest(req);
+        if (!session) {
+          sendJson(res, 401, { error: 'Ban can dang nhap de vao thu vien tai lieu.' });
+          return;
+        }
         sendJson(res, 200, { categories: await libraryCategories(), years: await libraryYears() });
         return;
       }
@@ -1301,6 +1404,11 @@ function createFallbackServer() {
         return;
       }
       if (libraryViewTokenMatch && req.method === 'POST') {
+        const session = librarySessionFromRequest(req);
+        if (!session) {
+          sendJson(res, 401, { error: 'Ban can dang nhap de vao thu vien tai lieu.' });
+          return;
+        }
         const document = await getLibraryDocument(libraryViewTokenMatch[1]);
         if (!document) {
           sendJson(res, 404, { error: 'Không tìm thấy tài liệu hoặc tài liệu đang bị ẩn.' });
