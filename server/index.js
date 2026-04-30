@@ -97,6 +97,10 @@ const libraryAdminSessions = new Map();
 const libraryViewTokens = new Map();
 const libraryTokenTtlMs = 10 * 60 * 1000;
 const adminSessionTtlMs = 8 * 60 * 60 * 1000;
+const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '');
+const supabaseBucket = String(process.env.SUPABASE_BUCKET || 'library-documents');
+const supabaseLibraryIndexKey = '_metadata/library_documents.json';
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -219,6 +223,10 @@ function parseDataUrl(dataUrl, allowedTypes) {
   return { mime, buffer: Buffer.from(match[2], 'base64') };
 }
 
+function libraryUsesSupabase() {
+  return Boolean(supabaseUrl && supabaseServiceRoleKey && supabaseBucket);
+}
+
 function publicLibraryDoc(row) {
   return {
     id: row.id,
@@ -234,22 +242,38 @@ function publicLibraryDoc(row) {
   };
 }
 
-function libraryQuery({ includeHidden = false, q = '', category = '', year = '' } = {}) {
+function filterLibraryRows(rows, { includeHidden = false, q = '', category = '', year = '' } = {}) {
+  const needle = String(q || '').toLowerCase();
+  return rows
+    .filter(row => includeHidden || Boolean(row.visible))
+    .filter(row => !needle || [row.title, row.author, row.year, row.category].some(value => String(value || '').toLowerCase().includes(needle)))
+    .filter(row => !category || row.category === category)
+    .filter(row => !year || Number(row.year) === Number(year))
+    .sort((a, b) => {
+      const yearDiff = Number(b.year || 0) - Number(a.year || 0);
+      if (yearDiff) return yearDiff;
+      const dateDiff = String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
+      if (dateDiff) return dateDiff;
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
+}
+
+function localLibraryQuery(options = {}) {
   const where = [];
   const params = [];
-  if (!includeHidden) where.push('visible = 1');
-  if (q) {
+  if (!options.includeHidden) where.push('visible = 1');
+  if (options.q) {
     where.push('(LOWER(title) LIKE ? OR LOWER(author) LIKE ? OR CAST(year AS TEXT) LIKE ? OR LOWER(category) LIKE ?)');
-    const needle = `%${String(q).toLowerCase()}%`;
-    params.push(needle, needle, `%${q}%`, needle);
+    const needle = `%${String(options.q).toLowerCase()}%`;
+    params.push(needle, needle, `%${options.q}%`, needle);
   }
-  if (category) {
+  if (options.category) {
     where.push('category = ?');
-    params.push(category);
+    params.push(options.category);
   }
-  if (year) {
+  if (options.year) {
     where.push('year = ?');
-    params.push(Number(year));
+    params.push(Number(options.year));
   }
   const sql = `
     SELECT * FROM library_documents
@@ -259,30 +283,146 @@ function libraryQuery({ includeHidden = false, q = '', category = '', year = '' 
   return db.prepare(sql).all(...params).map(publicLibraryDoc);
 }
 
-function libraryCategories() {
-  return db.prepare(`
-    SELECT category, COUNT(*) AS count
-    FROM library_documents
-    WHERE category <> ''
-    GROUP BY category
-    ORDER BY category COLLATE NOCASE
-  `).all();
+async function libraryQuery(options = {}) {
+  if (libraryUsesSupabase()) {
+    return filterLibraryRows(await loadSupabaseLibraryRows(), options).map(publicLibraryDoc);
+  }
+  return localLibraryQuery(options);
 }
 
-function libraryYears() {
-  return db.prepare(`
-    SELECT DISTINCT year
-    FROM library_documents
-    WHERE year IS NOT NULL
-    ORDER BY year DESC
-  `).all().map(row => row.year);
+async function libraryCategories() {
+  if (!libraryUsesSupabase()) {
+    return db.prepare(`
+      SELECT category, COUNT(*) AS count
+      FROM library_documents
+      WHERE category <> ''
+      GROUP BY category
+      ORDER BY category COLLATE NOCASE
+    `).all();
+  }
+  const counts = new Map();
+  for (const row of await loadSupabaseLibraryRows()) {
+    const category = String(row.category || '').trim();
+    if (category) counts.set(category, (counts.get(category) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
+    .map(([category, count]) => ({ category, count }));
 }
 
-function getLibraryDocument(id, { includeHidden = false } = {}) {
+async function libraryYears() {
+  if (!libraryUsesSupabase()) {
+    return db.prepare(`
+      SELECT DISTINCT year
+      FROM library_documents
+      WHERE year IS NOT NULL
+      ORDER BY year DESC
+    `).all().map(row => row.year);
+  }
+  return [...new Set((await loadSupabaseLibraryRows()).map(row => row.year).filter(year => year !== null && year !== undefined))]
+    .sort((a, b) => Number(b) - Number(a));
+}
+
+async function getLibraryDocument(id, { includeHidden = false } = {}) {
+  if (libraryUsesSupabase()) {
+    const row = (await loadSupabaseLibraryRows()).find(item => Number(item.id) === Number(id));
+    if (!row) return null;
+    if (!includeHidden && !row.visible) return null;
+    return row;
+  }
   const row = db.prepare('SELECT * FROM library_documents WHERE id = ?').get(Number(id));
   if (!row) return null;
   if (!includeHidden && !row.visible) return null;
   return row;
+}
+
+function supabaseObjectUrl(key) {
+  const encodedBucket = encodeURIComponent(supabaseBucket);
+  const encodedKey = String(key).split('/').map(part => encodeURIComponent(part)).join('/');
+  return `${supabaseUrl}/storage/v1/object/${encodedBucket}/${encodedKey}`;
+}
+
+function supabaseBaseHeaders(extra = {}) {
+  return {
+    apikey: supabaseServiceRoleKey,
+    Authorization: `Bearer ${supabaseServiceRoleKey}`,
+    ...extra
+  };
+}
+
+async function supabaseUploadObject(key, buffer, mime) {
+  const response = await fetch(supabaseObjectUrl(key), {
+    method: 'POST',
+    headers: supabaseBaseHeaders({
+      'Content-Type': mime || 'application/octet-stream',
+      'Cache-Control': '3600',
+      'x-upsert': 'true'
+    }),
+    body: buffer
+  });
+  if (!response.ok) {
+    throw new Error(`Khong upload duoc len Supabase Storage: ${await response.text()}`);
+  }
+  return key;
+}
+
+async function supabaseDownloadObject(key) {
+  if (!key) return null;
+  const response = await fetch(supabaseObjectUrl(key), {
+    method: 'GET',
+    headers: supabaseBaseHeaders()
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Khong doc duoc file tu Supabase Storage: ${await response.text()}`);
+  }
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    mime: response.headers.get('content-type') || contentType(key)
+  };
+}
+
+async function supabaseDeleteObjects(keys) {
+  const prefixes = keys.filter(Boolean);
+  if (!prefixes.length) return;
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${encodeURIComponent(supabaseBucket)}`, {
+    method: 'DELETE',
+    headers: supabaseBaseHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ prefixes })
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Khong xoa duoc file Supabase Storage: ${await response.text()}`);
+  }
+}
+
+async function loadSupabaseLibraryRows() {
+  const object = await supabaseDownloadObject(supabaseLibraryIndexKey);
+  if (!object) return [];
+  try {
+    const payload = JSON.parse(object.buffer.toString('utf8'));
+    return Array.isArray(payload.documents) ? payload.documents : [];
+  } catch (error) {
+    throw new Error('File metadata thu vien tren Supabase bi loi JSON.');
+  }
+}
+
+async function saveSupabaseLibraryRows(rows) {
+  const body = Buffer.from(JSON.stringify({ documents: rows }, null, 2), 'utf8');
+  await supabaseUploadObject(supabaseLibraryIndexKey, body, 'application/json; charset=utf-8');
+}
+
+function isoNow() {
+  return new Date().toISOString();
+}
+
+function extensionFromMime(mime, fallback) {
+  return {
+    'application/pdf': '.pdf',
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/webp': '.webp',
+    'image/svg+xml': '.svg'
+  }[mime] || fallback;
 }
 
 function saveBase64Upload(dataUrl, originalName, targetDir, allowedTypes, fallbackExt) {
@@ -303,7 +443,7 @@ function unlinkIfInside(filePath, baseDir) {
   }
 }
 
-function upsertLibraryDocument(payload, existing = null) {
+async function upsertLibraryDocument(payload, existing = null) {
   const title = safeText(payload.title, 220);
   if (!title) throw new Error('Tên tài liệu là bắt buộc.');
   const author = safeText(payload.author, 220);
@@ -311,6 +451,9 @@ function upsertLibraryDocument(payload, existing = null) {
   const description = safeText(payload.description, 1000);
   const category = safeText(payload.category, 120);
   const visible = payload.visible === false ? 0 : 1;
+  if (libraryUsesSupabase()) {
+    return upsertSupabaseLibraryDocument({ title, author, year, description, category, visible }, payload, existing);
+  }
   let pdfPath = existing?.pdf_path || '';
   let pdfName = existing?.pdf_name || '';
   let coverPath = existing?.cover_path || '';
@@ -339,7 +482,7 @@ function upsertLibraryDocument(payload, existing = null) {
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(title, author, year, description, category, pdfPath, pdfName, coverPath || null, coverName, visible, existing.id);
-    return publicLibraryDoc(getLibraryDocument(existing.id, { includeHidden: true }));
+    return publicLibraryDoc(await getLibraryDocument(existing.id, { includeHidden: true }));
   }
 
   const info = db.prepare(`
@@ -347,7 +490,98 @@ function upsertLibraryDocument(payload, existing = null) {
       (title, author, year, description, category, pdf_path, pdf_name, cover_path, cover_name, visible)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(title, author, year, description, category, pdfPath, pdfName, coverPath || null, coverName, visible);
-  return publicLibraryDoc(getLibraryDocument(info.lastInsertRowid, { includeHidden: true }));
+  return publicLibraryDoc(await getLibraryDocument(info.lastInsertRowid, { includeHidden: true }));
+}
+
+async function upsertSupabaseLibraryDocument(normalized, payload, existing = null) {
+  const rows = await loadSupabaseLibraryRows();
+  const now = isoNow();
+  const nextId = existing
+    ? Number(existing.id)
+    : rows.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1;
+  const row = {
+    ...(existing || {}),
+    id: nextId,
+    title: normalized.title,
+    author: normalized.author,
+    year: normalized.year,
+    description: normalized.description,
+    category: normalized.category,
+    visible: normalized.visible,
+    pdf_path: existing?.pdf_path || '',
+    pdf_name: existing?.pdf_name || '',
+    cover_path: existing?.cover_path || '',
+    cover_name: existing?.cover_name || '',
+    created_at: existing?.created_at || now,
+    updated_at: now
+  };
+
+  if (payload.pdfDataUrl) {
+    const parsed = parseDataUrl(payload.pdfDataUrl, ['application/pdf']);
+    const original = sanitizeFileName(payload.pdfName || 'document.pdf', 'document.pdf');
+    const ext = path.extname(original) || extensionFromMime(parsed.mime, '.pdf');
+    const key = `pdf/${Date.now()}-${randomToken(8)}${ext.toLowerCase()}`;
+    await supabaseUploadObject(key, parsed.buffer, parsed.mime);
+    if (existing?.pdf_path) await supabaseDeleteObjects([existing.pdf_path]);
+    row.pdf_path = key;
+    row.pdf_name = original;
+  }
+  if (!row.pdf_path) throw new Error('File PDF lĂ  báº¯t buá»™c.');
+
+  if (payload.coverDataUrl) {
+    const parsed = parseDataUrl(payload.coverDataUrl, ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']);
+    const original = sanitizeFileName(payload.coverName || 'cover.png', 'cover.png');
+    const ext = path.extname(original) || extensionFromMime(parsed.mime, '.png');
+    const key = `covers/${Date.now()}-${randomToken(8)}${ext.toLowerCase()}`;
+    await supabaseUploadObject(key, parsed.buffer, parsed.mime);
+    if (existing?.cover_path) await supabaseDeleteObjects([existing.cover_path]);
+    row.cover_path = key;
+    row.cover_name = original;
+  }
+
+  const nextRows = rows.filter(item => Number(item.id) !== Number(nextId));
+  nextRows.push(row);
+  await saveSupabaseLibraryRows(nextRows);
+  return publicLibraryDoc(row);
+}
+
+async function deleteLibraryDocument(id) {
+  const existing = await getLibraryDocument(id, { includeHidden: true });
+  if (!existing) return false;
+  if (libraryUsesSupabase()) {
+    const rows = (await loadSupabaseLibraryRows()).filter(row => Number(row.id) !== Number(existing.id));
+    await supabaseDeleteObjects([existing.pdf_path, existing.cover_path]);
+    await saveSupabaseLibraryRows(rows);
+    return true;
+  }
+  unlinkIfInside(existing.pdf_path, libraryPdfDir);
+  unlinkIfInside(existing.cover_path, libraryCoverDir);
+  db.prepare('DELETE FROM library_documents WHERE id = ?').run(existing.id);
+  return true;
+}
+
+async function setLibraryVisibility(id, visible) {
+  const existing = await getLibraryDocument(id, { includeHidden: true });
+  if (!existing) return null;
+  if (libraryUsesSupabase()) {
+    const rows = await loadSupabaseLibraryRows();
+    const index = rows.findIndex(row => Number(row.id) === Number(existing.id));
+    if (index === -1) return null;
+    rows[index] = { ...rows[index], visible: visible ? 1 : 0, updated_at: isoNow() };
+    await saveSupabaseLibraryRows(rows);
+    return publicLibraryDoc(rows[index]);
+  }
+  db.prepare('UPDATE library_documents SET visible = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .run(visible ? 1 : 0, existing.id);
+  return publicLibraryDoc(await getLibraryDocument(existing.id, { includeHidden: true }));
+}
+
+async function getLibraryObject(document, type) {
+  const filePath = type === 'cover' ? document.cover_path : document.pdf_path;
+  if (!filePath) return null;
+  if (libraryUsesSupabase()) return supabaseDownloadObject(filePath);
+  if (!fs.existsSync(filePath)) return null;
+  return { stream: fs.createReadStream(filePath), mime: contentType(filePath) };
 }
 
 function ensureAdminConfigured() {
@@ -496,7 +730,7 @@ function seedLibrarySamples() {
   }
 }
 
-seedLibrarySamples();
+if (!libraryUsesSupabase()) seedLibrarySamples();
 
 function extractResponseText(payload) {
   if (typeof payload.output_text === 'string') return payload.output_text;
@@ -672,7 +906,8 @@ function createExpressServer() {
       mode: 'express',
       database: path.relative(rootDir, dbPath),
       storage: path.relative(rootDir, storageRootDir) || '.',
-      persistentStorage: !isSamePath(storageRootDir, rootDir)
+      persistentStorage: !isSamePath(storageRootDir, rootDir),
+      libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local'
     });
   });
 
@@ -716,70 +951,76 @@ function createExpressServer() {
     }
   });
 
-  app.get('/api/library/documents', (req, res) => {
+  app.get('/api/library/documents', async (req, res) => {
     const includeHidden = req.query.includeHidden === '1' && isAdminToken(String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''));
-    res.json({
-      documents: libraryQuery({
-        includeHidden,
-        q: safeText(req.query.q, 160),
-        category: safeText(req.query.category, 120),
-        year: safeText(req.query.year, 12)
-      }),
-      categories: libraryCategories(),
-      years: libraryYears()
-    });
-  });
-
-  app.get('/api/library/categories', (req, res) => {
-    res.json({ categories: libraryCategories(), years: libraryYears() });
-  });
-
-  app.post('/api/library/documents', requireLibraryAdmin, (req, res) => {
     try {
-      res.status(201).json({ document: upsertLibraryDocument(req.body || {}) });
+      res.json({
+        documents: await libraryQuery({
+          includeHidden,
+          q: safeText(req.query.q, 160),
+          category: safeText(req.query.category, 120),
+          year: safeText(req.query.year, 12)
+        }),
+        categories: await libraryCategories(),
+        years: await libraryYears()
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Khong doc duoc thu vien tai lieu.' });
+    }
+  });
+
+  app.get('/api/library/categories', async (req, res) => {
+    try {
+      res.json({ categories: await libraryCategories(), years: await libraryYears() });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Khong doc duoc danh muc tai lieu.' });
+    }
+  });
+
+  app.post('/api/library/documents', requireLibraryAdmin, async (req, res) => {
+    try {
+      res.status(201).json({ document: await upsertLibraryDocument(req.body || {}) });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Không lưu được tài liệu.' });
     }
   });
 
-  app.put('/api/library/documents/:id', requireLibraryAdmin, (req, res) => {
+  app.put('/api/library/documents/:id', requireLibraryAdmin, async (req, res) => {
     try {
-      const existing = getLibraryDocument(req.params.id, { includeHidden: true });
+      const existing = await getLibraryDocument(req.params.id, { includeHidden: true });
       if (!existing) {
         res.status(404).json({ error: 'Không tìm thấy tài liệu.' });
         return;
       }
-      res.json({ document: upsertLibraryDocument(req.body || {}, existing) });
+      res.json({ document: await upsertLibraryDocument(req.body || {}, existing) });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Không cập nhật được tài liệu.' });
     }
   });
 
-  app.delete('/api/library/documents/:id', requireLibraryAdmin, (req, res) => {
-    const existing = getLibraryDocument(req.params.id, { includeHidden: true });
+  app.delete('/api/library/documents/:id', requireLibraryAdmin, async (req, res) => {
+    const existing = await getLibraryDocument(req.params.id, { includeHidden: true });
     if (!existing) {
       res.status(404).json({ error: 'Không tìm thấy tài liệu.' });
       return;
     }
-    unlinkIfInside(existing.pdf_path, libraryPdfDir);
-    unlinkIfInside(existing.cover_path, libraryCoverDir);
-    db.prepare('DELETE FROM library_documents WHERE id = ?').run(existing.id);
+    await deleteLibraryDocument(existing.id);
     res.json({ ok: true });
   });
 
-  app.patch('/api/library/documents/:id/visibility', requireLibraryAdmin, (req, res) => {
-    const existing = getLibraryDocument(req.params.id, { includeHidden: true });
+  app.patch('/api/library/documents/:id/visibility', requireLibraryAdmin, async (req, res) => {
+    const existing = await getLibraryDocument(req.params.id, { includeHidden: true });
     if (!existing) {
       res.status(404).json({ error: 'Không tìm thấy tài liệu.' });
       return;
     }
     db.prepare('UPDATE library_documents SET visible = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(req.body?.visible === false ? 0 : 1, existing.id);
-    res.json({ document: publicLibraryDoc(getLibraryDocument(existing.id, { includeHidden: true })) });
+    res.json({ document: await setLibraryVisibility(existing.id, req.body?.visible !== false) });
   });
 
-  app.post('/api/library/documents/:id/view-token', (req, res) => {
-    const document = getLibraryDocument(req.params.id);
+  app.post('/api/library/documents/:id/view-token', async (req, res) => {
+    const document = await getLibraryDocument(req.params.id);
     if (!document) {
       res.status(404).json({ error: 'Không tìm thấy tài liệu hoặc tài liệu đang bị ẩn.' });
       return;
@@ -787,26 +1028,29 @@ function createExpressServer() {
     res.json({ token: createViewToken(document.id), expiresIn: Math.floor(libraryTokenTtlMs / 1000) });
   });
 
-  app.get('/api/library/documents/:id/cover', (req, res) => {
-    const document = getLibraryDocument(req.params.id, { includeHidden: true });
-    if (!document || !document.cover_path || !fs.existsSync(document.cover_path)) {
+  app.get('/api/library/documents/:id/cover', async (req, res) => {
+    const document = await getLibraryDocument(req.params.id, { includeHidden: true });
+    const object = document ? await getLibraryObject(document, 'cover') : null;
+    if (!object) {
       res.status(404).end();
       return;
     }
     res.setHeader('Cache-Control', 'private, max-age=300');
-    res.setHeader('Content-Type', contentType(document.cover_path));
-    fs.createReadStream(document.cover_path).pipe(res);
+    res.setHeader('Content-Type', object.mime);
+    if (object.buffer) res.end(object.buffer);
+    else object.stream.pipe(res);
   });
 
-  app.get('/api/library/documents/:id/pdf', (req, res) => {
+  app.get('/api/library/documents/:id/pdf', async (req, res) => {
     // Không thể chống tải/copy tuyệt đối trên web: nếu trình duyệt xem được thì người dùng vẫn có thể chụp màn hình
     // hoặc dùng công cụ ngoài. Endpoint này chỉ không lộ đường dẫn thật, yêu cầu token ngắn hạn, tắt cache và dùng viewer canvas.
-    const document = getLibraryDocument(req.params.id);
+    const document = await getLibraryDocument(req.params.id);
     if (!document || !validateViewToken(req.query.token, document.id)) {
       res.status(403).json({ error: 'Token xem tài liệu không hợp lệ hoặc đã hết hạn.' });
       return;
     }
-    if (!fs.existsSync(document.pdf_path)) {
+    const object = await getLibraryObject(document, 'pdf');
+    if (!object) {
       res.status(404).json({ error: 'File PDF không tồn tại trên server.' });
       return;
     }
@@ -816,7 +1060,8 @@ function createExpressServer() {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-    fs.createReadStream(document.pdf_path).pipe(res);
+    if (object.buffer) res.end(object.buffer);
+    else object.stream.pipe(res);
   });
 
   app.post('/api/ai', async (req, res) => {
@@ -921,7 +1166,8 @@ function createFallbackServer() {
           mode: 'native-fallback',
           database: path.relative(rootDir, dbPath),
           storage: path.relative(rootDir, storageRootDir) || '.',
-          persistentStorage: !isSamePath(storageRootDir, rootDir)
+          persistentStorage: !isSamePath(storageRootDir, rootDir),
+          libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local'
         });
         return;
       }
@@ -965,19 +1211,19 @@ function createFallbackServer() {
       if (url.pathname === '/api/library/documents' && req.method === 'GET') {
         const includeHidden = url.searchParams.get('includeHidden') === '1' && isAdminToken(adminTokenFromAuthorization(req.headers.authorization));
         sendJson(res, 200, {
-          documents: libraryQuery({
+          documents: await libraryQuery({
             includeHidden,
             q: safeText(url.searchParams.get('q'), 160),
             category: safeText(url.searchParams.get('category'), 120),
             year: safeText(url.searchParams.get('year'), 12)
           }),
-          categories: libraryCategories(),
-          years: libraryYears()
+          categories: await libraryCategories(),
+          years: await libraryYears()
         });
         return;
       }
       if (url.pathname === '/api/library/categories' && req.method === 'GET') {
-        sendJson(res, 200, { categories: libraryCategories(), years: libraryYears() });
+        sendJson(res, 200, { categories: await libraryCategories(), years: await libraryYears() });
         return;
       }
       if (url.pathname === '/api/library/documents' && req.method === 'POST') {
@@ -986,7 +1232,7 @@ function createFallbackServer() {
           return;
         }
         try {
-          sendJson(res, 201, { document: upsertLibraryDocument(await readJsonBody(req)) });
+          sendJson(res, 201, { document: await upsertLibraryDocument(await readJsonBody(req)) });
         } catch (error) {
           sendJson(res, 400, { error: error.message || 'Không lưu được tài liệu.' });
         }
@@ -997,13 +1243,13 @@ function createFallbackServer() {
           sendJson(res, 401, { error: 'Bạn cần đăng nhập quản trị.' });
           return;
         }
-        const existing = getLibraryDocument(libraryDocMatch[1], { includeHidden: true });
+        const existing = await getLibraryDocument(libraryDocMatch[1], { includeHidden: true });
         if (!existing) {
           sendJson(res, 404, { error: 'Không tìm thấy tài liệu.' });
           return;
         }
         try {
-          sendJson(res, 200, { document: upsertLibraryDocument(await readJsonBody(req), existing) });
+          sendJson(res, 200, { document: await upsertLibraryDocument(await readJsonBody(req), existing) });
         } catch (error) {
           sendJson(res, 400, { error: error.message || 'Không cập nhật được tài liệu.' });
         }
@@ -1014,14 +1260,12 @@ function createFallbackServer() {
           sendJson(res, 401, { error: 'Bạn cần đăng nhập quản trị.' });
           return;
         }
-        const existing = getLibraryDocument(libraryDocMatch[1], { includeHidden: true });
+        const existing = await getLibraryDocument(libraryDocMatch[1], { includeHidden: true });
         if (!existing) {
           sendJson(res, 404, { error: 'Không tìm thấy tài liệu.' });
           return;
         }
-        unlinkIfInside(existing.pdf_path, libraryPdfDir);
-        unlinkIfInside(existing.cover_path, libraryCoverDir);
-        db.prepare('DELETE FROM library_documents WHERE id = ?').run(existing.id);
+        await deleteLibraryDocument(existing.id);
         sendJson(res, 200, { ok: true });
         return;
       }
@@ -1030,7 +1274,7 @@ function createFallbackServer() {
           sendJson(res, 401, { error: 'Bạn cần đăng nhập quản trị.' });
           return;
         }
-        const existing = getLibraryDocument(libraryVisibilityMatch[1], { includeHidden: true });
+        const existing = await getLibraryDocument(libraryVisibilityMatch[1], { includeHidden: true });
         if (!existing) {
           sendJson(res, 404, { error: 'Không tìm thấy tài liệu.' });
           return;
@@ -1038,11 +1282,11 @@ function createFallbackServer() {
         const body = await readJsonBody(req);
         db.prepare('UPDATE library_documents SET visible = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
           .run(body.visible === false ? 0 : 1, existing.id);
-        sendJson(res, 200, { document: publicLibraryDoc(getLibraryDocument(existing.id, { includeHidden: true })) });
+        sendJson(res, 200, { document: await setLibraryVisibility(existing.id, body.visible !== false) });
         return;
       }
       if (libraryViewTokenMatch && req.method === 'POST') {
-        const document = getLibraryDocument(libraryViewTokenMatch[1]);
+        const document = await getLibraryDocument(libraryViewTokenMatch[1]);
         if (!document) {
           sendJson(res, 404, { error: 'Không tìm thấy tài liệu hoặc tài liệu đang bị ẩn.' });
           return;
@@ -1051,26 +1295,29 @@ function createFallbackServer() {
         return;
       }
       if (libraryCoverMatch && req.method === 'GET') {
-        const document = getLibraryDocument(libraryCoverMatch[1], { includeHidden: true });
-        if (!document || !document.cover_path || !fs.existsSync(document.cover_path)) {
+        const document = await getLibraryDocument(libraryCoverMatch[1], { includeHidden: true });
+        const object = document ? await getLibraryObject(document, 'cover') : null;
+        if (!object) {
           res.writeHead(404);
           res.end();
           return;
         }
         res.writeHead(200, {
-          'Content-Type': contentType(document.cover_path),
+          'Content-Type': object.mime,
           'Cache-Control': 'private, max-age=300'
         });
-        fs.createReadStream(document.cover_path).pipe(res);
+        if (object.buffer) res.end(object.buffer);
+        else object.stream.pipe(res);
         return;
       }
       if (libraryPdfMatch && req.method === 'GET') {
-        const document = getLibraryDocument(libraryPdfMatch[1]);
+        const document = await getLibraryDocument(libraryPdfMatch[1]);
         if (!document || !validateViewToken(url.searchParams.get('token'), document.id)) {
           sendJson(res, 403, { error: 'Token xem tài liệu không hợp lệ hoặc đã hết hạn.' });
           return;
         }
-        if (!fs.existsSync(document.pdf_path)) {
+        const object = await getLibraryObject(document, 'pdf');
+        if (!object) {
           sendJson(res, 404, { error: 'File PDF không tồn tại trên server.' });
           return;
         }
@@ -1082,7 +1329,8 @@ function createFallbackServer() {
           'X-Content-Type-Options': 'nosniff',
           'X-Robots-Tag': 'noindex, nofollow'
         });
-        fs.createReadStream(document.pdf_path).pipe(res);
+        if (object.buffer) res.end(object.buffer);
+        else object.stream.pipe(res);
         return;
       }
       if (url.pathname === '/api/ai' && req.method === 'POST') {

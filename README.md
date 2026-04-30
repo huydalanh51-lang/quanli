@@ -34,6 +34,9 @@ GEMINI_FALLBACK_MODEL=gemini-2.0-flash-lite
 LIBRARY_ADMIN_USER=admin
 LIBRARY_ADMIN_PASSWORD=mat-khau-manh-cua-ban
 APP_STORAGE_DIR=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_BUCKET=library-documents
 PORT=3000
 ```
 
@@ -115,6 +118,23 @@ Khi co `APP_STORAGE_DIR`, phan mem se luu:
 - Upload/xuat tam: `/var/data/uploads`, `/var/data/exports`
 
 Luu y: du lieu da bi xoa tren filesystem tam cua Render thuong khong the khoi phuc neu truoc do chua gan Persistent Disk hoac chua co ban sao luu.
+
+## Luu thu vien PDF bang Supabase Storage
+
+Neu khong muon nang cap Render de dung Persistent Disk, co the dung Supabase Storage private bucket cho thu vien PDF.
+
+1. Tao project tren Supabase.
+2. Vao `Storage`, tao bucket private ten `library-documents`.
+3. Vao `Project Settings` > `API`, lay `Project URL` va `service_role key`.
+4. Tren Render, them bien moi truong:
+
+```text
+SUPABASE_URL=https://...supabase.co
+SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_BUCKET=library-documents
+```
+
+Khi co cac bien nay, phan mem se luu metadata thu vien tai `_metadata/library_documents.json` trong bucket, PDF trong thu muc `pdf/`, va anh bia trong `covers/`. File khong nam trong `public/` va backend van yeu cau token ngan han khi doc PDF.
 
 ## Thu vien so PDF
 
