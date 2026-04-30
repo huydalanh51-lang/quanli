@@ -537,14 +537,22 @@ body.home-mode #importLog {{
   display: none;
 }}
 body.docs-mode .module-only,
+body.webgis-mode .module-only,
 body.docs-mode .table-wrap,
-body.docs-mode #importLog {{
+body.webgis-mode .table-wrap,
+body.docs-mode #importLog,
+body.webgis-mode #importLog {{
   display: none;
 }}
 body.module-mode .home-page,
 body.module-mode .docs-page,
+body.module-mode .webgis-page,
 body.home-mode .docs-page,
-body.docs-mode .home-page {{
+body.home-mode .webgis-page,
+body.docs-mode .home-page,
+body.docs-mode .webgis-page,
+body.webgis-mode .home-page,
+body.webgis-mode .docs-page {{
   display: none;
 }}
 .docs-page {{
@@ -554,6 +562,14 @@ body.docs-mode .home-page {{
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+}}
+.webgis-page {{
+  min-height: calc(100vh - 74px);
+  margin: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.10);
 }}
 .library-shell {{
   min-height: calc(100vh - 104px);
@@ -1610,6 +1626,7 @@ td.search-hit {{
     <div id="menuList" class="menu-list" hidden>
       <button id="openLandTransferBtn" type="button">Chu chuyển đất đai</button>
       <button id="openDocumentLibraryBtn" type="button">Thư viện tài liệu</button>
+      <button id="openWebGisBtn" type="button">WebGis</button>
     </div>
   </nav>
   <div class="status module-only">
@@ -1747,6 +1764,7 @@ td.search-hit {{
     <div id="libraryEmpty" class="library-empty" hidden>Chưa có tài liệu phù hợp.</div>
   </section>
 </main>
+<main id="webgisPage" class="webgis-page" aria-label="WebGis"></main>
 <section id="libraryAccessPanel" class="library-access" hidden>
   <div class="library-access-card">
     <div class="library-admin-actions">
@@ -3805,6 +3823,7 @@ function showHomePage() {{
   document.body.classList.add('home-mode');
   document.body.classList.remove('module-mode');
   document.body.classList.remove('docs-mode');
+  document.body.classList.remove('webgis-mode');
   $('#reportPanel').hidden = true;
   $('#aiPanel').hidden = true;
   $('#libraryAccessPanel').hidden = true;
@@ -3816,6 +3835,7 @@ function showLandTransferPage() {{
   document.body.classList.add('module-mode');
   document.body.classList.remove('home-mode');
   document.body.classList.remove('docs-mode');
+  document.body.classList.remove('webgis-mode');
   $('#libraryAccessPanel').hidden = true;
   closeMainMenu();
   recalc();
@@ -3829,12 +3849,27 @@ function showDocumentLibraryPage() {{
   document.body.classList.add('docs-mode');
   document.body.classList.remove('home-mode');
   document.body.classList.remove('module-mode');
+  document.body.classList.remove('webgis-mode');
   $('#reportPanel').hidden = true;
   $('#aiPanel').hidden = true;
   $('#importLog').hidden = true;
   closeMainMenu();
   updateLibrarySessionUi();
   fetchLibraryDocuments().catch(error => alert(error.message || String(error)));
+}}
+
+function showWebGisPage() {{
+  document.body.classList.add('webgis-mode');
+  document.body.classList.remove('home-mode');
+  document.body.classList.remove('module-mode');
+  document.body.classList.remove('docs-mode');
+  $('#reportPanel').hidden = true;
+  $('#aiPanel').hidden = true;
+  $('#libraryAccessPanel').hidden = true;
+  $('#libraryAdminPanel').hidden = true;
+  $('#pdfReader').hidden = true;
+  $('#importLog').hidden = true;
+  closeMainMenu();
 }}
 
 $('#menuBtn').addEventListener('click', event => {{
@@ -3845,6 +3880,7 @@ $('#menuBtn').addEventListener('click', event => {{
 }});
 $('#openLandTransferBtn').addEventListener('click', showLandTransferPage);
 $('#openDocumentLibraryBtn').addEventListener('click', showDocumentLibraryPage);
+$('#openWebGisBtn').addEventListener('click', showWebGisPage);
 $('#homeBtn').addEventListener('click', showHomePage);
 $('#libraryHomeBtn').addEventListener('click', showHomePage);
 $('#libraryLogoutBtn').addEventListener('click', () => {{
