@@ -369,15 +369,49 @@ body.docs-mode .home-page {
 }
 .library-admin-inner {
   display: grid;
-  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 300px) minmax(300px, 420px) minmax(0, 1fr);
   gap: 14px;
   padding: 14px;
+}
+.library-admin-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.96);
+}
+.library-admin-toolbar h2 {
+  flex: 1;
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
 }
 .library-admin-card {
   border: 1px solid rgba(148, 163, 184, 0.30);
   border-radius: 10px;
   padding: 12px;
   background: #f8fafc;
+}
+.library-admin-card[hidden] {
+  display: none;
+}
+.library-admin-status {
+  padding: 10px 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #166534;
+  background: #f0fdf4;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.library-admin-status.error {
+  border-color: #fecaca;
+  color: #991b1b;
+  background: #fff1f2;
 }
 .library-admin-card h2,
 .library-admin-card h3 {
@@ -1278,12 +1312,13 @@ td.search-hit {
   </section>
 </main>
 <section id="libraryAdminPanel" class="library-admin" hidden>
+  <div class="library-admin-toolbar">
+    <h2>Qu&#7843;n tr&#7883; th&#432; vi&#7879;n PDF</h2>
+    <button id="libraryAdminCloseBtn" type="button">&#272;&#243;ng</button>
+  </div>
   <div class="library-admin-inner">
     <div class="library-admin-card">
-      <div class="library-admin-actions">
-        <h2 style="flex:1">Quản trị thư viện</h2>
-        <button id="libraryAdminCloseBtn" type="button">Đóng</button>
-      </div>
+      <h3>&#272;&#259;ng nh&#7853;p qu&#7843;n tr&#7883;</h3>
       <div id="libraryLoginBox" class="library-admin-form">
         <label>Tài khoản quản trị
           <input id="libraryAdminUser" type="text" autocomplete="username">
@@ -1294,6 +1329,10 @@ td.search-hit {
         <button id="libraryLoginBtn" class="primary" type="button">Đăng nhập</button>
         <div id="libraryLoginMsg" class="library-empty" hidden></div>
       </div>
+      <div id="libraryLoginStatus" class="library-admin-status" hidden></div>
+    </div>
+    <div id="libraryUploadCard" class="library-admin-card" hidden>
+      <h3>Upload t&#224;i li&#7879;u</h3>
       <form id="libraryDocForm" class="library-admin-form" hidden>
         <input id="libraryDocId" type="hidden">
         <label>Tên tài liệu
@@ -3024,18 +3063,23 @@ function fillLibraryDocForm(doc) {
 async function openLibraryAdminPanel() {
   $('#libraryAdminPanel').hidden = false;
   showLibraryMessage('#libraryLoginMsg', '');
+  showLibraryMessage('#libraryLoginStatus', '');
   showLibraryMessage('#libraryAdminMsg', '');
   const isLogged = Boolean(libraryAdminToken);
   $('#libraryLoginBox').hidden = isLogged;
+  $('#libraryUploadCard').hidden = !isLogged;
   $('#libraryDocForm').hidden = !isLogged;
   if (isLogged) {
+    showLibraryMessage('#libraryLoginStatus', 'Đã đăng nhập thành công. Bạn có thể upload hoặc chỉnh sửa tài liệu ở khung bên cạnh.');
     try {
       await fetchLibraryDocuments(true);
     } catch (error) {
       libraryAdminToken = '';
       localStorage.removeItem('library-admin-token');
       $('#libraryLoginBox').hidden = false;
+      $('#libraryUploadCard').hidden = true;
       $('#libraryDocForm').hidden = true;
+      showLibraryMessage('#libraryLoginStatus', '');
       showLibraryMessage('#libraryLoginMsg', error.message || String(error), true);
     }
   }
@@ -3054,7 +3098,10 @@ async function libraryAdminLogin() {
   libraryAdminToken = payload.token;
   localStorage.setItem('library-admin-token', libraryAdminToken);
   $('#libraryLoginBox').hidden = true;
+  $('#libraryUploadCard').hidden = false;
   $('#libraryDocForm').hidden = false;
+  showLibraryMessage('#libraryLoginMsg', '');
+  showLibraryMessage('#libraryLoginStatus', 'Đã đăng nhập thành công. Bạn có thể upload hoặc chỉnh sửa tài liệu ở khung bên cạnh.');
   resetLibraryDocForm();
   await fetchLibraryDocuments(true);
 }
