@@ -1,0 +1,306 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "layer": "administrative",
+        "ten": "Ranh giới xã mẫu",
+        "ma_dv": "XA-001",
+        "ghi_chu": "Ranh giới hành chính phục vụ demo WebGIS"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              105.8422,
+              21.0474
+            ],
+            [
+              105.8616,
+              21.0474
+            ],
+            [
+              105.8616,
+              21.033
+            ],
+            [
+              105.8422,
+              21.033
+            ],
+            [
+              105.8422,
+              21.0474
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "layer": "parcels",
+        "ma_thua": "TD-101",
+        "chu_su_dung": "Nguyễn Văn A",
+        "loai_dat": "ONT",
+        "dien_tich": 1240.5,
+        "muc_dich": "Đất ở tại nông thôn",
+        "quy_hoach": "Đất ở",
+        "dia_danh": "Thôn Đông",
+        "ghi_chu": "Thửa đất mẫu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              105.8481,
+              21.0424
+            ],
+            [
+              105.8515,
+              21.0423
+            ],
+            [
+              105.8513,
+              21.0398
+            ],
+            [
+              105.8478,
+              21.0399
+            ],
+            [
+              105.8481,
+              21.0424
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "layer": "parcels",
+        "ma_thua": "TD-102",
+        "chu_su_dung": "Trần Thị B",
+        "loai_dat": "LUC",
+        "dien_tich": 3560.0,
+        "muc_dich": "Đất trồng lúa nước",
+        "quy_hoach": "Đất nông nghiệp",
+        "dia_danh": "Cánh đồng Bắc",
+        "ghi_chu": "Giữ nguyên hiện trạng"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              105.8517,
+              21.0422
+            ],
+            [
+              105.8562,
+              21.0421
+            ],
+            [
+              105.856,
+              21.0395
+            ],
+            [
+              105.8515,
+              21.0397
+            ],
+            [
+              105.8517,
+              21.0422
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "layer": "landuse",
+        "ma_khoanh": "HT-01",
+        "loai_dat": "LUC",
+        "dien_tich": 6.42,
+        "muc_dich": "Đất trồng lúa",
+        "quy_hoach": "Một phần chuyển sang giao thông",
+        "ghi_chu": "Hiện trạng sử dụng đất"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              105.846,
+              21.0384
+            ],
+            [
+              105.8542,
+              21.0381
+            ],
+            [
+              105.854,
+              21.0346
+            ],
+            [
+              105.8458,
+              21.0349
+            ],
+            [
+              105.846,
+              21.0384
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "layer": "planning",
+        "ma_khoanh": "QH-02",
+        "loai_dat": "DGT",
+        "dien_tich": 1.18,
+        "muc_dich": "Đất giao thông",
+        "quy_hoach": "Tuyến đường quy hoạch",
+        "loai_quy_hoach": "Hạ tầng giao thông",
+        "ghi_chu": "Vùng quy hoạch mẫu"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              105.845,
+              21.04
+            ],
+            [
+              105.86,
+              21.0395
+            ],
+            [
+              105.86,
+              21.0387
+            ],
+            [
+              105.845,
+              21.0392
+            ],
+            [
+              105.845,
+              21.04
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "layer": "roads",
+        "ten": "Đường trục xã",
+        "loai_dat": "DGT",
+        "dien_tich": 0.84,
+        "muc_dich": "Giao thông",
+        "quy_hoach": "Nâng cấp mở rộng",
+        "ghi_chu": "Tuyến đường mẫu"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.8442,
+            21.0436
+          ],
+          [
+            105.849,
+            21.0411
+          ],
+          [
+            105.8548,
+            21.039
+          ],
+          [
+            105.8608,
+            21.0362
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "layer": "water",
+        "ten": "Kênh tiêu nội đồng",
+        "loai_dat": "DTL",
+        "dien_tich": 0.52,
+        "muc_dich": "Thủy lợi",
+        "quy_hoach": "Giữ nguyên",
+        "ghi_chu": "Tuyến thủy hệ mẫu"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            105.8435,
+            21.036
+          ],
+          [
+            105.8497,
+            21.0375
+          ],
+          [
+            105.8552,
+            21.037
+          ],
+          [
+            105.861,
+            21.035
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "layer": "public",
+        "ten": "Trụ sở UBND xã",
+        "loai_dat": "TSC",
+        "dien_tich": 0.32,
+        "muc_dich": "Đất trụ sở cơ quan",
+        "quy_hoach": "Giữ nguyên công trình công cộng",
+        "ghi_chu": "Điểm công trình công cộng"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.852,
+          21.0437
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "layer": "public",
+        "ten": "Trường tiểu học",
+        "loai_dat": "DGD",
+        "dien_tich": 0.78,
+        "muc_dich": "Đất giáo dục",
+        "quy_hoach": "Mở rộng khuôn viên",
+        "ghi_chu": "Điểm công trình công cộng"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.857,
+          21.0413
+        ]
+      }
+    }
+  ]
+}

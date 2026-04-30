@@ -45,6 +45,1115 @@ SAMPLE_FILES = [
     ("Kết quả thực hiện quy hoạch năm mẫu.xlsx", "ket-qua-quy-hoach-nam-mau.xlsx", "Kết quả thực hiện quy hoạch năm mẫu"),
     ("Bảng quy hoạch mẫu.xlsx", "bang-quy-hoach-mau.xlsx", "Bảng quy hoạch mẫu"),
 ]
+WEBGIS_SAMPLE_DATA = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {"layer": "administrative", "ten": "Ranh giới xã mẫu", "ma_dv": "XA-001", "ghi_chu": "Ranh giới hành chính phục vụ demo WebGIS"},
+            "geometry": {"type": "Polygon", "coordinates": [[[105.8422, 21.0474], [105.8616, 21.0474], [105.8616, 21.0330], [105.8422, 21.0330], [105.8422, 21.0474]]]},
+        },
+        {
+            "type": "Feature",
+            "properties": {"layer": "parcels", "ma_thua": "TD-101", "chu_su_dung": "Nguyễn Văn A", "loai_dat": "ONT", "dien_tich": 1240.5, "muc_dich": "Đất ở tại nông thôn", "quy_hoach": "Đất ở", "dia_danh": "Thôn Đông", "ghi_chu": "Thửa đất mẫu"},
+            "geometry": {"type": "Polygon", "coordinates": [[[105.8481, 21.0424], [105.8515, 21.0423], [105.8513, 21.0398], [105.8478, 21.0399], [105.8481, 21.0424]]]},
+        },
+        {
+            "type": "Feature",
+            "properties": {"layer": "parcels", "ma_thua": "TD-102", "chu_su_dung": "Trần Thị B", "loai_dat": "LUC", "dien_tich": 3560.0, "muc_dich": "Đất trồng lúa nước", "quy_hoach": "Đất nông nghiệp", "dia_danh": "Cánh đồng Bắc", "ghi_chu": "Giữ nguyên hiện trạng"},
+            "geometry": {"type": "Polygon", "coordinates": [[[105.8517, 21.0422], [105.8562, 21.0421], [105.8560, 21.0395], [105.8515, 21.0397], [105.8517, 21.0422]]]},
+        },
+        {
+            "type": "Feature",
+            "properties": {"layer": "landuse", "ma_khoanh": "HT-01", "loai_dat": "LUC", "dien_tich": 6.42, "muc_dich": "Đất trồng lúa", "quy_hoach": "Một phần chuyển sang giao thông", "ghi_chu": "Hiện trạng sử dụng đất"},
+            "geometry": {"type": "Polygon", "coordinates": [[[105.8460, 21.0384], [105.8542, 21.0381], [105.8540, 21.0346], [105.8458, 21.0349], [105.8460, 21.0384]]]},
+        },
+        {
+            "type": "Feature",
+            "properties": {"layer": "planning", "ma_khoanh": "QH-02", "loai_dat": "DGT", "dien_tich": 1.18, "muc_dich": "Đất giao thông", "quy_hoach": "Tuyến đường quy hoạch", "loai_quy_hoach": "Hạ tầng giao thông", "ghi_chu": "Vùng quy hoạch mẫu"},
+            "geometry": {"type": "Polygon", "coordinates": [[[105.8450, 21.0400], [105.8600, 21.0395], [105.8600, 21.0387], [105.8450, 21.0392], [105.8450, 21.0400]]]},
+        },
+        {
+            "type": "Feature",
+            "properties": {"layer": "roads", "ten": "Đường trục xã", "loai_dat": "DGT", "dien_tich": 0.84, "muc_dich": "Giao thông", "quy_hoach": "Nâng cấp mở rộng", "ghi_chu": "Tuyến đường mẫu"},
+            "geometry": {"type": "LineString", "coordinates": [[105.8442, 21.0436], [105.8490, 21.0411], [105.8548, 21.0390], [105.8608, 21.0362]]},
+        },
+        {
+            "type": "Feature",
+            "properties": {"layer": "water", "ten": "Kênh tiêu nội đồng", "loai_dat": "DTL", "dien_tich": 0.52, "muc_dich": "Thủy lợi", "quy_hoach": "Giữ nguyên", "ghi_chu": "Tuyến thủy hệ mẫu"},
+            "geometry": {"type": "LineString", "coordinates": [[105.8435, 21.0360], [105.8497, 21.0375], [105.8552, 21.0370], [105.8610, 21.0350]]},
+        },
+        {
+            "type": "Feature",
+            "properties": {"layer": "public", "ten": "Trụ sở UBND xã", "loai_dat": "TSC", "dien_tich": 0.32, "muc_dich": "Đất trụ sở cơ quan", "quy_hoach": "Giữ nguyên công trình công cộng", "ghi_chu": "Điểm công trình công cộng"},
+            "geometry": {"type": "Point", "coordinates": [105.8520, 21.0437]},
+        },
+        {
+            "type": "Feature",
+            "properties": {"layer": "public", "ten": "Trường tiểu học", "loai_dat": "DGD", "dien_tich": 0.78, "muc_dich": "Đất giáo dục", "quy_hoach": "Mở rộng khuôn viên", "ghi_chu": "Điểm công trình công cộng"},
+            "geometry": {"type": "Point", "coordinates": [105.8570, 21.0413]},
+        },
+    ],
+}
+
+WEBGIS_CSS = r"""
+.webgis-page {
+  overflow: hidden;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 52%, #f8fafc 100%);
+}
+.webgis-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 102px);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.webgis-topbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(220px, 460px) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid #dbe7f3;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(237,248,255,0.96));
+}
+.webgis-title {
+  min-width: 0;
+}
+.webgis-title strong {
+  display: block;
+  color: #0f2f57;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+.webgis-title span {
+  display: block;
+  margin-top: 3px;
+  color: #55708d;
+  font-size: 12px;
+}
+.webgis-search {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.webgis-search input,
+.webgis-panel input,
+.webgis-panel select,
+.webgis-panel textarea,
+.webgis-attr-tools input,
+.webgis-attr-tools select {
+  height: 34px;
+  min-width: 0;
+  border: 1px solid #bdd0e3;
+  border-radius: 7px;
+  padding: 6px 9px;
+  background: #fff;
+  color: #102033;
+  font-size: 13px;
+}
+.webgis-search input {
+  flex: 1;
+}
+.webgis-actions,
+.webgis-map-tools,
+.webgis-attr-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.webgis-actions button,
+.webgis-map-tools button,
+.webgis-search button,
+.webgis-panel button,
+.webgis-attr-tools button {
+  height: 34px;
+  border: 1px solid #b7c8da;
+  border-radius: 7px;
+  padding: 0 11px;
+  background: #fff;
+  color: #102033;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 47, 87, 0.08);
+}
+.webgis-actions .primary,
+.webgis-search .primary,
+.webgis-panel .primary {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+}
+.webgis-search-results {
+  position: absolute;
+  z-index: 540;
+  top: calc(100% + 7px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid #bdd0e3;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 34px rgba(15, 47, 87, 0.18);
+}
+.webgis-search-results[hidden] {
+  display: none;
+}
+.webgis-result-item {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-bottom: 1px solid #edf2f7;
+  padding: 8px 10px;
+  background: #fff;
+  color: #102033;
+  text-align: left;
+  cursor: pointer;
+}
+.webgis-result-item:hover {
+  background: #eff6ff;
+}
+.webgis-result-item strong {
+  display: block;
+  font-size: 13px;
+}
+.webgis-result-item span {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+}
+.webgis-workspace {
+  display: grid;
+  grid-template-columns: 304px minmax(360px, 1fr) 320px;
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+  padding: 10px;
+}
+.webgis-sidebar,
+.webgis-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  overflow: auto;
+}
+.webgis-panel {
+  border: 1px solid #d4e2ef;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.96);
+  box-shadow: 0 10px 24px rgba(15, 47, 87, 0.08);
+}
+.webgis-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e4edf6;
+}
+.webgis-panel-head h2,
+.webgis-panel-head h3 {
+  margin: 0;
+  color: #0f2f57;
+  font-size: 14px;
+}
+.webgis-panel-body {
+  padding: 10px 12px;
+}
+.webgis-layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.webgis-layer-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid #e3edf6;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+.webgis-layer-main {
+  min-width: 0;
+}
+.webgis-layer-main label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #102033;
+  font-size: 13px;
+  font-weight: 700;
+}
+.webgis-layer-tools {
+  grid-column: 2 / 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.webgis-layer-tools input[type="range"] {
+  flex: 1;
+  accent-color: #2563eb;
+}
+.webgis-symbol {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(15,47,87,0.20);
+  border-radius: 5px;
+  flex: 0 0 auto;
+}
+.webgis-map-panel {
+  position: relative;
+  min-height: 620px;
+  overflow: hidden;
+  border: 1px solid #cbdcec;
+  border-radius: 8px;
+  background: #eaf2f8;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65), 0 12px 30px rgba(15, 47, 87, 0.12);
+}
+.webgis-map {
+  width: 100%;
+  height: 100%;
+  min-height: 620px;
+}
+.webgis-map-tools {
+  position: absolute;
+  z-index: 500;
+  top: 12px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  padding: 8px;
+  border: 1px solid rgba(183, 200, 218, 0.72);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.94);
+  box-shadow: 0 14px 30px rgba(15,47,87,0.14);
+  backdrop-filter: blur(8px);
+}
+.webgis-coordinate-bar,
+.webgis-measure-badge {
+  position: absolute;
+  z-index: 500;
+  right: 12px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(15, 47, 87, 0.86);
+  color: #fff;
+  font-size: 12px;
+  box-shadow: 0 12px 28px rgba(15,47,87,0.16);
+}
+.webgis-coordinate-bar {
+  bottom: 12px;
+}
+.webgis-measure-badge {
+  left: 12px;
+  right: auto;
+  bottom: 12px;
+  max-width: 420px;
+}
+.webgis-detail-empty {
+  min-height: 140px;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  text-align: center;
+  font-size: 13px;
+}
+.webgis-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.webgis-detail-table th,
+.webgis-detail-table td {
+  padding: 7px 5px;
+  border-bottom: 1px solid #edf2f7;
+  text-align: left;
+  vertical-align: top;
+}
+.webgis-detail-table th {
+  width: 112px;
+  color: #64748b;
+  font-weight: 700;
+}
+.webgis-legend {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  font-size: 13px;
+}
+.webgis-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.webgis-admin-panel[hidden],
+.webgis-attr-panel[hidden] {
+  display: none;
+}
+.webgis-admin-grid {
+  display: grid;
+  gap: 8px;
+}
+.webgis-admin-grid label {
+  display: grid;
+  gap: 4px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+.webgis-admin-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.webgis-attr-panel {
+  margin: 0 10px 10px;
+  border: 1px solid #cbdcec;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 32px rgba(15,47,87,0.12);
+}
+.webgis-attr-tools {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e4edf6;
+}
+.webgis-attr-wrap {
+  max-height: 260px;
+  overflow: auto;
+}
+.webgis-attr-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+  font-size: 12px;
+}
+.webgis-attr-table th,
+.webgis-attr-table td {
+  padding: 8px;
+  border: 1px solid #e4edf6;
+  background: #fff;
+  text-align: left;
+  white-space: nowrap;
+}
+.webgis-attr-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #eaf4ff;
+  color: #0f2f57;
+  cursor: pointer;
+}
+.webgis-attr-table tr:hover td,
+.webgis-attr-table tr.selected td {
+  background: #fff7ed;
+}
+.webgis-popup {
+  min-width: 220px;
+  font-size: 13px;
+}
+.webgis-popup strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #0f2f57;
+}
+body.webgis-mode .leaflet-control-layers {
+  border-radius: 8px;
+  border-color: #b7c8da;
+  box-shadow: 0 12px 28px rgba(15,47,87,0.15);
+}
+@media print {
+  body.webgis-mode .appbar,
+  body.webgis-mode .webgis-sidebar,
+  body.webgis-mode .webgis-info,
+  body.webgis-mode .webgis-topbar,
+  body.webgis-mode .webgis-attr-panel,
+  body.webgis-mode .webgis-map-tools {
+    display: none !important;
+  }
+  body.webgis-mode .webgis-page,
+  body.webgis-mode .webgis-shell,
+  body.webgis-mode .webgis-workspace,
+  body.webgis-mode .webgis-map-panel,
+  body.webgis-mode .webgis-map {
+    display: block !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    box-shadow: none !important;
+  }
+}
+@media (max-width: 1180px) {
+  .webgis-workspace {
+    grid-template-columns: 280px minmax(320px, 1fr);
+  }
+  .webgis-info {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 820px) {
+  .webgis-topbar {
+    grid-template-columns: 1fr;
+  }
+  .webgis-workspace {
+    grid-template-columns: 1fr;
+  }
+  .webgis-sidebar,
+  .webgis-info {
+    max-height: none;
+  }
+  .webgis-info {
+    display: flex;
+  }
+  .webgis-map-panel,
+  .webgis-map {
+    min-height: 520px;
+  }
+}
+"""
+
+WEBGIS_HTML = r"""
+<main id="webgisPage" class="webgis-page" aria-label="WebGis">
+  <section class="webgis-shell">
+    <header class="webgis-topbar">
+      <div class="webgis-title">
+        <strong>WEBGIS QUẢN LÝ DỮ LIỆU ĐẤT ĐAI</strong>
+        <span>Hiển thị, tra cứu và quản lý dữ liệu bản đồ đất đai/quy hoạch</span>
+      </div>
+      <div class="webgis-search">
+        <input id="webgisSearchInput" type="search" placeholder="Tìm mã thửa, chủ sử dụng, mã đất, địa danh, quy hoạch">
+        <button id="webgisSearchBtn" class="primary" type="button">Tìm</button>
+        <div id="webgisSearchResults" class="webgis-search-results" hidden></div>
+      </div>
+      <div class="webgis-actions">
+        <button id="webgisOpenTableBtn" type="button">Bảng thuộc tính</button>
+        <button id="webgisAdminBtn" class="primary" type="button">Quản trị dữ liệu</button>
+        <button id="webgisHomeBtn" type="button">Màn chính</button>
+      </div>
+    </header>
+    <div class="webgis-workspace">
+      <aside class="webgis-sidebar">
+        <section class="webgis-panel">
+          <div class="webgis-panel-head">
+            <h2>Lớp bản đồ</h2>
+            <button id="webgisFitAllBtn" type="button">Toàn bộ</button>
+          </div>
+          <div class="webgis-panel-body">
+            <div id="webgisLayerList" class="webgis-layer-list"></div>
+          </div>
+        </section>
+        <section class="webgis-panel">
+          <div class="webgis-panel-head">
+            <h3>Chú giải</h3>
+          </div>
+          <div class="webgis-panel-body">
+            <div id="webgisLegend" class="webgis-legend"></div>
+          </div>
+        </section>
+        <section id="webgisAdminPanel" class="webgis-panel webgis-admin-panel" hidden>
+          <div class="webgis-panel-head">
+            <h3>Quản trị dữ liệu</h3>
+            <button id="webgisCloseAdminBtn" type="button">Đóng</button>
+          </div>
+          <div class="webgis-panel-body webgis-admin-grid">
+            <p class="webgis-admin-note">Bản demo xử lý GeoJSON trên trình duyệt. Khi nâng cấp backend có thể lưu vào PostGIS và cấp quyền admin.</p>
+            <label>Tên layer mới
+              <input id="webgisNewLayerName" type="text" placeholder="Ví dụ: Quy hoạch khu dân cư">
+            </label>
+            <label>Màu ký hiệu
+              <input id="webgisNewLayerColor" type="color" value="#2563eb">
+            </label>
+            <label>File GeoJSON
+              <input id="webgisImportInput" type="file" accept=".geojson,.json,application/geo+json,application/json">
+            </label>
+            <button id="webgisImportBtn" class="primary" type="button">Thêm layer GeoJSON</button>
+            <label>Thuộc tính đối tượng đang chọn
+              <textarea id="webgisFeatureEditor" placeholder="Chọn một đối tượng trên bản đồ để sửa thuộc tính JSON"></textarea>
+            </label>
+            <button id="webgisSaveFeatureBtn" type="button">Lưu thuộc tính</button>
+          </div>
+        </section>
+      </aside>
+      <section class="webgis-map-panel">
+        <div id="webgisMap" class="webgis-map" role="application" aria-label="Bản đồ WebGIS"></div>
+        <div class="webgis-map-tools" aria-label="Công cụ bản đồ">
+          <button id="webgisLocateBtn" type="button">Vị trí</button>
+          <button id="webgisMeasureDistanceBtn" type="button">Đo dài</button>
+          <button id="webgisMeasureAreaBtn" type="button">Đo diện tích</button>
+          <button id="webgisClearMeasureBtn" type="button">Xóa đo</button>
+          <button id="webgisPrintBtn" type="button">In</button>
+          <button id="webgisShotBtn" type="button">Chụp ảnh</button>
+          <button id="webgisFullscreenBtn" type="button">Toàn màn hình</button>
+        </div>
+        <div id="webgisMeasureBadge" class="webgis-measure-badge">Sẵn sàng tra cứu bản đồ</div>
+        <div id="webgisCoordinateBar" class="webgis-coordinate-bar">Tọa độ: --</div>
+      </section>
+      <aside class="webgis-info">
+        <section class="webgis-panel">
+          <div class="webgis-panel-head">
+            <h2>Thông tin đối tượng</h2>
+          </div>
+          <div id="webgisFeatureDetail" class="webgis-panel-body">
+            <div class="webgis-detail-empty">Bấm vào thửa đất, vùng quy hoạch, tuyến hoặc điểm công trình để xem thông tin.</div>
+          </div>
+        </section>
+        <section class="webgis-panel">
+          <div class="webgis-panel-head">
+            <h3>Hướng dẫn nhanh</h3>
+          </div>
+          <div class="webgis-panel-body">
+            <p class="webgis-admin-note">Bật/tắt lớp ở sidebar, dùng thanh trong suốt để so sánh nền bản đồ và dữ liệu. Ô tìm kiếm hỗ trợ mã thửa, mã đất, chủ sử dụng, địa danh và loại quy hoạch.</p>
+          </div>
+        </section>
+      </aside>
+    </div>
+    <section id="webgisAttributePanel" class="webgis-attr-panel" hidden>
+      <div class="webgis-attr-tools">
+        <strong>Bảng thuộc tính</strong>
+        <select id="webgisAttrLayer"></select>
+        <input id="webgisAttrSearch" type="search" placeholder="Lọc thuộc tính">
+        <button id="webgisCloseTableBtn" type="button">Đóng bảng</button>
+      </div>
+      <div class="webgis-attr-wrap">
+        <table id="webgisAttrTable" class="webgis-attr-table"></table>
+      </div>
+    </section>
+  </section>
+</main>
+"""
+
+WEBGIS_JS = r"""
+const webgisLayerDefs = [
+  { id: 'administrative', label: 'Ranh giới hành chính', color: '#2563eb', visible: true },
+  { id: 'landuse', label: 'Hiện trạng sử dụng đất', color: '#22c55e', visible: true },
+  { id: 'planning', label: 'Quy hoạch sử dụng đất', color: '#f59e0b', visible: true },
+  { id: 'roads', label: 'Giao thông', color: '#6b7280', visible: true },
+  { id: 'water', label: 'Thủy hệ', color: '#0ea5e9', visible: true },
+  { id: 'parcels', label: 'Thửa đất', color: '#ef4444', visible: true },
+  { id: 'public', label: 'Công trình công cộng', color: '#8b5cf6', visible: true }
+];
+
+const webgisLandColors = {
+  ONT: '#fca5a5',
+  ODT: '#fb7185',
+  LUC: '#86efac',
+  LUA: '#4ade80',
+  HNK: '#bbf7d0',
+  CLN: '#65a30d',
+  DGT: '#9ca3af',
+  DTL: '#38bdf8',
+  TSC: '#c084fc',
+  DGD: '#fde68a',
+  DKV: '#facc15'
+};
+
+let webgisState = {
+  initialized: false,
+  map: null,
+  layerDefs: [],
+  overlayLayers: new Map(),
+  featureLayers: new Map(),
+  features: [],
+  selectedFeatureId: null,
+  selectedVector: null,
+  attrSortKey: '',
+  attrSortDir: 1,
+  measureMode: null,
+  measurePoints: [],
+  measureLayer: null
+};
+
+function webgisEl(id) {
+  return document.getElementById(id);
+}
+
+function webgisEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }[ch]));
+}
+
+function webgisFeatureTitle(feature) {
+  const props = feature.properties || {};
+  return props.ma_thua || props.ma_khoanh || props.ten || props.ma_dv || `Đối tượng ${props.__id || ''}`;
+}
+
+function webgisLayerLabel(id) {
+  return webgisState.layerDefs.find(layer => layer.id === id)?.label || id || 'Khác';
+}
+
+function webgisLayerColor(id, feature) {
+  const code = String(feature?.properties?.loai_dat || '').toUpperCase();
+  return webgisLandColors[code] || webgisState.layerDefs.find(layer => layer.id === id)?.color || '#2563eb';
+}
+
+function webgisNormalizeFeatures(collection, defaultLayer = '') {
+  const features = Array.isArray(collection?.features) ? collection.features : [];
+  return features
+    .filter(feature => feature && feature.geometry)
+    .map((feature, index) => {
+      const props = { ...(feature.properties || {}) };
+      props.layer = props.layer || defaultLayer || 'imported';
+      props.__id = props.__id || `${props.layer}-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
+      return { ...feature, properties: props };
+    });
+}
+
+function webgisStyle(feature) {
+  const layerId = feature?.properties?.layer;
+  const color = webgisLayerColor(layerId, feature);
+  const opacity = Number(webgisEl(`webgisOpacity_${layerId}`)?.value || 78) / 100;
+  const isLine = ['LineString', 'MultiLineString'].includes(feature.geometry?.type);
+  return {
+    color,
+    weight: layerId === 'administrative' ? 3 : isLine ? 4 : 1.6,
+    dashArray: layerId === 'administrative' ? '8 5' : '',
+    opacity: Math.max(0.15, opacity),
+    fillColor: color,
+    fillOpacity: isLine ? 0 : Math.min(0.55, opacity * 0.55)
+  };
+}
+
+function webgisPopupHtml(feature) {
+  const props = feature.properties || {};
+  const rows = [
+    ['Mã thửa/khoanh', props.ma_thua || props.ma_khoanh || props.ma_dv || ''],
+    ['Loại đất', props.loai_dat || ''],
+    ['Diện tích', props.dien_tich ? `${props.dien_tich} ha/m2` : ''],
+    ['Chủ sử dụng', props.chu_su_dung || ''],
+    ['Hiện trạng', props.muc_dich || ''],
+    ['Quy hoạch', props.quy_hoach || props.loai_quy_hoach || ''],
+    ['Ghi chú', props.ghi_chu || '']
+  ].filter(([, value]) => value !== '');
+  return `<div class="webgis-popup"><strong>${webgisEscape(webgisFeatureTitle(feature))}</strong>${
+    rows.map(([key, value]) => `<div><b>${webgisEscape(key)}:</b> ${webgisEscape(value)}</div>`).join('')
+  }</div>`;
+}
+
+function webgisRenderFeatureDetail(feature) {
+  const detail = webgisEl('webgisFeatureDetail');
+  if (!feature) {
+    detail.innerHTML = '<div class="webgis-detail-empty">Bấm vào thửa đất, vùng quy hoạch, tuyến hoặc điểm công trình để xem thông tin.</div>';
+    webgisEl('webgisFeatureEditor').value = '';
+    return;
+  }
+  const props = feature.properties || {};
+  const rows = Object.entries(props).filter(([key]) => key !== '__id');
+  detail.innerHTML = `<table class="webgis-detail-table"><tbody>${
+    rows.map(([key, value]) => `<tr><th>${webgisEscape(key)}</th><td>${webgisEscape(value)}</td></tr>`).join('')
+  }</tbody></table>`;
+  webgisEl('webgisFeatureEditor').value = JSON.stringify(Object.fromEntries(rows), null, 2);
+}
+
+function webgisSelectFeature(feature, vectorLayer, openPopup = true) {
+  if (!feature) return;
+  if (webgisState.selectedVector?.setStyle && webgisState.selectedFeatureId) {
+    const previousFeature = webgisState.features.find(item => item.properties.__id === webgisState.selectedFeatureId);
+    webgisState.selectedVector.setStyle(webgisStyle(previousFeature));
+  }
+  webgisState.selectedFeatureId = feature.properties.__id;
+  webgisState.selectedVector = vectorLayer || webgisState.featureLayers.get(feature.properties.__id);
+  if (webgisState.selectedVector?.setStyle) {
+    webgisState.selectedVector.setStyle({ color: '#f97316', weight: 4, fillOpacity: 0.48 });
+    webgisState.selectedVector.bringToFront?.();
+  }
+  webgisRenderFeatureDetail(feature);
+  if (openPopup && webgisState.selectedVector?.bindPopup) {
+    webgisState.selectedVector.bindPopup(webgisPopupHtml(feature)).openPopup();
+  }
+  webgisHighlightAttrRow(feature.properties.__id);
+}
+
+function webgisBuildOverlayLayer(def) {
+  const collection = {
+    type: 'FeatureCollection',
+    features: webgisState.features.filter(feature => feature.properties?.layer === def.id)
+  };
+  return L.geoJSON(collection, {
+    style: webgisStyle,
+    pointToLayer(feature, latlng) {
+      const color = webgisLayerColor(def.id, feature);
+      return L.circleMarker(latlng, { radius: 8, color, weight: 2, fillColor: color, fillOpacity: 0.82 });
+    },
+    onEachFeature(feature, vectorLayer) {
+      webgisState.featureLayers.set(feature.properties.__id, vectorLayer);
+      vectorLayer.on('click', () => webgisSelectFeature(feature, vectorLayer));
+      vectorLayer.bindTooltip(webgisFeatureTitle(feature), { sticky: true });
+    }
+  });
+}
+
+function webgisRebuildOverlays() {
+  if (!webgisState.map) return;
+  webgisState.overlayLayers.forEach(layer => webgisState.map.removeLayer(layer));
+  webgisState.overlayLayers.clear();
+  webgisState.featureLayers.clear();
+  webgisState.layerDefs.forEach(def => {
+    const layer = webgisBuildOverlayLayer(def);
+    webgisState.overlayLayers.set(def.id, layer);
+    if (def.visible !== false) layer.addTo(webgisState.map);
+  });
+  webgisRenderLayerList();
+  webgisRenderLegend();
+  webgisPopulateAttrLayerSelect();
+}
+
+function webgisRenderLayerList() {
+  const root = webgisEl('webgisLayerList');
+  root.innerHTML = webgisState.layerDefs.map(def => `
+    <div class="webgis-layer-item" data-layer="${webgisEscape(def.id)}">
+      <span class="webgis-symbol" style="background:${webgisEscape(def.color)}"></span>
+      <div class="webgis-layer-main">
+        <label><input type="checkbox" data-webgis-layer-toggle="${webgisEscape(def.id)}" ${def.visible === false ? '' : 'checked'}> ${webgisEscape(def.label)}</label>
+      </div>
+      <button type="button" data-webgis-layer-zoom="${webgisEscape(def.id)}">Zoom</button>
+      <div class="webgis-layer-tools">
+        <span>Trong suốt</span>
+        <input id="webgisOpacity_${webgisEscape(def.id)}" type="range" min="10" max="100" value="${def.opacity || 78}" data-webgis-layer-opacity="${webgisEscape(def.id)}">
+      </div>
+    </div>
+  `).join('');
+}
+
+function webgisRenderLegend() {
+  const legend = webgisEl('webgisLegend');
+  legend.innerHTML = [
+    ['#fca5a5', 'Đất ở'],
+    ['#86efac', 'Đất nông nghiệp'],
+    ['#9ca3af', 'Đất giao thông'],
+    ['#38bdf8', 'Đất thủy lợi, sông suối'],
+    ['#c084fc', 'Đất công cộng'],
+    ['#facc15', 'Đất quy hoạch/hạ tầng']
+  ].map(([color, label]) => `<div class="webgis-legend-item"><span class="webgis-symbol" style="background:${color}"></span>${label}</div>`).join('');
+}
+
+function webgisFitLayer(layerId) {
+  const layer = webgisState.overlayLayers.get(layerId);
+  if (!layer) return;
+  const bounds = layer.getBounds?.();
+  if (bounds?.isValid?.()) webgisState.map.fitBounds(bounds.pad(0.14));
+}
+
+function webgisFitAll() {
+  const group = L.featureGroup(Array.from(webgisState.overlayLayers.values()));
+  const bounds = group.getBounds();
+  if (bounds.isValid()) webgisState.map.fitBounds(bounds.pad(0.12));
+}
+
+function webgisUpdateLayerStyle(layerId) {
+  const layer = webgisState.overlayLayers.get(layerId);
+  if (!layer) return;
+  layer.eachLayer(child => {
+    if (child.feature && child.setStyle) child.setStyle(webgisStyle(child.feature));
+  });
+}
+
+function webgisTextForFeature(feature) {
+  const props = feature.properties || {};
+  return [props.ma_thua, props.ma_khoanh, props.ma_dv, props.ten, props.chu_su_dung, props.loai_dat, props.muc_dich, props.quy_hoach, props.loai_quy_hoach, props.dia_danh, props.ghi_chu, webgisLayerLabel(props.layer)].join(' ').toLowerCase();
+}
+
+function webgisSearch() {
+  const query = webgisEl('webgisSearchInput').value.trim().toLowerCase();
+  const box = webgisEl('webgisSearchResults');
+  if (!query) {
+    box.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+  const results = webgisState.features.filter(feature => webgisTextForFeature(feature).includes(query)).slice(0, 30);
+  if (!results.length) {
+    box.innerHTML = '<div class="webgis-result-item"><strong>Không tìm thấy dữ liệu phù hợp</strong><span>Thử mã đất, mã thửa hoặc tên địa danh khác.</span></div>';
+    box.hidden = false;
+    return;
+  }
+  box.innerHTML = results.map(feature => `
+    <button type="button" class="webgis-result-item" data-feature-id="${webgisEscape(feature.properties.__id)}">
+      <strong>${webgisEscape(webgisFeatureTitle(feature))}</strong>
+      <span>${webgisEscape(webgisLayerLabel(feature.properties.layer))} - ${webgisEscape(feature.properties.loai_dat || feature.properties.quy_hoach || '')}</span>
+    </button>
+  `).join('');
+  box.hidden = false;
+  webgisZoomToFeature(results[0].properties.__id);
+}
+
+function webgisZoomToFeature(featureId) {
+  const feature = webgisState.features.find(item => item.properties.__id === featureId);
+  const vector = webgisState.featureLayers.get(featureId);
+  if (!feature || !vector) return;
+  if (vector.getBounds) {
+    const bounds = vector.getBounds();
+    if (bounds.isValid()) webgisState.map.fitBounds(bounds.pad(0.35));
+  } else if (vector.getLatLng) {
+    webgisState.map.setView(vector.getLatLng(), 17);
+  }
+  webgisSelectFeature(feature, vector);
+}
+
+function webgisAllPropertyKeys(features) {
+  const keys = new Set(['ma_thua', 'ma_khoanh', 'ten', 'loai_dat', 'dien_tich', 'chu_su_dung', 'muc_dich', 'quy_hoach', 'ghi_chu']);
+  features.forEach(feature => Object.keys(feature.properties || {}).forEach(key => key !== '__id' && keys.add(key)));
+  return Array.from(keys);
+}
+
+function webgisPopulateAttrLayerSelect() {
+  const select = webgisEl('webgisAttrLayer');
+  select.innerHTML = webgisState.layerDefs.map(def => `<option value="${webgisEscape(def.id)}">${webgisEscape(def.label)}</option>`).join('');
+}
+
+function webgisRenderAttributeTable() {
+  const layerId = webgisEl('webgisAttrLayer').value || webgisState.layerDefs[0]?.id || '';
+  const query = webgisEl('webgisAttrSearch').value.trim().toLowerCase();
+  let features = webgisState.features.filter(feature => feature.properties.layer === layerId);
+  if (query) features = features.filter(feature => JSON.stringify(feature.properties).toLowerCase().includes(query));
+  if (webgisState.attrSortKey) {
+    const key = webgisState.attrSortKey;
+    features = features.slice().sort((a, b) => String(a.properties[key] ?? '').localeCompare(String(b.properties[key] ?? ''), 'vi') * webgisState.attrSortDir);
+  }
+  const keys = webgisAllPropertyKeys(features);
+  const table = webgisEl('webgisAttrTable');
+  table.innerHTML = `
+    <thead><tr>${keys.map(key => `<th data-webgis-sort="${webgisEscape(key)}">${webgisEscape(key)}</th>`).join('')}</tr></thead>
+    <tbody>${features.map(feature => `
+      <tr data-feature-id="${webgisEscape(feature.properties.__id)}">${keys.map(key => `<td>${webgisEscape(feature.properties[key] ?? '')}</td>`).join('')}</tr>
+    `).join('')}</tbody>
+  `;
+  webgisHighlightAttrRow(webgisState.selectedFeatureId);
+}
+
+function webgisHighlightAttrRow(featureId) {
+  const table = webgisEl('webgisAttrTable');
+  if (!table) return;
+  table.querySelectorAll('tr.selected').forEach(row => row.classList.remove('selected'));
+  if (!featureId || !window.CSS?.escape) return;
+  table.querySelector(`tr[data-feature-id="${CSS.escape(featureId)}"]`)?.classList.add('selected');
+}
+
+function webgisFormatDistance(meters) {
+  return meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${meters.toFixed(1)} m`;
+}
+
+function webgisFormatArea(squareMeters) {
+  return squareMeters >= 10000 ? `${(squareMeters / 10000).toFixed(2)} ha` : `${squareMeters.toFixed(1)} m²`;
+}
+
+function webgisSphericalArea(latlngs) {
+  if (latlngs.length < 3) return 0;
+  const radius = 6378137;
+  const rad = Math.PI / 180;
+  let area = 0;
+  for (let i = 0; i < latlngs.length; i += 1) {
+    const p1 = latlngs[i];
+    const p2 = latlngs[(i + 1) % latlngs.length];
+    area += (p2.lng - p1.lng) * rad * (2 + Math.sin(p1.lat * rad) + Math.sin(p2.lat * rad));
+  }
+  return Math.abs(area * radius * radius / 2);
+}
+
+function webgisSetMeasureMode(mode) {
+  webgisState.measureMode = mode;
+  webgisState.measurePoints = [];
+  webgisClearMeasure(false);
+  webgisEl('webgisMeasureBadge').textContent = mode === 'distance' ? 'Đo khoảng cách: bấm các điểm trên bản đồ.' : 'Đo diện tích: bấm các đỉnh vùng trên bản đồ.';
+}
+
+function webgisClearMeasure(resetMode = true) {
+  if (webgisState.measureLayer) {
+    webgisState.map.removeLayer(webgisState.measureLayer);
+    webgisState.measureLayer = null;
+  }
+  webgisState.measurePoints = [];
+  if (resetMode) {
+    webgisState.measureMode = null;
+    webgisEl('webgisMeasureBadge').textContent = 'Sẵn sàng tra cứu bản đồ';
+  }
+}
+
+function webgisHandleMeasureClick(latlng) {
+  if (!webgisState.measureMode) return;
+  webgisState.measurePoints.push(latlng);
+  if (webgisState.measureLayer) webgisState.map.removeLayer(webgisState.measureLayer);
+  if (webgisState.measureMode === 'distance') {
+    webgisState.measureLayer = L.polyline(webgisState.measurePoints, { color: '#f97316', weight: 4 }).addTo(webgisState.map);
+    const total = webgisState.measurePoints.slice(1).reduce((sum, point, index) => sum + webgisState.map.distance(webgisState.measurePoints[index], point), 0);
+    webgisEl('webgisMeasureBadge').textContent = `Chiều dài: ${webgisFormatDistance(total)}. Bấm Xóa đo để kết thúc.`;
+  } else {
+    webgisState.measureLayer = L.polygon(webgisState.measurePoints, { color: '#f97316', weight: 3, fillOpacity: 0.18 }).addTo(webgisState.map);
+    webgisEl('webgisMeasureBadge').textContent = `Diện tích: ${webgisFormatArea(webgisSphericalArea(webgisState.measurePoints))}. Bấm Xóa đo để kết thúc.`;
+  }
+}
+
+async function webgisTakeScreenshot() {
+  if (!window.html2canvas) {
+    alert('Chưa tải được thư viện chụp ảnh bản đồ. Vui lòng thử lại sau.');
+    return;
+  }
+  try {
+    const canvas = await window.html2canvas(webgisEl('webgisMap'), { useCORS: true, backgroundColor: '#eef6ff' });
+    const link = document.createElement('a');
+    link.download = 'webgis-ban-do.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (error) {
+    alert('Không chụp được ảnh do trình duyệt chặn ảnh nền bản đồ từ nguồn ngoài. Có thể dùng công cụ In bản đồ để lưu PDF.');
+  }
+}
+
+async function webgisImportGeoJson() {
+  const file = webgisEl('webgisImportInput').files?.[0];
+  const name = webgisEl('webgisNewLayerName').value.trim() || file?.name?.replace(/\.(geojson|json)$/i, '') || 'Layer GeoJSON';
+  if (!file) {
+    alert('Hãy chọn file GeoJSON trước.');
+    return;
+  }
+  const data = JSON.parse(await file.text());
+  const layerId = `custom_${Date.now()}`;
+  const color = webgisEl('webgisNewLayerColor').value || '#2563eb';
+  const features = webgisNormalizeFeatures(data, layerId).map(feature => ({ ...feature, properties: { ...feature.properties, layer: layerId } }));
+  if (!features.length) {
+    alert('File GeoJSON không có đối tượng hợp lệ.');
+    return;
+  }
+  webgisState.layerDefs.push({ id: layerId, label: name, color, visible: true, opacity: 78, custom: true });
+  webgisState.features.push(...features);
+  webgisRebuildOverlays();
+  webgisFitLayer(layerId);
+  alert(`Đã thêm ${features.length} đối tượng vào layer "${name}".`);
+}
+
+function webgisSaveSelectedFeatureProps() {
+  const id = webgisState.selectedFeatureId;
+  if (!id) {
+    alert('Hãy chọn một đối tượng trên bản đồ trước.');
+    return;
+  }
+  let props;
+  try {
+    props = JSON.parse(webgisEl('webgisFeatureEditor').value || '{}');
+  } catch (error) {
+    alert('Nội dung thuộc tính phải là JSON hợp lệ.');
+    return;
+  }
+  const feature = webgisState.features.find(item => item.properties.__id === id);
+  if (!feature) return;
+  feature.properties = { ...props, layer: props.layer || feature.properties.layer, __id: id };
+  webgisRebuildOverlays();
+  webgisZoomToFeature(id);
+  webgisRenderAttributeTable();
+}
+
+function webgisBindEvents() {
+  webgisEl('webgisLayerList').addEventListener('change', event => {
+    const toggleId = event.target?.dataset?.webgisLayerToggle;
+    const opacityId = event.target?.dataset?.webgisLayerOpacity;
+    if (toggleId) {
+      const def = webgisState.layerDefs.find(layer => layer.id === toggleId);
+      if (def) def.visible = event.target.checked;
+      const layer = webgisState.overlayLayers.get(toggleId);
+      if (event.target.checked) layer?.addTo(webgisState.map);
+      else if (layer) webgisState.map.removeLayer(layer);
+    }
+    if (opacityId) {
+      const def = webgisState.layerDefs.find(layer => layer.id === opacityId);
+      if (def) def.opacity = Number(event.target.value);
+      webgisUpdateLayerStyle(opacityId);
+    }
+  });
+  webgisEl('webgisLayerList').addEventListener('click', event => {
+    const layerId = event.target?.dataset?.webgisLayerZoom;
+    if (layerId) webgisFitLayer(layerId);
+  });
+  webgisEl('webgisSearchBtn').addEventListener('click', webgisSearch);
+  webgisEl('webgisSearchInput').addEventListener('keydown', event => {
+    if (event.key === 'Enter') webgisSearch();
+  });
+  webgisEl('webgisSearchResults').addEventListener('click', event => {
+    const button = event.target.closest('[data-feature-id]');
+    if (!button) return;
+    webgisZoomToFeature(button.dataset.featureId);
+    webgisEl('webgisSearchResults').hidden = true;
+  });
+  webgisEl('webgisFitAllBtn').addEventListener('click', webgisFitAll);
+  webgisEl('webgisHomeBtn').addEventListener('click', showHomePage);
+  webgisEl('webgisOpenTableBtn').addEventListener('click', () => {
+    webgisEl('webgisAttributePanel').hidden = false;
+    webgisRenderAttributeTable();
+  });
+  webgisEl('webgisCloseTableBtn').addEventListener('click', () => webgisEl('webgisAttributePanel').hidden = true);
+  webgisEl('webgisAttrLayer').addEventListener('change', webgisRenderAttributeTable);
+  webgisEl('webgisAttrSearch').addEventListener('input', webgisRenderAttributeTable);
+  webgisEl('webgisAttrTable').addEventListener('click', event => {
+    const sortKey = event.target?.dataset?.webgisSort;
+    if (sortKey) {
+      webgisState.attrSortDir = webgisState.attrSortKey === sortKey ? -webgisState.attrSortDir : 1;
+      webgisState.attrSortKey = sortKey;
+      webgisRenderAttributeTable();
+      return;
+    }
+    const row = event.target.closest('tr[data-feature-id]');
+    if (row) webgisZoomToFeature(row.dataset.featureId);
+  });
+  webgisEl('webgisAdminBtn').addEventListener('click', () => webgisEl('webgisAdminPanel').hidden = !webgisEl('webgisAdminPanel').hidden);
+  webgisEl('webgisCloseAdminBtn').addEventListener('click', () => webgisEl('webgisAdminPanel').hidden = true);
+  webgisEl('webgisImportBtn').addEventListener('click', () => webgisImportGeoJson().catch(error => alert(error.message || String(error))));
+  webgisEl('webgisSaveFeatureBtn').addEventListener('click', webgisSaveSelectedFeatureProps);
+  webgisEl('webgisLocateBtn').addEventListener('click', () => webgisState.map.locate({ setView: true, maxZoom: 17 }));
+  webgisEl('webgisMeasureDistanceBtn').addEventListener('click', () => webgisSetMeasureMode('distance'));
+  webgisEl('webgisMeasureAreaBtn').addEventListener('click', () => webgisSetMeasureMode('area'));
+  webgisEl('webgisClearMeasureBtn').addEventListener('click', () => webgisClearMeasure(true));
+  webgisEl('webgisPrintBtn').addEventListener('click', () => window.print());
+  webgisEl('webgisShotBtn').addEventListener('click', () => webgisTakeScreenshot());
+  webgisEl('webgisFullscreenBtn').addEventListener('click', () => webgisEl('webgisPage').requestFullscreen?.());
+}
+
+function initializeWebGIS() {
+  if (webgisState.initialized) {
+    setTimeout(() => webgisState.map?.invalidateSize(), 80);
+    return;
+  }
+  if (!window.L) {
+    webgisEl('webgisMap').innerHTML = '<div class="webgis-detail-empty">Không tải được Leaflet.js. Vui lòng kiểm tra kết nối mạng hoặc CDN.</div>';
+    return;
+  }
+  const sample = JSON.parse(document.getElementById('webgisSampleData').textContent);
+  webgisState.layerDefs = webgisLayerDefs.map(item => ({ ...item, opacity: 78 }));
+  webgisState.features = webgisNormalizeFeatures(sample);
+  const map = L.map('webgisMap', { zoomControl: false, preferCanvas: true }).setView([21.0405, 105.8520], 15);
+  webgisState.map = map;
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
+  const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenTopoMap contributors' });
+  L.control.layers({ OpenStreetMap: osm, 'Ảnh vệ tinh': satellite, 'Địa hình': terrain }, null, { position: 'topright', collapsed: true }).addTo(map);
+  webgisRebuildOverlays();
+  webgisBindEvents();
+  map.on('mousemove', event => {
+    webgisEl('webgisCoordinateBar').textContent = `Tọa độ: ${event.latlng.lat.toFixed(6)}, ${event.latlng.lng.toFixed(6)}`;
+  });
+  map.on('click', event => webgisHandleMeasureClick(event.latlng));
+  map.on('locationfound', event => {
+    L.circleMarker(event.latlng, { radius: 8, color: '#0f766e', fillColor: '#14b8a6', fillOpacity: 0.85 }).addTo(map)
+      .bindPopup('Vị trí hiện tại của bạn').openPopup();
+  });
+  map.on('locationerror', () => alert('Không xác định được vị trí. Hãy cho phép trình duyệt truy cập vị trí nếu cần.'));
+  webgisFitAll();
+  webgisState.initialized = true;
+}
+"""
 
 
 def normalize_key(value) -> str:
@@ -385,12 +1494,18 @@ def main() -> None:
             f'<a href="{href}" download="{html.escape(public_name, quote=True)}">{html.escape(label)}</a>'
         )
     sample_links_html = "\n      ".join(sample_links)
+    webgis_data_dir = OUT.parent / "webgis"
+    webgis_data_dir.mkdir(parents=True, exist_ok=True)
+    webgis_sample_json_pretty = json.dumps(WEBGIS_SAMPLE_DATA, ensure_ascii=False, indent=2)
+    (webgis_data_dir / "sample-land-data.geojson").write_text(webgis_sample_json_pretty, encoding="utf-8")
+    webgis_sample_json = json.dumps(WEBGIS_SAMPLE_DATA, ensure_ascii=False).replace("</", "<\\/")
     doc = f"""<!doctype html>
 <html lang="vi">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Phần mềm chu chuyển đất đai</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root {{
   --bg: #eef4f1;
@@ -571,6 +1686,7 @@ body.webgis-mode .docs-page {{
   background: #ffffff;
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.10);
 }}
+{WEBGIS_CSS}
 .library-shell {{
   min-height: calc(100vh - 104px);
   padding: 18px;
@@ -1764,7 +2880,7 @@ td.search-hit {{
     <div id="libraryEmpty" class="library-empty" hidden>Chưa có tài liệu phù hợp.</div>
   </section>
 </main>
-<main id="webgisPage" class="webgis-page" aria-label="WebGis"></main>
+{WEBGIS_HTML}
 <section id="libraryAccessPanel" class="library-access" hidden>
   <div class="library-access-card">
     <div class="library-admin-actions">
@@ -1939,7 +3055,10 @@ td.search-hit {{
 </table>
 </main>
 <script id="meta" type="application/json">{meta_json}</script>
+<script id="webgisSampleData" type="application/json">{webgis_sample_json}</script>
 <script>{jszip_js}</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" referrerpolicy="no-referrer"></script>
 <script>
 const meta = JSON.parse(document.getElementById('meta').textContent);
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -1969,6 +3088,7 @@ const previousPlanValues = {{}};
 let projectTitlesConfirmed = false;
 let gtpFileHandle = null;
 let gtpFileName = '';
+{WEBGIS_JS}
 let libraryDocuments = [];
 const librarySessionTokenKey = 'library-session-token';
 const librarySessionRoleKey = 'library-session-role';
@@ -3870,6 +4990,7 @@ function showWebGisPage() {{
   $('#pdfReader').hidden = true;
   $('#importLog').hidden = true;
   closeMainMenu();
+  initializeWebGIS();
 }}
 
 $('#menuBtn').addEventListener('click', event => {{

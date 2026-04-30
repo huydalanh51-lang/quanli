@@ -149,4 +149,17 @@ Khi co cac bien nay, phan mem se luu metadata thu vien tai `_metadata/library_do
 
 Luu y bao mat: tren moi truong web khong the chong tai xuong/copy/chup man hinh 100%. Phan mem chi han che nguoi dung pho thong bang cach khong public file goc, dung token ngan han, khong tao text layer, chan chuot phai va cac phim tat pho bien.
 
+## WebGIS quan ly du lieu dat dai
+
+- Trang chu co menu `WebGis`.
+- Ban dau dung Leaflet.js + GeoJSON, chay ngay trong frontend.
+- Co ban do nen OpenStreetMap, anh ve tinh Esri va dia hinh OpenTopoMap.
+- Co cac lop mau: ranh gioi hanh chinh, hien trang su dung dat, quy hoach su dung dat, giao thong, thuy he, thua dat, cong trinh cong cong.
+- Co tra cuu theo ma thua, chu su dung, ma loai dat, dia danh va quy hoach.
+- Co popup thong tin, bang thuoc tinh, highlight dong/doi tuong, do khoang cach, do dien tich, in ban do, chup anh ban do va hien toa do con tro.
+- Co file du lieu mau tai `public/webgis/sample-land-data.geojson`.
+- Cong cu quan tri WebGIS hien la ban demo cuc bo: upload GeoJSON, them layer moi va sua thuoc tinh doi tuong dang chon tren trinh duyet.
+
+Huong nang cap: khi du lieu lon, nen chuyen GeoJSON sang backend Node.js + PostgreSQL/PostGIS, phan trang/loc theo bbox, hoac tao vector tile de ban do nhe hon. Voi nhieu diem, nen dung clustering hoac tile point layer.
+
 Ghi chu: server uu tien chay bang Express sau khi `npm install`. Neu moi truong chua cai duoc `express`, server co fallback Node thuan de van kiem tra duoc frontend va API co ban, nhung ban nen chay `npm install` de dung dung backend Express.
