@@ -1,0 +1,3183 @@
+from __future__ import annotations
+
+import base64
+import html
+import json
+import re
+import shutil
+import unicodedata
+from pathlib import Path
+
+import openpyxl
+from openpyxl.utils import get_column_letter
+
+
+BASE_DIR = Path(r"D:\Codex\Tools")
+SOURCE = Path(r"C:\Users\QUANGHUY\Downloads\Bieu_chu_chuyen_dat_dai_mau_cong_thuc.xlsx")
+OUT = BASE_DIR / "public" / "index.html"
+JSZIP = Path(r"C:\Users\QUANGHUY\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules\jszip\dist\jszip.min.js")
+LOGO = Path(r"C:\Users\QUANGHUY\Downloads\482087578_122221961630205345_1940337838885474762_n.jpg")
+HOME_BACKGROUND = Path(r"C:\Users\QUANGHUY\Downloads\ChatGPT Image 12_00_04 30 thg 4, 2026.png")
+
+LAND_NAME_FIXES = {
+    "Đất côn trình thủy lợi": "Đất công trình thủy lợi",
+}
+
+STT_FIXES_BY_CODE = {
+    "TIN": "2.10",
+}
+
+HEADER_ROW = 3
+CURRENT_COL = 4
+MATRIX_START_COL = 5
+MATRIX_END_COL = 66
+DECREASE_COL = 67
+CHANGE_COL = 68
+PLAN_COL = 69
+PREVIOUS_PLAN_COL = 70
+TOTAL_INCREASE_ROW = 67
+PLAN_ROW = 68
+PREVIOUS_PLAN_DIR = BASE_DIR / "Dulieu"
+SAMPLE_DIR = BASE_DIR / "public" / "samples"
+LEGACY_SAMPLE_DIR = BASE_DIR / "samples"
+SAMPLE_FILES = [
+    ("Dữ liệu hiện trạng mẫu.xlsx", "hien-trang-mau.xlsx", "Dữ liệu hiện trạng mẫu"),
+    ("Kết quả thực hiện quy hoạch năm mẫu.xlsx", "ket-qua-quy-hoach-nam-mau.xlsx", "Kết quả thực hiện quy hoạch năm mẫu"),
+    ("Bảng quy hoạch mẫu.xlsx", "bang-quy-hoach-mau.xlsx", "Bảng quy hoạch mẫu"),
+]
+
+
+def normalize_key(value) -> str:
+    text = unicodedata.normalize("NFD", str(value or "").strip().lower())
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    text = text.replace("đ", "d")
+    return re.sub(r"\s+", " ", text)
+
+
+def parse_number(value) -> float | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip().replace(" ", "")
+    if "," in text and "." not in text:
+        text = text.replace(",", ".")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def format_ha(value: float | None) -> str:
+    if value is None:
+        return ""
+    return f"{value:.2f}".replace(".", ",")
+
+
+def read_previous_plan_values() -> dict[str, float]:
+    files = [p for p in PREVIOUS_PLAN_DIR.glob("*.xlsx") if not p.name.startswith("~$")]
+    if not files:
+        return {}
+    wb = openpyxl.load_workbook(files[0], data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    code_col = None
+    area_col = None
+    for row in range(1, min(ws.max_row, 25) + 1):
+        for col in range(1, ws.max_column + 1):
+            text = normalize_key(ws.cell(row, col).value)
+            if text in {"mã", "ma", "mã đất", "ma dat"}:
+                code_col = col
+            if "diện tích" in text or "dien tich" in text:
+                area_col = col
+    if not area_col:
+        for row in range(1, min(ws.max_row, 25) + 1):
+            for col in range(1, ws.max_column + 1):
+                if "quy hoạch" in normalize_key(ws.cell(row, col).value) and col <= ws.max_column:
+                    area_col = col
+                    break
+            if area_col:
+                break
+    if not code_col or not area_col:
+        return {}
+
+    values: dict[str, float] = {}
+    for row in range(1, ws.max_row + 1):
+        code = str(ws.cell(row, code_col).value or "").strip().upper()
+        name = normalize_key(ws.cell(row, max(1, code_col - 1)).value)
+        if not code and "tổng diện tích tự nhiên" in name:
+            code = "DTTN"
+        area = parse_number(ws.cell(row, area_col).value)
+        if code and area is not None:
+            values[code] = area
+    return values
+
+
+def read_previous_plan_values_clean() -> dict[str, float]:
+    files = [p for p in PREVIOUS_PLAN_DIR.glob("*.xlsx") if not p.name.startswith("~$")]
+    if not files:
+        return {}
+    wb = openpyxl.load_workbook(files[0], data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    code_col = None
+    area_col = None
+    for row in range(1, min(ws.max_row, 25) + 1):
+        for col in range(1, ws.max_column + 1):
+            text = normalize_key(ws.cell(row, col).value)
+            if text in {"ma", "ma dat"}:
+                code_col = col
+            if "dien tich" in text and (code_col is None or col > code_col):
+                area_col = col
+    if not area_col:
+        for row in range(1, min(ws.max_row, 25) + 1):
+            for col in range(1, ws.max_column + 1):
+                if "quy hoach" in normalize_key(ws.cell(row, col).value):
+                    area_col = col
+                    break
+            if area_col:
+                break
+    if not code_col or not area_col:
+        return {}
+
+    values: dict[str, float] = {}
+    for row in range(1, ws.max_row + 1):
+        code = str(ws.cell(row, code_col).value or "").strip().upper()
+        name = normalize_key(ws.cell(row, max(1, code_col - 1)).value)
+        if not code and "tong dien tich tu nhien" in name:
+            code = "DTTN"
+        area = parse_number(ws.cell(row, area_col).value)
+        if code and area is not None:
+            values[code] = area
+    return values
+def color(value) -> str | None:
+    if not value:
+        return None
+    if getattr(value, "type", None) == "rgb" and value.rgb:
+        rgb = value.rgb[-6:]
+        if rgb == "000000" and str(value.rgb).startswith("00"):
+            return None
+        return f"#{rgb}"
+    return None
+
+
+def border_css(side) -> str:
+    if side is None or side.style is None:
+        return "1px solid #c8d0d9"
+    width = "2px" if side.style in {"medium", "thick", "double"} else "1px"
+    clr = color(side.color) or "#2f3640"
+    return f"{width} solid {clr}"
+
+
+def style_key(cell) -> str:
+    fill = None
+    if cell.fill and cell.fill.fill_type == "solid":
+        fill = color(cell.fill.fgColor)
+    font_color = color(cell.font.color)
+    horizontal = cell.alignment.horizontal or "center"
+    if horizontal == "centerContinuous":
+        horizontal = "center"
+    if horizontal in {"general", "distributed", "justify"}:
+        horizontal = "left"
+    parts = [
+        f"background:{fill}" if fill else "",
+        f"font-weight:{'700' if cell.font.bold else '400'}",
+        f"font-style:{'italic' if cell.font.italic else 'normal'}",
+        f"font-size:{int(cell.font.sz or 11)}pt",
+        f"color:{font_color or '#17202a'}",
+        f"text-align:{horizontal}",
+        f"vertical-align:{cell.alignment.vertical or 'middle'}",
+        f"white-space:{'normal' if cell.alignment.wrap_text else 'nowrap'}",
+        f"border-top:{border_css(cell.border.top)}",
+        f"border-right:{border_css(cell.border.right)}",
+        f"border-bottom:{border_css(cell.border.bottom)}",
+        f"border-left:{border_css(cell.border.left)}",
+    ]
+    return ";".join(p for p in parts if p)
+
+
+def display_value(value, code: str = "", col: int | None = None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str) and value.startswith("="):
+        return ""
+    if col == 1 and code in STT_FIXES_BY_CODE:
+        return STT_FIXES_BY_CODE[code]
+    text = str(value)
+    return LAND_NAME_FIXES.get(text.strip(), text)
+
+
+def main() -> None:
+    wb = openpyxl.load_workbook(SOURCE, data_only=False)
+    ws = wb["Sheet1"]
+    previous_plan_values = {}
+    total_columns = ws.max_column + 1
+
+    merged_parent = {}
+    merged_skip = set()
+    for rng in ws.merged_cells.ranges:
+        min_col, min_row, max_col, max_row = rng.bounds
+        merged_parent[(min_row, min_col)] = (max_row - min_row + 1, max_col - min_col + 1)
+        for row in range(min_row, max_row + 1):
+            for col in range(min_col, max_col + 1):
+                if (row, col) != (min_row, min_col):
+                    merged_skip.add((row, col))
+
+    code_rows = {}
+    for row in range(1, ws.max_row + 1):
+        code = ws.cell(row, 3).value
+        if code is not None:
+            code_rows[str(code).strip()] = row
+
+    code_cols = {}
+    for col in range(MATRIX_START_COL, MATRIX_END_COL + 1):
+        code = ws.cell(HEADER_ROW, col).value
+        if code is not None:
+            code_cols[str(code).strip()] = col
+
+    direct_children: dict[str, list[str]] = {}
+    for code, row in code_rows.items():
+        value = ws.cell(row, CURRENT_COL).value
+        if not (isinstance(value, str) and value.startswith("=")):
+            continue
+        child_codes = []
+        for child_row in [int(x) for x in re.findall(r"D(\d+)", value)]:
+            child_code = ws.cell(child_row, 3).value
+            if child_code is not None:
+                child_codes.append(str(child_code).strip())
+        if child_codes:
+            direct_children[code] = child_codes
+
+    all_data_codes = [
+        str(ws.cell(row, 3).value).strip()
+        for row in range(5, TOTAL_INCREASE_ROW)
+        if ws.cell(row, 3).value is not None
+    ]
+    parent_codes = set(direct_children)
+    input_codes = [code for code in all_data_codes if code not in parent_codes and code in code_cols]
+    missing_codes: list[str] = []
+
+    styles = {}
+    style_names = {}
+    css_rules = []
+    for row in range(1, ws.max_row + 1):
+        for col in range(1, ws.max_column + 1):
+            key = style_key(ws.cell(row, col))
+            if key not in style_names:
+                name = f"xl{len(style_names) + 1}"
+                style_names[key] = name
+                css_rules.append(f".{name}{{{key}}}")
+
+    colgroup = []
+    for col in range(1, ws.max_column + 1):
+        letter = get_column_letter(col)
+        width = ws.column_dimensions[letter].width or 8
+        px = int(width * 8)
+        colgroup.append(f'<col style="width:{px}px;min-width:{px}px">')
+    colgroup.append('<col style="width:112px;min-width:112px">')
+
+    rows_html = []
+    for row in range(1, ws.max_row + 1):
+        height = ws.row_dimensions[row].height or 30
+        if row == 1:
+            rows_html.append(
+                f'<tr style="height:{max(height, 42)}px">'
+                f'<td class="sheet-title" data-addr="A1" data-row="1" data-col="1" colspan="{total_columns}">'
+                'BẢNG CHU CHUYỂN ĐẤT ĐAI'
+                '</td></tr>'
+            )
+            continue
+        cells = []
+        for col in range(1, ws.max_column + 1):
+            if (row, col) in merged_skip:
+                continue
+            cell = ws.cell(row, col)
+            rowspan, colspan = merged_parent.get((row, col), (1, 1))
+            cls = style_names[style_key(cell)]
+            addr = f"{get_column_letter(col)}{row}"
+            code = str(ws.cell(row, 3).value or "").strip()
+            col_code = str(ws.cell(HEADER_ROW, col).value or "").strip()
+            is_current_input = col == CURRENT_COL and code in input_codes
+            is_matrix_input = row in [code_rows[c] for c in input_codes] and col in [code_cols[c] for c in input_codes]
+            is_input = is_current_input or is_matrix_input
+            attrs = [
+                f'class="{cls}"',
+                f'data-addr="{addr}"',
+                f'data-row="{row}"',
+                f'data-col="{col}"',
+            ]
+            if rowspan > 1:
+                attrs.append(f'rowspan="{rowspan}"')
+            if colspan > 1:
+                attrs.append(f'colspan="{colspan}"')
+            if code:
+                attrs.append(f'data-code="{html.escape(code)}"')
+            if col_code:
+                attrs.append(f'data-col-code="{html.escape(col_code)}"')
+
+            text = html.escape(display_value(cell.value, code, col))
+            if is_input:
+                attrs.append('data-input="1"')
+                value = "" if cell.value is None or (isinstance(cell.value, str) and cell.value.startswith("=")) else html.escape(str(cell.value))
+                content = f'<input inputmode="decimal" value="{value}" aria-label="{html.escape(addr)}">'
+            elif col >= CURRENT_COL and row >= 4:
+                attrs.append('data-auto="1"')
+                content = f'<span class="value">{text}</span>'
+            else:
+                content = text
+            cells.append(f"<td {' '.join(attrs)}>{content}</td>")
+        if row == 2:
+            cells.append(
+                f'<td class="xl3" data-addr="{get_column_letter(PREVIOUS_PLAN_COL)}{row}" '
+                f'data-row="{row}" data-col="{PREVIOUS_PLAN_COL}" rowspan="2">'
+                'Quy hoạch kỳ trước</td>'
+            )
+        elif row >= 4:
+            previous_code = str(ws.cell(row, 3).value or "").strip().upper()
+            if row == 4:
+                previous_code = "DTTN"
+            previous_text = html.escape(format_ha(previous_plan_values.get(previous_code)))
+            cells.append(
+                f'<td class="xl7" data-addr="{get_column_letter(PREVIOUS_PLAN_COL)}{row}" '
+                f'data-row="{row}" data-col="{PREVIOUS_PLAN_COL}" data-previous-plan="1" data-auto="1">'
+                f'<span class="value">{previous_text}</span></td>'
+            )
+        rows_html.append(f'<tr style="height:{height}px">{"".join(cells)}</tr>')
+
+    meta = {
+        "inputCodes": input_codes,
+        "missingCodes": missing_codes,
+        "directChildren": direct_children,
+        "codeRows": code_rows,
+        "codeCols": code_cols,
+        "dttnRow": 4,
+        "currentCol": CURRENT_COL,
+        "matrixStartCol": MATRIX_START_COL,
+        "matrixEndCol": MATRIX_END_COL,
+        "decreaseCol": DECREASE_COL,
+        "changeCol": CHANGE_COL,
+        "planCol": PLAN_COL,
+        "previousPlanCol": PREVIOUS_PLAN_COL,
+        "totalIncreaseRow": TOTAL_INCREASE_ROW,
+        "planRow": PLAN_ROW,
+        "tolerance": 0.0001,
+    }
+
+    meta_json = json.dumps(meta, ensure_ascii=False).replace("</", "<\\/")
+
+    jszip_js = JSZIP.read_text(encoding="utf-8")
+    logo_data_url = ""
+    if LOGO.exists():
+        logo_data_url = "data:image/jpeg;base64," + base64.b64encode(LOGO.read_bytes()).decode("ascii")
+    home_bg_data_url = ""
+    if HOME_BACKGROUND.exists():
+        home_bg_data_url = "data:image/png;base64," + base64.b64encode(HOME_BACKGROUND.read_bytes()).decode("ascii")
+    SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
+    LEGACY_SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
+    sample_links = []
+    for source_name, public_name, label in SAMPLE_FILES:
+        source_path = PREVIOUS_PLAN_DIR / source_name
+        if not source_path.exists():
+            continue
+        shutil.copy2(source_path, SAMPLE_DIR / public_name)
+        shutil.copy2(source_path, LEGACY_SAMPLE_DIR / public_name)
+        payload = base64.b64encode(source_path.read_bytes()).decode("ascii")
+        href = f"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{payload}"
+        sample_links.append(
+            f'<a href="{href}" download="{html.escape(public_name, quote=True)}">{html.escape(label)}</a>'
+        )
+    sample_links_html = "\n      ".join(sample_links)
+    doc = f"""<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phần mềm chu chuyển đất đai</title>
+<style>
+:root {{
+  --bg: #eef4f1;
+  --panel: #ffffff;
+  --ink: #17202a;
+  --muted: #64748b;
+  --line: #d5dde8;
+  --accent: #0f766e;
+  --accent-2: #2563eb;
+  --surface: rgba(255, 255, 255, 0.88);
+  --warn: #b42318;
+  --input: #fff8d9;
+  --diagonal: #dcfce7;
+  --auto: #f8fafc;
+  --header: #e8f1f7;
+  --locked: #f7f9fc;
+}}
+* {{ box-sizing: border-box; }}
+html {{ min-height: 100%; }}
+body {{
+  margin: 0;
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.28)),
+    linear-gradient(135deg, #eef4f1 0%, #f8fafc 52%, #edf3f7 100%);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}}
+.appbar {{
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 14px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(244, 250, 247, 0.92));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.42);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
+  backdrop-filter: blur(12px);
+}}
+.title {{
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #0f3d31;
+}}
+.subtitle {{
+  color: #1e4d5f;
+  font-size: 12px;
+  font-weight: 700;
+}}
+.brand {{
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 1 310px;
+  min-width: 250px;
+}}
+.brand-logo {{
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.20);
+  flex: 0 0 auto;
+}}
+.brand-text {{
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.15;
+}}
+.designer {{
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}}
+.status {{
+  display: flex;
+  flex: 1 1 260px;
+  min-width: 220px;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}}
+.quick-save {{
+  flex: 0 0 auto;
+  margin-left: auto;
+}}
+.main-menu {{
+  position: relative;
+  flex: 0 0 auto;
+}}
+.menu-trigger {{
+  min-width: 92px;
+  font-weight: 700;
+}}
+.menu-list {{
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 80;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid rgba(100, 116, 139, 0.34);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+}}
+.menu-list[hidden] {{
+  display: none;
+}}
+.menu-list button {{
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}}
+.menu-list button:hover {{
+  background: #f0fdfa;
+  filter: none;
+}}
+.home-page {{
+  min-height: calc(100vh - 74px);
+  margin: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(6, 25, 65, 0.05), rgba(6, 25, 65, 0.10)),
+    url("{home_bg_data_url}") center / cover no-repeat,
+    linear-gradient(135deg, #0752b7, #52c7e8);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 18px 42px rgba(15, 23, 42, 0.18);
+}}
+body.home-mode .module-only,
+body.home-mode .table-wrap,
+body.home-mode #importLog {{
+  display: none;
+}}
+body.module-mode .home-page {{
+  display: none;
+}}
+.badge {{
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  background: rgba(248, 250, 252, 0.88);
+  border-radius: 6px;
+}}
+.badge.warn {{
+  color: #7a271a;
+  border-color: #f4b0a1;
+  background: #fff1ed;
+}}
+.actions {{
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  align-items: flex-start;
+}}
+.tool-group {{
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}}
+.tool-group-title {{
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 34px;
+  text-transform: uppercase;
+  padding: 0 11px;
+  cursor: pointer;
+  box-shadow: none;
+}}
+.tool-group-title::after {{
+  content: "▾";
+  margin-left: 7px;
+  font-size: 10px;
+  color: #64748b;
+}}
+.tool-group.open .tool-group-title::after {{
+  content: "▴";
+}}
+.tool-items {{
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 85;
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 260px;
+  max-width: min(520px, calc(100vw - 28px));
+  padding: 8px;
+  border: 1px solid rgba(100, 116, 139, 0.34);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+}}
+.tool-group.open .tool-items {{
+  display: flex;
+}}
+.tool-group:nth-last-child(-n+2) .tool-items {{
+  left: auto;
+  right: 0;
+}}
+.project-items {{
+  min-width: min(420px, calc(100vw - 28px));
+  gap: 10px;
+}}
+.project-section {{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 8px;
+  background: #f8fafc;
+}}
+.project-section strong {{
+  color: #0f172a;
+  font-size: 12px;
+}}
+.project-field {{
+  display: grid;
+  grid-template-columns: 135px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  color: #475569;
+  font-size: 12px;
+}}
+.project-field input {{
+  min-width: 0;
+  width: 100%;
+  height: 30px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 12px;
+}}
+.project-actions {{
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}}
+.project-actions button {{
+  min-width: 112px;
+}}
+.project-db-status {{
+  flex: 1 1 auto;
+  min-width: 160px;
+  color: #64748b;
+  font-size: 12px;
+}}
+.sample-downloads {{
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 0;
+  align-items: center;
+  font-size: 12px;
+  color: #475569;
+}}
+.sample-downloads > span {{
+  height: 34px;
+  line-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+}}
+.sample-downloads > span::after {{
+  content: "▾";
+  margin-left: 7px;
+  font-size: 10px;
+  color: #64748b;
+}}
+.sample-downloads.open > span::after {{
+  content: "▴";
+}}
+.sample-items {{
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 85;
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 280px;
+  max-width: min(520px, calc(100vw - 28px));
+  padding: 8px;
+  border: 1px solid rgba(100, 116, 139, 0.34);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+}}
+.sample-downloads.open .sample-items {{
+  display: flex;
+}}
+.sample-downloads a {{
+  color: #0f766e;
+  text-decoration: none;
+  border: 1px solid rgba(15, 118, 110, 0.24);
+  background: rgba(240, 253, 250, 0.82);
+  padding: 4px 8px;
+}}
+.sample-downloads a:hover {{
+  border-color: rgba(15, 118, 110, 0.52);
+  background: #ccfbf1;
+}}
+.search-box {{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 1px solid rgba(100, 116, 139, 0.42);
+  background: rgba(255, 255, 255, 0.68);
+  border-radius: 6px;
+}}
+.search-box input {{
+  width: 96px;
+  height: 28px;
+  min-height: 28px;
+  border: 0;
+  background: #ffffff;
+  padding: 0 8px;
+  text-align: left;
+  text-transform: uppercase;
+}}
+.search-box button {{
+  height: 28px;
+  padding: 0 8px;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+}}
+.import-options {{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}}
+.import-options input,
+.view-options input,
+.report-option input {{
+  width: auto;
+  height: auto;
+  min-height: 0;
+}}
+select {{
+  height: 32px;
+  border: 1px solid rgba(100, 116, 139, 0.62);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  padding: 0 8px;
+  font-size: 13px;
+}}
+button {{
+  height: 32px;
+  border: 1px solid rgba(100, 116, 139, 0.62);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  color: #0f172a;
+  padding: 0 11px;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}}
+button.primary {{
+  border-color: var(--accent);
+  background: linear-gradient(180deg, #158176, #0f766e);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 6px 14px rgba(15, 118, 110, 0.20);
+}}
+button:hover {{ filter: brightness(0.97); }}
+.table-toolbar {{
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 12px 14px -4px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}}
+.legend {{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  color: #334155;
+  font-size: 12px;
+}}
+.legend-item {{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}}
+.swatch {{
+  width: 16px;
+  height: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}}
+.swatch.input {{ background: var(--input); }}
+.swatch.diagonal {{ background: var(--diagonal); }}
+.swatch.auto {{ background: var(--auto); }}
+.swatch.locked {{ background: #ffffff; }}
+.view-options {{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-size: 12px;
+}}
+.table-wrap {{
+  height: calc(100vh - 184px);
+  min-height: 420px;
+  overflow: auto;
+  margin: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.44);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.94)),
+    repeating-linear-gradient(135deg, rgba(15, 118, 110, 0.05) 0 12px, rgba(37, 99, 235, 0.04) 12px 24px);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+  scrollbar-color: #94a3b8 #e2e8f0;
+  scrollbar-width: thin;
+}}
+.table-wrap::-webkit-scrollbar {{
+  width: 14px;
+  height: 14px;
+}}
+.table-wrap::-webkit-scrollbar-track {{
+  background: #e2e8f0;
+}}
+.table-wrap::-webkit-scrollbar-thumb {{
+  background: #94a3b8;
+  border: 3px solid #e2e8f0;
+  border-radius: 999px;
+}}
+table {{
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: max-content;
+  background: #ffffff;
+}}
+.sheet-title {{
+  height: 42px;
+  background: #f8fafc;
+  color: #0f3d31;
+  font-size: 18pt;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+  letter-spacing: 0;
+  border: 1px solid #c8d0d9;
+}}
+td {{
+  position: relative;
+  background: #ffffff;
+  padding: 4px 6px;
+  line-height: 1.25;
+  overflow: hidden;
+  font-size: 12px;
+}}
+td[data-row="2"], td[data-row="3"] {{
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  font-weight: 700;
+  background: var(--header) !important;
+  background-clip: padding-box;
+}}
+td[data-row="2"] {{ top: 0; }}
+td[data-row="3"] {{ top: 30px; }}
+td[data-col="1"], td[data-col="2"], td[data-col="3"], td[data-col="4"] {{
+  position: sticky;
+  z-index: 14;
+  background: #ffffff;
+  background-clip: padding-box;
+}}
+td[data-col="1"] {{ left: 0; }}
+td[data-col="2"] {{ left: 48px; }}
+td[data-col="3"] {{ left: 336px; }}
+td[data-col="4"] {{ left: 400px; }}
+td[data-row="2"][data-col="1"], td[data-row="2"][data-col="2"], td[data-row="2"][data-col="3"], td[data-row="2"][data-col="4"],
+td[data-row="3"][data-col="1"], td[data-row="3"][data-col="2"], td[data-row="3"][data-col="3"], td[data-row="3"][data-col="4"] {{
+  z-index: 30;
+}}
+td input {{
+  width: 100%;
+  height: 100%;
+  min-height: 24px;
+  border: 0;
+  outline: 1px solid transparent;
+  background: var(--input);
+  text-align: right;
+  font: inherit;
+  color: #111827;
+}}
+td input:focus {{
+  outline: 2px solid var(--accent);
+  background: #ffffff;
+}}
+td[data-input="1"] {{ background: var(--input) !important; }}
+td[data-auto="1"] {{ background-color: var(--locked); }}
+td[data-auto="1"][style*="background"], td[data-input="1"] {{
+  background-clip: padding-box;
+}}
+td.diagonal {{
+  background: var(--diagonal) !important;
+}}
+td.diagonal input {{
+  background: var(--diagonal) !important;
+  font-weight: 700;
+}}
+td.diagonal input:focus {{
+  background: #f1fff4 !important;
+}}
+.value {{
+  display: block;
+  text-align: right;
+}}
+body.hide-zero td.zero-cell .value {{
+  visibility: hidden;
+}}
+body.hide-zero td.zero-cell input:not(:focus) {{
+  color: transparent;
+  caret-color: #111827;
+}}
+td.hover-row::after,
+td.hover-col::after {{
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(37, 99, 235, 0.055);
+}}
+td.hover-cell {{
+  outline: 2px solid rgba(37, 99, 235, 0.75);
+  outline-offset: -2px;
+}}
+td.warn {{
+  background: #ffe4e6 !important;
+  color: #7f1d1d !important;
+}}
+td.search-hit {{
+  outline: 3px solid #2563eb !important;
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.86), 0 0 0 2px rgba(37, 99, 235, 0.24);
+  z-index: 35;
+}}
+.hidden-input {{ display: none; }}
+.import-log {{
+  border-bottom: 1px solid var(--line);
+  background: rgba(248, 250, 252, 0.92);
+  color: #17202a;
+  padding: 8px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+}}
+.import-log strong {{ font-weight: 700; }}
+.import-log ul {{
+  margin: 4px 0 0;
+  padding-left: 18px;
+}}
+.report-panel {{
+  position: fixed;
+  inset: 64px 18px auto auto;
+  z-index: 60;
+  width: min(620px, calc(100vw - 36px));
+}}
+.report-card {{
+  border: 1px solid rgba(100, 116, 139, 0.45);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.20);
+  overflow: hidden;
+}}
+.report-head {{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #f8fafc;
+}}
+.report-controls {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}}
+.report-controls input {{
+  width: 180px;
+  height: 30px;
+  min-height: 30px;
+  border: 1px solid rgba(100, 116, 139, 0.62);
+  background: #ffffff;
+  padding: 0 8px;
+  text-align: left;
+}}
+.report-controls input[type="number"] {{
+  width: 112px;
+}}
+.report-options {{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  gap: 6px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 10px 12px;
+}}
+.report-option {{
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 6px;
+  font-size: 12px;
+  line-height: 1.25;
+}}
+.report-option input {{
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin-top: 2px;
+}}
+.report-option span {{
+  display: block;
+}}
+.ai-panel {{
+  position: fixed;
+  inset: 64px 18px auto auto;
+  z-index: 70;
+  width: min(520px, calc(100vw - 36px));
+}}
+.ai-card {{
+  border: 1px solid rgba(100, 116, 139, 0.45);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}}
+.ai-head {{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #f8fafc;
+}}
+.ai-messages {{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 340px;
+  overflow: auto;
+  padding: 12px;
+  background: #f8fafc;
+}}
+.ai-message {{
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 8px 10px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}}
+.ai-message.user {{
+  border-color: rgba(15, 118, 110, 0.28);
+  background: #f0fdfa;
+}}
+.ai-controls {{
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}}
+.ai-controls textarea {{
+  flex: 1 1 auto;
+  min-height: 66px;
+  resize: vertical;
+  border: 1px solid rgba(100, 116, 139, 0.62);
+  padding: 8px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+}}
+.ai-controls button {{
+  height: 34px;
+  align-self: flex-end;
+}}
+@media print {{
+  .appbar, .import-log {{ display: none; }}
+  .table-wrap {{ height: auto; overflow: visible; }}
+  tr:nth-child(2) td, tr:nth-child(3) td, td:nth-child(1), td:nth-child(2), td:nth-child(3), td:nth-child(4) {{
+    position: static;
+  }}
+}}
+{chr(10).join(css_rules)}
+.table-wrap td {{
+  font-size: 12px !important;
+  min-height: 28px;
+}}
+.table-wrap tr {{
+  height: 30px;
+}}
+.table-wrap td[data-row="2"],
+.table-wrap td[data-row="3"] {{
+  background: var(--header) !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}}
+.table-wrap td[data-col="1"],
+.table-wrap td[data-col="2"],
+.table-wrap td[data-col="3"],
+.table-wrap td[data-col="4"] {{
+  background-clip: padding-box !important;
+}}
+.table-wrap td[data-input="1"] {{
+  background: var(--input) !important;
+}}
+.table-wrap td.diagonal,
+.table-wrap td.diagonal input {{
+  background: var(--diagonal) !important;
+}}
+.table-wrap td[data-auto="1"]:not(.diagonal) {{
+  background-color: var(--locked) !important;
+}}
+</style>
+</head>
+<body class="home-mode">
+<header class="appbar">
+  <div class="brand">
+    <img class="brand-logo" src="{logo_data_url}" alt="Logo Nguyễn Quang Huy">
+    <div class="brand-text">
+      <div class="title">PHẦN MỀM ĐẤT ĐAI</div>
+      <div class="subtitle">Biểu chu chuyển sử dụng đất</div>
+      <div class="designer">Designed by Nguyễn Quang Huy</div>
+    </div>
+  </div>
+  <nav class="main-menu" aria-label="Menu chức năng">
+    <button id="menuBtn" class="menu-trigger" type="button" aria-expanded="false">Menu</button>
+    <div id="menuList" class="menu-list" hidden>
+      <button id="openLandTransferBtn" type="button">Chu chuyển đất đai</button>
+    </div>
+  </nav>
+  <div class="status module-only">
+    <span id="statusTotal" class="badge">Đang tính</span>
+    <span id="statusRows" class="badge">0 lệch hàng</span>
+    <span id="statusMissing" class="badge"></span>
+  </div>
+  <button class="primary quick-save module-only" id="saveBtn" type="button">Lưu</button>
+  <div class="actions module-only">
+    <div class="tool-group">
+      <button class="tool-group-title" type="button">Dự án</button>
+      <div class="tool-items project-items">
+        <div class="project-section">
+          <strong>Thiết lập đơn vị hành chính</strong>
+          <label class="project-field">
+            <span>Tên xã</span>
+            <input id="projectCommune" type="text" placeholder="Ví dụ: xã An Bình">
+          </label>
+          <label class="project-field">
+            <span>Tỉnh/thành</span>
+            <input id="projectProvince" type="text" placeholder="Ví dụ: tỉnh Bắc Ninh">
+          </label>
+        </div>
+        <div class="project-section">
+          <strong>Thông tin quy hoạch</strong>
+          <label class="project-field">
+            <span>Quy hoạch kỳ trước</span>
+            <input id="projectPreviousPlanYear" type="text" placeholder="Ví dụ: 2015-2025">
+          </label>
+          <label class="project-field">
+            <span>Năm hiện trạng</span>
+            <input id="projectCurrentYear" type="number" min="1900" max="2200" value="2020">
+          </label>
+          <label class="project-field">
+            <span>Kỳ quy hoạch</span>
+            <input id="projectPlanYear" type="text" placeholder="Ví dụ: 2025-2035" value="2020-2030">
+          </label>
+        </div>
+        <div class="project-section">
+          <strong>Cơ sở dữ liệu dự án (*.gtp)</strong>
+          <button id="gtpOpenBtn" type="button">Add file GTP</button>
+          <button id="gtpSetupBtn" type="button">Thiết lập nơi lưu GTP</button>
+          <button id="gtpSaveBtn" type="button">Lưu vào file GTP</button>
+          <span id="gtpStatus" class="project-db-status">Chưa thiết lập file GTP</span>
+        </div>
+        <div class="project-actions">
+          <button id="projectConfirmBtn" class="primary" type="button">Xác nhận</button>
+        </div>
+      </div>
+    </div>
+    <div class="tool-group">
+      <button class="tool-group-title" type="button">Nhập dữ liệu</button>
+      <div class="tool-items">
+        <button id="importCurrentBtn" type="button">Nhập hiện trạng XLSX</button>
+        <button id="importGisBtn" type="button">Import bảng chồng xếp GIS</button>
+        <button id="importPreviousPlanBtn" type="button">Import quy hoạch kỳ trước</button>
+        <button id="loadBtn" type="button">Nhập JSON</button>
+      </div>
+    </div>
+    <div class="tool-group">
+      <button class="tool-group-title" type="button">Xử lý</button>
+      <div class="tool-items">
+        <button id="reportBtn" type="button">Xuất tăng/giảm</button>
+        <select id="gisImportMode" title="Chế độ xử lý mã đất lạ">
+          <option value="add" selected>Tự thêm mã mới</option>
+          <option value="known">Chỉ mã đã có</option>
+        </select>
+        <label class="import-options" title="Áp dụng khi cột diện tích là m2">
+          <input id="gisM2ToHa" type="checkbox" checked>
+          m2 -> ha
+        </label>
+        <button id="clearBtn" type="button">Xóa nhập</button>
+      </div>
+    </div>
+    <div class="tool-group">
+      <button class="tool-group-title" type="button">Xuất file</button>
+      <div class="tool-items">
+        <button id="jsonBtn" type="button">Xuất JSON</button>
+        <button id="xlsxBtn" type="button">Xuất XLSX</button>
+        <button id="csvBtn" type="button">Xuất CSV</button>
+        <button id="printBtn" type="button">In</button>
+      </div>
+    </div>
+    <div class="tool-group">
+      <button class="tool-group-title" type="button">Công cụ</button>
+      <div class="tool-items">
+        <button id="homeBtn" type="button">Màn chính</button>
+        <div class="search-box">
+          <input id="codeSearch" type="search" placeholder="Tìm mã" aria-label="Tìm mã đất">
+          <button id="codeSearchBtn" type="button">Tìm</button>
+        </div>
+      </div>
+    </div>
+    <div class="tool-group">
+      <button class="tool-group-title" type="button">AI</button>
+      <div class="tool-items">
+        <button id="aiBtn" type="button">Trợ lý AI</button>
+      </div>
+    </div>
+    <div class="sample-downloads">
+      <span>Tải file mẫu</span>
+      <div class="sample-items">
+        {sample_links_html}
+      </div>
+    </div>
+  </div>
+  <input id="fileInput" class="hidden-input" type="file" accept="application/json">
+  <input id="currentXlsxInput" class="hidden-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+  <input id="previousPlanXlsxInput" class="hidden-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+  <input id="gisXlsxInput" class="hidden-input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+  <input id="gtpInput" class="hidden-input" type="file" accept=".gtp,application/json">
+</header>
+<main id="homePage" class="home-page" aria-label="Trang chính"></main>
+<section id="importLog" class="import-log" hidden></section>
+<section id="reportPanel" class="report-panel" hidden>
+  <div class="report-card">
+    <div class="report-head">
+      <strong>Xuất thuyết minh cộng tăng/cộng giảm</strong>
+      <button id="reportCloseBtn" type="button">Đóng</button>
+    </div>
+    <div class="report-controls">
+      <input id="reportFilter" type="search" placeholder="Lọc mã hoặc tên đất">
+      <input id="reportCurrentYear" type="number" min="1900" max="2200" value="2020" title="Năm hiện trạng">
+      <input id="reportPlanYear" type="number" min="1900" max="2200" value="2030" title="Năm quy hoạch">
+      <button id="reportSelectActiveBtn" type="button">Chọn mã có dữ liệu</button>
+      <button id="reportClearBtn" type="button">Bỏ chọn</button>
+      <button class="primary" id="reportExportBtn" type="button">Xuất Word</button>
+    </div>
+    <div id="reportOptions" class="report-options"></div>
+  </div>
+</section>
+<section id="aiPanel" class="ai-panel" hidden>
+  <div class="ai-card">
+    <div class="ai-head">
+      <strong>Trợ lý AI</strong>
+      <button id="aiCloseBtn" type="button">Đóng</button>
+    </div>
+    <div id="aiMessages" class="ai-messages">
+      <div class="ai-message">Anh có thể hỏi: “Kiểm tra giúp tôi bảng này có lệch tổng không?”, “LUC tăng giảm thế nào?”, hoặc “Viết nhận xét ngắn về biến động đất”.</div>
+    </div>
+    <div class="ai-controls">
+      <textarea id="aiQuestion" placeholder="Nhập câu hỏi cho AI"></textarea>
+      <button id="aiSendBtn" class="primary" type="button">Gửi</button>
+    </div>
+  </div>
+</section>
+<section class="table-toolbar module-only">
+  <div class="legend" aria-label="Chú giải màu">
+    <span class="legend-item"><span class="swatch input"></span>Ô nhập liệu</span>
+    <span class="legend-item"><span class="swatch diagonal"></span>Ô giữ nguyên loại đất / đường chéo</span>
+    <span class="legend-item"><span class="swatch auto"></span>Ô công thức / tổng hợp</span>
+    <span class="legend-item"><span class="swatch locked"></span>Ô khóa không nhập</span>
+  </div>
+  <label class="view-options">
+    <input id="hideZeroToggle" type="checkbox">
+    Ẩn ô 0,00
+  </label>
+</section>
+<main class="table-wrap">
+<table id="landTable">
+<colgroup>{''.join(colgroup)}</colgroup>
+<tbody>
+{''.join(rows_html)}
+</tbody>
+</table>
+</main>
+<script id="meta" type="application/json">{meta_json}</script>
+<script>{jszip_js}</script>
+<script>
+const meta = JSON.parse(document.getElementById('meta').textContent);
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const storageKey = 'land-transfer-html-v1';
+const hideZeroKey = 'land-transfer-hide-zero';
+const projectId = 'default';
+const apiBase = '/api/projects';
+const inputCodes = meta.inputCodes;
+const inputSet = new Set(inputCodes);
+const rowsByCode = meta.codeRows;
+const colsByCode = meta.codeCols;
+const rowCodes = Object.fromEntries(Object.entries(rowsByCode).map(([code, row]) => [String(row), code]));
+const colCodes = Object.fromEntries(Object.entries(colsByCode).map(([code, col]) => [String(col), code]));
+const directChildren = meta.directChildren || {{}};
+let matrixCodes = Object.keys(colsByCode);
+let calcRowEntries = Object.entries(rowsByCode).filter(([, row]) => row >= meta.dttnRow && row < meta.totalIncreaseRow);
+const inputCells = Array.from(document.querySelectorAll('td[data-input="1"]'));
+const inputTds = new Map();
+const inputEls = new Map();
+const cellsByKey = new Map();
+const autoSpans = new Map();
+const inputKeys = new Set();
+const previousWarnCells = new Set();
+const previousPlanValues = {{}};
+let projectTitlesConfirmed = false;
+let gtpFileHandle = null;
+let gtpFileName = '';
+let nextDynamicRow = meta.planRow + 1;
+let nextDynamicCol = (meta.previousPlanCol || meta.planCol) + 1;
+
+function isDiagonalMatrixCell(td) {{
+  const row = Number(td.dataset.row || 0);
+  const col = Number(td.dataset.col || 0);
+  if (row < meta.dttnRow || col < meta.matrixStartCol || col > meta.matrixEndCol) return false;
+  const rowCode = rowCodes[String(row)];
+  const colCode = colCodes[String(col)];
+  return Boolean(rowCode && colCode && rowCode === colCode);
+}}
+
+function registerCell(td) {{
+  const key = `${{td.dataset.row}}:${{td.dataset.col}}`;
+  cellsByKey.set(key, td);
+  if (td.dataset.input === '1') inputKeys.add(key);
+  td.classList.toggle('diagonal', isDiagonalMatrixCell(td));
+  const span = td.querySelector('.value');
+  if (span) autoSpans.set(key, span);
+  const input = td.querySelector('input');
+  if (input) {{
+    inputTds.set(td.dataset.addr, td);
+    inputEls.set(td.dataset.addr, input);
+    input.addEventListener('input', scheduleRecalc);
+    input.addEventListener('blur', () => {{
+      normalizeInputElement(input);
+      recalc();
+    }});
+  }}
+}}
+
+document.querySelectorAll('td[data-row][data-col]').forEach(registerCell);
+
+inputCells.forEach(td => {{
+  const input = td.querySelector('input');
+  inputTds.set(td.dataset.addr, td);
+  if (input) inputEls.set(td.dataset.addr, input);
+}});
+
+function addr(col, row) {{
+  let n = col, s = '';
+  while (n > 0) {{
+    const m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - m) / 26);
+  }}
+  return s + row;
+}}
+
+function createCell(row, col, content, options = {{}}) {{
+  const td = document.createElement('td');
+  td.className = options.className || 'xl8';
+  td.dataset.addr = addr(col, row);
+  td.dataset.row = String(row);
+  td.dataset.col = String(col);
+  if (options.code) td.dataset.code = options.code;
+  if (options.colCode) td.dataset.colCode = options.colCode;
+  if (options.input) {{
+    td.dataset.input = '1';
+    td.innerHTML = `<input inputmode="decimal" value="${{content || ''}}" aria-label="${{td.dataset.addr}}">`;
+  }} else if (options.auto) {{
+    td.dataset.auto = '1';
+    td.innerHTML = '<span class="value"></span>';
+  }} else {{
+    td.textContent = content || '';
+  }}
+  registerCell(td);
+  return td;
+}}
+
+function refreshCalcEntries() {{
+  matrixCodes = Object.keys(colsByCode);
+  calcRowEntries = Object.entries(rowsByCode).filter(([, row]) => row >= meta.dttnRow);
+}}
+
+function addMatrixColumn(code) {{
+  const col = nextDynamicCol++;
+  colsByCode[code] = col;
+  matrixCodes.push(code);
+  const colgroup = document.querySelector('#landTable colgroup');
+  const colEl = document.createElement('col');
+  colEl.style.width = '64px';
+  colEl.style.minWidth = '64px';
+  colgroup.appendChild(colEl);
+
+  document.querySelectorAll('#landTable tbody tr').forEach(tr => {{
+    const row = Number(tr.querySelector('td[data-row]')?.dataset.row || 0);
+    let cell;
+    if (row === 3) {{
+      cell = createCell(row, col, code, {{ className: 'xl3', colCode: code }});
+    }} else if (row >= 4) {{
+      const rowCode = rowCodes[String(row)];
+      const isInputRow = rowCode && inputSet.has(rowCode);
+      cell = createCell(row, col, '', {{ input: isInputRow, auto: !isInputRow, colCode: code }});
+    }} else {{
+      cell = createCell(row, col, '', {{ colCode: code }});
+    }}
+    tr.appendChild(cell);
+  }});
+  return col;
+}}
+
+function addMatrixRow(code) {{
+  const row = nextDynamicRow++;
+  rowsByCode[code] = row;
+  rowCodes[String(row)] = code;
+  inputSet.add(code);
+  if (!inputCodes.includes(code)) inputCodes.push(code);
+  leavesCache.set(code, [code]);
+
+  const tr = document.createElement('tr');
+  tr.style.height = '30px';
+  tr.appendChild(createCell(row, 1, '', {{ className: 'xl8' }}));
+  tr.appendChild(createCell(row, 2, `Mã mới ${{code}}`, {{ className: 'xl8' }}));
+  tr.appendChild(createCell(row, 3, code, {{ className: 'xl8', code }}));
+  tr.appendChild(createCell(row, meta.currentCol, '', {{ className: 'xl8', input: true, code }}));
+  for (const colCode of matrixCodes) {{
+    tr.appendChild(createCell(row, colsByCode[colCode], '', {{
+      className: 'xl8',
+      input: true,
+      code,
+      colCode
+    }}));
+  }}
+  for (let col = meta.decreaseCol; col <= (meta.previousPlanCol || meta.planCol); col++) {{
+    tr.appendChild(createCell(row, col, '', {{ className: 'xl8', auto: true, code }}));
+  }}
+  document.querySelector('#landTable tbody').appendChild(tr);
+  calcRowEntries.push([code, row]);
+  return row;
+}}
+
+function addMissingLandCode(code) {{
+  const normalized = normalizeLandCode(code);
+  if (!normalized) return false;
+  if (!colsByCode[normalized]) addMatrixColumn(normalized);
+  if (!rowsByCode[normalized]) addMatrixRow(normalized);
+  refreshCalcEntries();
+  return true;
+}}
+
+function readProjectSettings() {{
+  return {{
+    commune: ($('#projectCommune')?.value || '').trim(),
+    province: ($('#projectProvince')?.value || '').trim(),
+    previousPlanYear: ($('#projectPreviousPlanYear')?.value || '').trim(),
+    currentYear: ($('#projectCurrentYear')?.value || '').trim(),
+    planYear: ($('#projectPlanYear')?.value || '').trim(),
+    confirmed: projectTitlesConfirmed
+  }};
+}}
+
+function extractYears(text) {{
+  return String(text || '').match(/(?:19|20|21|22)\\d{{2}}/g) || [];
+}}
+
+function yearFromPlanPeriod(period, fallback = 2030) {{
+  const years = extractYears(period);
+  return Number(years[years.length - 1]) || fallback;
+}}
+
+function syncProjectYearsToReport() {{
+  const currentYear = ($('#projectCurrentYear')?.value || '').trim();
+  const planYear = yearFromPlanPeriod($('#projectPlanYear')?.value, 2030);
+  if ($('#reportCurrentYear') && currentYear) $('#reportCurrentYear').value = currentYear;
+  if ($('#reportPlanYear') && planYear) $('#reportPlanYear').value = planYear;
+}}
+
+function syncReportYearsToProject() {{
+  const currentYear = ($('#reportCurrentYear')?.value || '').trim();
+  const planYear = ($('#reportPlanYear')?.value || '').trim();
+  if ($('#projectCurrentYear') && currentYear) $('#projectCurrentYear').value = currentYear;
+  if ($('#projectPlanYear') && planYear && !extractYears($('#projectPlanYear').value).length) $('#projectPlanYear').value = `${{currentYear || '2020'}}-${{planYear}}`;
+}}
+
+function planningPeriodLabel(period) {{
+  const years = extractYears(period);
+  if (years.length >= 2) return `năm ${{years[0]}} đến năm ${{years[years.length - 1]}}`;
+  if (years.length === 1) return `đến năm ${{years[0]}}`;
+  return 'theo kỳ quy hoạch đã thiết lập';
+}}
+
+function updateProjectTitles() {{
+  const settings = readProjectSettings();
+  const commune = (settings.commune || '...').replace(/^xã\\s+/i, '').trim() || '...';
+  const period = planningPeriodLabel(settings.planYear);
+  const titleCell = document.querySelector('[data-row="1"][data-col="1"]');
+  const matrixTitleCell = document.querySelector('[data-addr="E2"]');
+  if (titleCell) titleCell.textContent = `Chu chuyển đất đai trong kỳ quy hoạch sử dụng đất của xã ${{commune}}`;
+  if (matrixTitleCell) matrixTitleCell.textContent = `Chu chuyển đất đai ${{period}}`;
+}}
+
+function resetProjectTitles() {{
+  const titleCell = document.querySelector('[data-row="1"][data-col="1"]');
+  const matrixTitleCell = document.querySelector('[data-addr="E2"]');
+  if (titleCell) titleCell.textContent = 'BẢNG CHU CHUYỂN ĐẤT ĐAI';
+  if (matrixTitleCell) matrixTitleCell.textContent = 'Chu chuyển các loại đất';
+}}
+
+function applyProjectSettings(settings = {{}}) {{
+  const safe = settings && typeof settings === 'object' ? settings : {{}};
+  projectTitlesConfirmed = Boolean(safe.confirmed);
+  if ($('#projectCommune')) $('#projectCommune').value = safe.commune || '';
+  if ($('#projectProvince')) $('#projectProvince').value = safe.province || '';
+  if ($('#projectPreviousPlanYear')) $('#projectPreviousPlanYear').value = safe.previousPlanYear || '';
+  if ($('#projectCurrentYear')) $('#projectCurrentYear').value = safe.currentYear || $('#projectCurrentYear').value || '2020';
+  if ($('#projectPlanYear')) $('#projectPlanYear').value = safe.planYear || $('#projectPlanYear').value || '2020-2030';
+  syncProjectYearsToReport();
+  if (projectTitlesConfirmed) updateProjectTitles();
+  else resetProjectTitles();
+}}
+
+function readInputs() {{
+  normalizeAllInputs();
+  const data = {{}};
+  inputEls.forEach((input, address) => {{
+    data[address] = input.value.trim();
+  }});
+  data.__previousPlan = {{ ...previousPlanValues }};
+  data.__projectSettings = readProjectSettings();
+  return data;
+}}
+
+function applyInputs(data) {{
+  if (!data || typeof data !== 'object') return;
+  if (data && data.__previousPlan && typeof data.__previousPlan === 'object') {{
+    applyPreviousPlanValues(data.__previousPlan);
+  }}
+  applyProjectSettings(data.__projectSettings);
+  inputEls.forEach((input, address) => {{
+    if (Object.prototype.hasOwnProperty.call(data, address)) {{
+      input.value = data[address];
+      normalizeInputElement(input);
+    }}
+  }});
+}}
+
+function gtpPayload() {{
+  return {{
+    format: 'gtp-land-transfer',
+    version: 1,
+    savedAt: new Date().toISOString(),
+    data: readInputs()
+  }};
+}}
+
+function gtpDataFromPayload(payload) {{
+  if (!payload || typeof payload !== 'object') throw new Error('File GTP không hợp lệ.');
+  if (payload.format === 'gtp-land-transfer' && payload.data && typeof payload.data === 'object') return payload.data;
+  return payload;
+}}
+
+function updateGtpStatus(message = '') {{
+  const label = gtpFileName || 'chưa chọn file';
+  $('#gtpStatus').textContent = message || `File GTP: ${{label}}`;
+}}
+
+function applyProjectData(data) {{
+  applyInputs(data);
+  localStorage.setItem(storageKey, JSON.stringify(readInputs()));
+  normalizeAllInputs();
+  recalc();
+}}
+
+async function saveGtpFile({{ choose = false, silent = false }} = {{}}) {{
+  const text = JSON.stringify(gtpPayload(), null, 2);
+  if (window.showSaveFilePicker) {{
+    if (choose || !gtpFileHandle) {{
+      gtpFileHandle = await window.showSaveFilePicker({{
+        suggestedName: gtpFileName || 'du_an_chu_chuyen_dat_dai.gtp',
+        types: [{{
+          description: 'Dữ liệu dự án GTP',
+          accept: {{ 'application/json': ['.gtp'] }}
+        }}]
+      }});
+      gtpFileName = gtpFileHandle.name || gtpFileName || 'du_an_chu_chuyen_dat_dai.gtp';
+    }}
+    const writable = await gtpFileHandle.createWritable();
+    await writable.write(text);
+    await writable.close();
+    updateGtpStatus(silent ? '' : `Đã lưu: ${{gtpFileName}}`);
+    return true;
+  }}
+  download(gtpFileName || 'du_an_chu_chuyen_dat_dai.gtp', 'application/json;charset=utf-8', text);
+  updateGtpStatus('Trình duyệt tải xuống file GTP mới');
+  return true;
+}}
+
+async function openGtpProjectFile(file) {{
+  const payload = JSON.parse(await file.text());
+  const data = gtpDataFromPayload(payload);
+  gtpFileHandle = null;
+  gtpFileName = file.name || 'du_an_chu_chuyen_dat_dai.gtp';
+  applyProjectData(data);
+  updateGtpStatus(`Đã nạp: ${{gtpFileName}}`);
+}}
+
+function xmlText(node) {{
+  return node ? node.textContent || '' : '';
+}}
+
+function columnIndexFromCellRef(ref) {{
+  const letters = String(ref || '').replace(/[0-9]/g, '');
+  let n = 0;
+  for (const ch of letters) n = n * 26 + ch.charCodeAt(0) - 64;
+  return n;
+}}
+
+function rowIndexFromCellRef(ref) {{
+  const match = String(ref || '').match(/\\d+/);
+  return match ? Number(match[0]) : 0;
+}}
+
+async function parseXlsxRows(file) {{
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const parser = new DOMParser();
+  const workbookXml = parser.parseFromString(await zip.file('xl/workbook.xml').async('text'), 'application/xml');
+  const firstSheet = workbookXml.querySelector('sheet');
+  const relId = firstSheet?.getAttribute('r:id');
+  let sheetPath = 'xl/worksheets/sheet1.xml';
+  const relsFile = zip.file('xl/_rels/workbook.xml.rels');
+  if (relId && relsFile) {{
+    const relsXml = parser.parseFromString(await relsFile.async('text'), 'application/xml');
+    const rel = Array.from(relsXml.querySelectorAll('Relationship')).find(item => item.getAttribute('Id') === relId);
+    const target = rel?.getAttribute('Target');
+    if (target) sheetPath = target.startsWith('/') ? target.slice(1) : 'xl/' + target.replace(/^\\.\\.\\//, '');
+  }}
+
+  const sharedStrings = [];
+  const sharedFile = zip.file('xl/sharedStrings.xml');
+  if (sharedFile) {{
+    const sharedXml = parser.parseFromString(await sharedFile.async('text'), 'application/xml');
+    Array.from(sharedXml.querySelectorAll('si')).forEach(si => {{
+      sharedStrings.push(Array.from(si.querySelectorAll('t')).map(t => t.textContent || '').join(''));
+    }});
+  }}
+
+  const sheetXml = parser.parseFromString(await zip.file(sheetPath).async('text'), 'application/xml');
+  const rows = [];
+  Array.from(sheetXml.querySelectorAll('row')).forEach(rowNode => {{
+    const row = {{ number: Number(rowNode.getAttribute('r') || 0), cells: {{}} }};
+    Array.from(rowNode.querySelectorAll('c')).forEach(cell => {{
+      const ref = cell.getAttribute('r') || '';
+      const col = columnIndexFromCellRef(ref);
+      const type = cell.getAttribute('t');
+      let value = '';
+      if (type === 's') value = sharedStrings[Number(xmlText(cell.querySelector('v')))] || '';
+      else if (type === 'inlineStr') value = xmlText(cell.querySelector('is t'));
+      else value = xmlText(cell.querySelector('v'));
+      row.cells[col] = value;
+    }});
+    rows.push(row);
+  }});
+  return rows;
+}}
+
+function normalizeHeader(text) {{
+  return String(text || '').trim().toLowerCase();
+}}
+
+function normalizeNumber(text) {{
+  const value = parseNumericText(text);
+  return Number.isFinite(value) ? String(roundNumber(value)) : '';
+}}
+
+function setPreviousPlanCell(code, value) {{
+  const row = code === 'DTTN' ? meta.dttnRow : rowsByCode[code];
+  if (!row || !meta.previousPlanCol) return false;
+  const td = cellsByKey.get(`${{row}}:${{meta.previousPlanCol}}`);
+  const span = td?.querySelector('.value');
+  if (!span) return false;
+  const numeric = parseNumericText(value);
+  if (!Number.isFinite(numeric)) return false;
+  previousPlanValues[code] = formatNumber(numeric);
+  span.textContent = formatNumber(numeric);
+  return true;
+}}
+
+function applyPreviousPlanValues(values) {{
+  Object.keys(previousPlanValues).forEach(code => delete previousPlanValues[code]);
+  document.querySelectorAll('td[data-previous-plan="1"] .value').forEach(span => {{
+    span.textContent = '';
+  }});
+  Object.entries(values || {{}}).forEach(([code, value]) => {{
+    setPreviousPlanCell(normalizeLandCode(code), value);
+  }});
+}}
+
+function detectPreviousPlanColumns(rows) {{
+  let codeCol = null;
+  let areaCol = null;
+  let headerRow = 0;
+  const codeNames = new Set(['ma', 'ma_dat', 'code', 'land_code', 'ma_loai_dat']);
+  const areaNames = new Set(['dien_tich', 'dien_tich_ha', 'area', 'area_ha', 'quy_hoach', 'quy_hoach_ky_truoc']);
+  for (const row of rows.slice(0, 30)) {{
+    for (const [colText, value] of Object.entries(row.cells)) {{
+      const key = normalizeHeaderKey(value);
+      const col = Number(colText);
+      if (codeNames.has(key)) {{
+        codeCol = col;
+        headerRow = Math.max(headerRow, row.number);
+      }}
+      if ((areaNames.has(key) || key.includes('dien_tich')) && (!codeCol || col > codeCol)) {{
+        areaCol = col;
+        headerRow = Math.max(headerRow, row.number);
+      }}
+    }}
+    if (codeCol && areaCol) break;
+  }}
+  if (!areaCol && codeCol) {{
+    for (const row of rows.slice(0, 30)) {{
+      for (const [colText, value] of Object.entries(row.cells)) {{
+        const key = normalizeHeaderKey(value);
+        const col = Number(colText);
+        if (col > codeCol && key.includes('quy_hoach')) {{
+          areaCol = col;
+          headerRow = Math.max(headerRow, row.number);
+          break;
+        }}
+      }}
+      if (areaCol) break;
+    }}
+  }}
+  if (!codeCol || !areaCol) {{
+    throw new Error('Không nhận diện được cột Mã đất và cột Diện tích quy hoạch kỳ trước.');
+  }}
+  return {{ codeCol, areaCol, headerRow }};
+}}
+
+async function importPreviousPlanExcel(file) {{
+  if (/\\.xls$/i.test(file.name) && !/\\.xlsx$/i.test(file.name)) {{
+    throw new Error('File .xls đời cũ chưa được trình đọc tích hợp hỗ trợ. Vui lòng lưu lại thành .xlsx rồi import.');
+  }}
+  const rows = await parseXlsxRows(file);
+  const columns = detectPreviousPlanColumns(rows);
+  const imported = {{}};
+  const unknownCodes = new Set();
+  let readRows = 0;
+  let validRows = 0;
+  let skippedRows = 0;
+  for (const row of rows) {{
+    if (row.number <= columns.headerRow) continue;
+    readRows++;
+    let code = normalizeLandCode(row.cells[columns.codeCol]);
+    const nameKey = normalizeHeaderKey(row.cells[columns.codeCol - 1]);
+    if (!code && nameKey.includes('tong_dien_tich_tu_nhien')) code = 'DTTN';
+    const value = parseNumericText(row.cells[columns.areaCol]);
+    if (!code || !Number.isFinite(value)) {{
+      skippedRows++;
+      continue;
+    }}
+    if (code !== 'DTTN' && !rowsByCode[code]) {{
+      unknownCodes.add(code);
+      skippedRows++;
+      continue;
+    }}
+    imported[code] = formatNumber(value);
+    validRows++;
+  }}
+  applyPreviousPlanValues(imported);
+  localStorage.setItem(storageKey, JSON.stringify(readInputs()));
+  const el = $('#importLog');
+  el.hidden = false;
+  el.innerHTML = `
+    <strong>Log import quy hoạch kỳ trước</strong>
+    <ul>
+      <li>Tổng số dòng đã đọc: ${{readRows}}</li>
+      <li>Số dòng hợp lệ: ${{validRows}}</li>
+      <li>Số dòng bị bỏ qua: ${{skippedRows}}</li>
+      <li>Mã đất lạ: ${{unknownCodes.size ? Array.from(unknownCodes).sort().join(', ') : 'Không có'}}</li>
+    </ul>`;
+  return {{ readRows, validRows, skippedRows, unknownCodes: Array.from(unknownCodes) }};
+}}
+
+async function importCurrentAreasFromXlsx(file) {{
+  const rows = await parseXlsxRows(file);
+  let codeCol = null;
+  let areaCol = null;
+  for (const row of rows) {{
+    for (const [colText, value] of Object.entries(row.cells)) {{
+      const col = Number(colText);
+      const header = normalizeHeaderKey(value);
+      if (['ma', 'ma_dat', 'code', 'land_code'].includes(header)) codeCol = col;
+      if (header.includes('dien_tich') || header.includes('area')) areaCol = col;
+    }}
+    if (codeCol && areaCol) break;
+  }}
+  if (!codeCol || !areaCol) throw new Error('Không tìm thấy cột Mã và cột Diện tích trong file Excel.');
+
+  let imported = 0;
+  let matchedNoValue = 0;
+  const unmatched = [];
+  const currentAreasByCode = new Map();
+  for (const row of rows) {{
+    const code = normalizeLandCode(row.cells[codeCol]);
+    if (!code || !rowsByCode[code]) continue;
+    const value = normalizeNumber(row.cells[areaCol]);
+    if (value !== '') currentAreasByCode.set(code, Number(value));
+    const input = inputEls.get(`D${{rowsByCode[code]}}`);
+    if (!input) {{
+      if (!directChildren[code]) unmatched.push(code);
+      continue;
+    }}
+    if (value === '') {{
+      matchedNoValue++;
+      continue;
+    }}
+    setInputNumber(`D${{rowsByCode[code]}}`, Number(value));
+    imported++;
+  }}
+  const adjustments = reconcileCurrentAreaRounding(currentAreasByCode);
+  recalc();
+  return {{ imported, matchedNoValue, unmatched: Array.from(new Set(unmatched)), adjustments }};
+}}
+
+function reconcileCurrentAreaRounding(currentAreasByCode) {{
+  const adjustments = [];
+  const parentCodes = Object.keys(directChildren)
+    .filter(code => currentAreasByCode.has(code) && !inputEls.has(`D${{rowsByCode[code]}}`))
+    .sort((a, b) => leaves(a).length - leaves(b).length);
+
+  parentCodes.forEach(parentCode => {{
+    const leafCodes = leaves(parentCode).filter(code => inputEls.has(`D${{rowsByCode[code]}}`));
+    if (!leafCodes.length) return;
+    const parentValue = roundNumber(currentAreasByCode.get(parentCode));
+    const childSum = roundNumber(leafCodes.reduce((sum, code) => sum + numberFromInputByAddr(`D${{rowsByCode[code]}}`), 0));
+    const diff = roundNumber(parentValue - childSum);
+    if (!diff || Math.abs(diff) > 0.05) return;
+
+    const targetCode = leafCodes.reduce((best, code) => {{
+      const bestValue = numberFromInputByAddr(`D${{rowsByCode[best]}}`);
+      const codeValue = numberFromInputByAddr(`D${{rowsByCode[code]}}`);
+      return codeValue > bestValue ? code : best;
+    }}, leafCodes[0]);
+    const targetAddress = `D${{rowsByCode[targetCode]}}`;
+    setInputNumber(targetAddress, numberFromInputByAddr(targetAddress) + diff);
+    adjustments.push({{ parentCode, targetCode, diff }});
+  }});
+  return adjustments;
+}}
+
+function normalizeHeaderKey(text) {{
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}}
+
+function normalizeLandCode(value) {{
+  return String(value ?? '').trim().toUpperCase();
+}}
+
+function detectGISColumns(rows) {{
+  const fromNames = new Set(['ma_hien_trang', 'ma_ht', 'hien_trang', 'from', 'from_code']);
+  const toNames = new Set(['ma_quy_hoach', 'ma_qh', 'quy_hoach', 'to', 'to_code']);
+  const areaNames = new Set(['dien_tich', 'area', 'area_ha', 'shape_area', 'shape_area_ha', 'area_m2', 'shape_area_m2', 'dt']);
+
+  for (const row of rows.slice(0, 20)) {{
+    const found = {{ headerRow: row.number, fromCode: null, toCode: null, area: null, areaHeader: '' }};
+    for (const [colText, value] of Object.entries(row.cells)) {{
+      const key = normalizeHeaderKey(value);
+      const col = Number(colText);
+      if (fromNames.has(key)) found.fromCode = col;
+      if (toNames.has(key)) found.toCode = col;
+      if (areaNames.has(key)) {{
+        found.area = col;
+        found.areaHeader = key;
+      }}
+    }}
+    if (found.fromCode && found.toCode && found.area) return found;
+  }}
+  throw new Error('Không nhận diện được các cột Mã hiện trạng, Mã quy hoạch và Diện tích.');
+}}
+
+function areaUnitInfo(areaHeader) {{
+  const key = normalizeHeaderKey(areaHeader);
+  if (['shape_area', 'area_m2', 'shape_area_m2'].includes(key)) return {{ unit: 'm2', uncertain: false }};
+  if (['dien_tich', 'area', 'area_ha', 'shape_area_ha', 'dt'].includes(key)) return {{ unit: 'ha', uncertain: false }};
+  return {{ unit: 'unknown', uncertain: true }};
+}}
+
+function normalizeAreaValue(value) {{
+  const raw = String(value ?? '').trim();
+  if (!raw) return {{ value: 0, empty: true }};
+  return {{ value: parseNumericText(raw), empty: false }};
+}}
+
+function aggregateOverlayRows(rows, columns, options = {{}}) {{
+  const log = {{
+    totalRows: 0,
+    validRows: 0,
+    skippedRows: 0,
+    unknownCodes: new Set(),
+    negativeRows: 0,
+    totalArea: 0,
+    warnings: [],
+    addedCodes: new Set(),
+    skippedUnknownRows: 0
+  }};
+  const matrix = {{}};
+  const unit = areaUnitInfo(columns.areaHeader);
+  const convertM2ToHa = unit.unit === 'm2' && options.convertM2ToHa;
+
+  if (unit.unit === 'm2' && !convertM2ToHa) {{
+    log.warnings.push('Cột diện tích có vẻ là m2; đang import nguyên giá trị. Hãy bật m2 -> ha nếu cần.');
+  }}
+  if (unit.uncertain) {{
+    log.warnings.push('Không chắc đơn vị diện tích; vui lòng kiểm tra lại đơn vị sau khi import.');
+  }}
+
+  for (const row of rows) {{
+    if (row.number <= columns.headerRow) continue;
+    log.totalRows++;
+    const fromCode = normalizeLandCode(row.cells[columns.fromCode]);
+    const toCode = normalizeLandCode(row.cells[columns.toCode]);
+    const parsedArea = normalizeAreaValue(row.cells[columns.area]);
+    if (!fromCode || !toCode || !Number.isFinite(parsedArea.value)) {{
+      log.skippedRows++;
+      continue;
+    }}
+    if (parsedArea.value < 0) {{
+      log.skippedRows++;
+      log.negativeRows++;
+      continue;
+    }}
+    const missing = [fromCode, toCode].filter(code => !rowsByCode[code] || !colsByCode[code]);
+    if (missing.length) {{
+      missing.forEach(code => log.unknownCodes.add(code));
+      if (options.mode === 'add') {{
+        missing.forEach(code => {{
+          if (addMissingLandCode(code)) log.addedCodes.add(code);
+        }});
+      }} else {{
+        log.skippedRows++;
+        log.skippedUnknownRows++;
+        continue;
+      }}
+    }}
+    const area = convertM2ToHa ? parsedArea.value / 10000 : parsedArea.value;
+    matrix[fromCode] ||= {{}};
+    matrix[fromCode][toCode] = (matrix[fromCode][toCode] || 0) + area;
+    log.validRows++;
+    log.totalArea += area;
+  }}
+
+  log.unknownCodes = Array.from(log.unknownCodes).sort();
+  log.addedCodes = Array.from(log.addedCodes).sort();
+  return {{ matrix, log }};
+}}
+
+function clearGISMatrixInputs() {{
+  inputCodes.forEach(code => {{
+    matrixCodes.forEach(colCode => {{
+      const input = inputEls.get(addr(colsByCode[colCode], rowsByCode[code]));
+      if (input) input.value = '';
+    }});
+  }});
+}}
+
+function applyGISMatrix(matrix) {{
+  clearGISMatrixInputs();
+  let filledCells = 0;
+  let skippedCells = 0;
+  for (const [fromCode, rowValues] of Object.entries(matrix)) {{
+    for (const [toCode, area] of Object.entries(rowValues)) {{
+      const input = inputEls.get(addr(colsByCode[toCode], rowsByCode[fromCode]));
+      if (input) {{
+        setInputNumber(addr(colsByCode[toCode], rowsByCode[fromCode]), area);
+        filledCells++;
+      }} else {{
+        skippedCells++;
+      }}
+    }}
+  }}
+  return {{ filledCells, skippedCells }};
+}}
+
+function calculateCurrentArea() {{}}
+function calculateMatrixTotals() {{}}
+function calculateDecrease() {{}}
+function calculateIncrease() {{}}
+function calculatePlanningArea() {{}}
+function calculateChange() {{}}
+function validateTable() {{}}
+function renderTable() {{ recalc(); }}
+
+function recalculateAfterImport() {{
+  calculateCurrentArea();
+  calculateMatrixTotals();
+  calculateDecrease();
+  calculateIncrease();
+  calculatePlanningArea();
+  calculateChange();
+  validateTable();
+  renderTable();
+}}
+
+function showImportLog(log) {{
+  const el = $('#importLog');
+  const warnings = [];
+  if (log.negativeRows) warnings.push(`${{log.negativeRows}} dòng diện tích âm đã bị bỏ qua`);
+  if (log.skippedUnknownRows) warnings.push(`${{log.skippedUnknownRows}} dòng có mã lạ đã bị bỏ qua`);
+  warnings.push(...log.warnings);
+  el.hidden = false;
+  el.innerHTML = `
+    <strong>Log import GIS</strong>
+    <ul>
+      <li>Tổng số dòng đã đọc: ${{log.totalRows}}</li>
+      <li>Số dòng hợp lệ: ${{log.validRows}}</li>
+      <li>Số dòng bị bỏ qua: ${{log.skippedRows}}</li>
+      <li>Tổng diện tích đã import: ${{formatNumber(log.totalArea)}}</li>
+      <li>Số ô vàng ma trận đã điền: ${{log.filledCells || 0}}</li>
+      <li>Mã đất lạ: ${{log.unknownCodes.length ? log.unknownCodes.join(', ') : 'Không có'}}</li>
+      <li>Mã đất đã tự thêm: ${{log.addedCodes.length ? log.addedCodes.join(', ') : 'Không có'}}</li>
+      ${{warnings.length ? `<li>Cảnh báo: ${{warnings.join('; ')}}</li>` : ''}}
+    </ul>`;
+}}
+
+async function importGISOverlayExcel(file) {{
+  if (/\\.xls$/i.test(file.name) && !/\\.xlsx$/i.test(file.name)) {{
+    throw new Error('File .xls đời cũ chưa được trình đọc tích hợp hỗ trợ. Vui lòng lưu lại thành .xlsx rồi import.');
+  }}
+  const rows = await parseXlsxRows(file);
+  const columns = detectGISColumns(rows);
+  const {{ matrix, log }} = aggregateOverlayRows(rows, columns, {{
+    mode: $('#gisImportMode').value,
+    convertM2ToHa: $('#gisM2ToHa').checked
+  }});
+  Object.assign(log, applyGISMatrix(matrix));
+  recalculateAfterImport();
+  showImportLog(log);
+  localStorage.setItem(storageKey, JSON.stringify(readInputs()));
+  return log;
+}}
+
+
+
+const displayDecimals = 2;
+const displayFactor = 10 ** displayDecimals;
+
+function roundNumber(value) {{
+  if (!Number.isFinite(value)) return 0;
+  const rounded = Math.round((value + Number.EPSILON) * displayFactor) / displayFactor;
+  return Math.abs(rounded) < 0.0000001 ? 0 : rounded;
+}}
+
+function parseNumericText(text) {{
+  const raw = String(text ?? '').trim();
+  if (!raw) return NaN;
+  let cleaned = raw.replace(/\\s/g, '');
+  if (cleaned.includes(',') && cleaned.includes('.')) {{
+    const lastComma = cleaned.lastIndexOf(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    if (lastComma > lastDot) cleaned = cleaned.replace(/\\./g, '').replace(',', '.');
+    else cleaned = cleaned.replace(/,/g, '');
+  }} else if (cleaned.includes(',')) {{
+    cleaned = cleaned.replace(',', '.');
+  }}
+  const value = Number(cleaned);
+  return Number.isFinite(value) ? value : NaN;
+}}
+
+function formatInputValue(value) {{
+  if (!Number.isFinite(value)) return '';
+  const rounded = roundNumber(value);
+  if (Math.abs(rounded) < 0.0000001) return '';
+  return rounded.toFixed(displayDecimals).replace('.', ',');
+}}
+
+function normalizeInputElement(input) {{
+  if (!input) return;
+  const value = parseNumericText(input.value);
+  input.value = Number.isFinite(value) ? formatInputValue(value) : '';
+  updateInputZeroState(input);
+}}
+
+function normalizeAllInputs() {{
+  inputEls.forEach(input => normalizeInputElement(input));
+}}
+
+function parseInputNumber(input) {{
+  if (!input) return 0;
+  const value = parseNumericText(input.value);
+  return Number.isFinite(value) ? roundNumber(value) : 0;
+}}
+
+function setInputNumber(address, value) {{
+  const input = inputEls.get(address);
+  if (!input) return;
+  input.value = formatInputValue(value);
+  updateInputZeroState(input);
+}}
+
+function updateInputZeroState(input) {{
+  if (!input) return;
+  const td = input.closest('td');
+  if (!td) return;
+  const value = parseInputNumber(input);
+  td.classList.toggle('zero-cell', Math.abs(value) <= meta.tolerance);
+}}
+
+function setDiagonalValue(code, value) {{
+  const row = rowsByCode[code];
+  const col = colsByCode[code];
+  if (!row || !col) return;
+  const address = addr(col, row);
+  if (inputEls.has(address)) setInputNumber(address, value);
+  else setAuto(row, col, value);
+}}
+
+function numberFromInputByAddr(address) {{
+  return parseInputNumber(inputEls.get(address));
+}}
+
+function formatNumber(value) {{
+  if (!Number.isFinite(value)) return '';
+  const rounded = roundNumber(value);
+  return rounded.toLocaleString('vi-VN', {{ maximumFractionDigits: displayDecimals, minimumFractionDigits: displayDecimals }});
+}}
+
+function setAuto(row, col, value) {{
+  const key = `${{row}}:${{col}}`;
+  const td = cellsByKey.get(key);
+  if (!td || td.dataset.input === '1') return;
+  const text = formatNumber(value);
+  const span = autoSpans.get(key);
+  if (span && span.textContent !== text) span.textContent = text;
+  const raw = String(roundNumber(value));
+  if (td.dataset.value !== raw) td.dataset.value = raw;
+  td.classList.toggle('zero-cell', Math.abs(roundNumber(value)) <= meta.tolerance);
+}}
+
+function getAuto(row, col) {{
+  const td = cellsByKey.get(`${{row}}:${{col}}`);
+  if (!td) return 0;
+  if (td.dataset.input === '1') return numberFromInputByAddr(td.dataset.addr);
+  const value = Number(td.dataset.value);
+  return Number.isFinite(value) ? roundNumber(value) : 0;
+}}
+
+const leavesCache = new Map();
+
+function leaves(code) {{
+  if (leavesCache.has(code)) return leavesCache.get(code);
+  let result;
+  if (code === 'DTTN') result = inputCodes.slice();
+  else if (directChildren[code]) result = directChildren[code].flatMap(child => leaves(child));
+  else result = inputSet.has(code) ? [code] : [];
+  leavesCache.set(code, result);
+  return result;
+}}
+
+leavesCache.set('DTTN', inputCodes.slice());
+
+function diagonalCodes() {{
+  return matrixCodes.filter(code => rowsByCode[code] && colsByCode[code]);
+}}
+
+function diagonalOutflowTotal(code, matrixValue) {{
+  const ownLeafCodes = new Set(leaves(code));
+  return inputCodes.reduce((sum, colCode) => {{
+    if (ownLeafCodes.has(colCode)) return sum;
+    return sum + matrixValue(code, colCode);
+  }}, 0);
+}}
+
+function createCalcContext() {{
+  const inputValues = new Map();
+  inputEls.forEach((input, address) => inputValues.set(address, parseInputNumber(input)));
+  const currentCache = new Map();
+  const matrixCache = new Map();
+
+  function currentArea(code) {{
+    if (currentCache.has(code)) return currentCache.get(code);
+    const value = inputSet.has(code)
+      ? (inputValues.get('D' + rowsByCode[code]) || 0)
+      : leaves(code).reduce((sum, leaf) => sum + currentArea(leaf), 0);
+    currentCache.set(code, value);
+    return value;
+  }}
+
+  function matrixLeaf(rowCode, colCode) {{
+    if (!inputSet.has(rowCode) || !inputSet.has(colCode)) return 0;
+    return inputValues.get(addr(colsByCode[colCode], rowsByCode[rowCode])) || 0;
+  }}
+
+  function matrixValue(rowCode, colCode) {{
+    const key = rowCode + ':' + colCode;
+    if (matrixCache.has(key)) return matrixCache.get(key);
+    const rLeaves = leaves(rowCode);
+    const cLeaves = leaves(colCode);
+    let sum = 0;
+    rLeaves.forEach(r => cLeaves.forEach(c => sum += matrixLeaf(r, c)));
+    matrixCache.set(key, sum);
+    return sum;
+  }}
+
+  return {{ currentArea, matrixLeaf, matrixValue }};
+}}
+
+function recalc() {{
+  const {{ currentArea, matrixLeaf, matrixValue }} = createCalcContext();
+  for (const code of Object.keys(rowsByCode)) {{
+    setAuto(rowsByCode[code], meta.currentCol, currentArea(code));
+  }}
+  setAuto(meta.dttnRow, meta.currentCol, currentArea('DTTN'));
+
+  for (const [code, row] of calcRowEntries) {{
+    for (const colCode of matrixCodes) {{
+      const col = colsByCode[colCode];
+      if (inputKeys.has(`${{row}}:${{col}}`)) continue;
+      setAuto(row, col, matrixValue(code, colCode));
+    }}
+  }}
+  for (const colCode of matrixCodes) {{
+    setAuto(meta.dttnRow, colsByCode[colCode], matrixValue('DTTN', colCode));
+  }}
+
+  for (const code of diagonalCodes()) {{
+    const current = currentArea(code);
+    const outflowTotal = diagonalOutflowTotal(code, matrixValue);
+    if (current > meta.tolerance || outflowTotal > meta.tolerance) {{
+      setDiagonalValue(code, Math.max(0, current - outflowTotal));
+    }}
+  }}
+
+  const refreshedCalc = createCalcContext();
+  for (const [code, row] of calcRowEntries) {{
+    const current = row === meta.dttnRow ? refreshedCalc.currentArea('DTTN') : refreshedCalc.currentArea(code);
+    const diagonal = refreshedCalc.matrixValue(code, code);
+    const plan = refreshedCalc.matrixValue('DTTN', code);
+    setAuto(row, meta.decreaseCol, current - diagonal);
+    setAuto(row, meta.planCol, plan);
+    setAuto(row, meta.changeCol, plan - current);
+  }}
+  setAuto(meta.dttnRow, meta.decreaseCol,
+    ['NNP', 'PNN', 'CSD'].reduce((sum, code) => sum + getAuto(rowsByCode[code] || 0, meta.decreaseCol), 0)
+  );
+  setAuto(meta.dttnRow, meta.planCol, ['NNP', 'PNN', 'CSD'].reduce((sum, code) => sum + refreshedCalc.matrixValue('DTTN', code), 0));
+  setAuto(meta.dttnRow, meta.changeCol, getAuto(meta.dttnRow, meta.planCol) - getAuto(meta.dttnRow, meta.currentCol));
+
+  for (const colCode of matrixCodes) {{
+    const col = colsByCode[colCode];
+    const plan = refreshedCalc.matrixValue('DTTN', colCode);
+    const diagonal = refreshedCalc.matrixValue(colCode, colCode);
+    setAuto(meta.totalIncreaseRow, col, plan - diagonal);
+    setAuto(meta.planRow, col, plan);
+  }}
+  setAuto(meta.totalIncreaseRow, meta.decreaseCol,
+    ['NNP', 'PNN', 'CSD'].reduce((sum, code) => sum + getAuto(rowsByCode[code] || 0, meta.decreaseCol), 0)
+  );
+
+  updateWarnings({{ currentArea: refreshedCalc.currentArea, matrixLeaf: refreshedCalc.matrixLeaf }});
+}}
+
+function updateWarnings(calc) {{
+  const tol = meta.tolerance;
+  let rowErrors = 0;
+  const nextWarnCells = new Set();
+  for (const code of inputCodes) {{
+    const row = rowsByCode[code];
+    const rowSum = inputCodes.reduce((sum, colCode) => sum + calc.matrixLeaf(code, colCode), 0);
+    const current = calc.currentArea(code);
+    if (Math.abs(rowSum - current) > tol) {{
+      rowErrors++;
+      for (let col = 1; col <= (meta.previousPlanCol || meta.planCol); col++) {{
+        const td = cellsByKey.get(`${{row}}:${{col}}`);
+        if (td) nextWarnCells.add(td);
+      }}
+    }}
+  }}
+  previousWarnCells.forEach(td => {{
+    if (!nextWarnCells.has(td)) td.classList.remove('warn');
+  }});
+  nextWarnCells.forEach(td => {{
+    if (!previousWarnCells.has(td)) td.classList.add('warn');
+  }});
+  previousWarnCells.clear();
+  nextWarnCells.forEach(td => previousWarnCells.add(td));
+  const totalDiff = Math.abs(getAuto(meta.dttnRow, meta.currentCol) - getAuto(meta.dttnRow, meta.planCol));
+  const totalBadge = $('#statusTotal');
+  totalBadge.textContent = totalDiff > tol ? `DTTN lệch ${{formatNumber(totalDiff)}}` : 'DTTN cân bằng';
+  totalBadge.classList.toggle('warn', totalDiff > tol);
+  const rowBadge = $('#statusRows');
+  rowBadge.textContent = `${{rowErrors}} lệch hàng`;
+  rowBadge.classList.toggle('warn', rowErrors > 0);
+}}
+
+function download(name, type, text) {{
+  const blob = new Blob([text], {{ type }});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}}
+
+function csvText(row, col) {{
+  const td = cellsByKey.get(`${{row}}:${{col}}`);
+  if (!td) return '';
+  return td.dataset.input === '1' ? (inputEls.get(td.dataset.addr)?.value || '') : (td.textContent || '').trim();
+}}
+
+function exportCellText(row, col, renumberMap = new Map()) {{
+  if (col === 1 && renumberMap.has(row)) return renumberMap.get(row);
+  return csvText(row, col);
+}}
+
+function originalSttForCode(code) {{
+  const row = rowsByCode[code];
+  return row ? csvText(row, 1) : '';
+}}
+
+function csvEscape(text) {{
+  return '"' + String(text).replaceAll('"', '""') + '"';
+}}
+
+function xmlEscape(text) {{
+  return String(text ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}}
+
+function exportActiveMatrixCodes(calc) {{
+  const tol = meta.tolerance;
+  return matrixCodes.filter(code => {{
+    if (!rowsByCode[code] && !colsByCode[code]) return false;
+    if (Math.abs(calc.currentArea(code)) > tol) return true;
+    for (const otherCode of matrixCodes) {{
+      if (Math.abs(calc.matrixValue(code, otherCode)) > tol) return true;
+      if (Math.abs(calc.matrixValue(otherCode, code)) > tol) return true;
+    }}
+    return false;
+  }});
+}}
+
+function exportCsv() {{
+  normalizeAllInputs();
+  recalc();
+  const {{ exportCols, exportRows, renumberMap }} = exportMatrixShape();
+  const rows = [];
+  for (const row of exportRows) {{
+    rows.push(exportCols.map(col => csvEscape(exportCellText(row, col, renumberMap))).join(','));
+  }}
+  download('chu_chuyen_dat_dai.csv', 'text/csv;charset=utf-8', '\\ufeff' + rows.join('\\n'));
+}}
+
+function exportMatrixShape() {{
+  const calc = createCalcContext();
+  const activeCodes = exportActiveMatrixCodes(calc);
+  const activeSet = new Set(activeCodes);
+  const exportCols = [
+    1,
+    2,
+    3,
+    meta.currentCol,
+    ...activeCodes.map(code => colsByCode[code]).filter(Boolean),
+    meta.decreaseCol,
+    meta.changeCol,
+    meta.planCol
+  ];
+  const exportDataRows = [];
+  for (const [code, row] of calcRowEntries) {{
+    if (row === meta.dttnRow || activeSet.has(code)) exportDataRows.push(row);
+  }}
+  exportDataRows.sort((a, b) => a - b);
+  const exportRows = Array.from(new Set([1, 2, 3, meta.dttnRow, ...exportDataRows, meta.totalIncreaseRow, meta.planRow]))
+    .sort((a, b) => a - b);
+  const renumberMap = new Map();
+  exportRows.forEach(row => {{
+    if (row === meta.dttnRow || row === meta.totalIncreaseRow || row === meta.planRow) return;
+    const code = rowCodes[String(row)];
+    const stt = code ? originalSttForCode(code) : '';
+    if (stt) renumberMap.set(row, stt);
+  }});
+  return {{ exportCols, exportRows, renumberMap }};
+}}
+
+function xlsxCellXml(cellRef, text, styleId = 0, forceText = false) {{
+  const raw = String(text ?? '').trim();
+  const numeric = parseNumericText(raw);
+  if (!forceText && raw && Number.isFinite(numeric) && !/[A-Za-zÀ-ỹ]/.test(raw)) {{
+    return `<c r="${{cellRef}}" s="${{styleId}}"><v>${{String(numeric)}}</v></c>`;
+  }}
+  return `<c r="${{cellRef}}" s="${{styleId}}" t="inlineStr"><is><t>${{xmlEscape(raw)}}</t></is></c>`;
+}}
+
+function xlsxStyleFor(row) {{
+  const code = rowCodes[String(row)];
+  if (row === 1) return 2;
+  if (row <= 3 || row === meta.dttnRow || row === meta.totalIncreaseRow || row === meta.planRow) return 1;
+  if (['NNP', 'PNN', 'CSD'].includes(code)) return 1;
+  return 0;
+}}
+
+function xlsxCellStyleFor(row, col) {{
+  if (col === 2 && row > 3) {{
+    const baseStyle = xlsxStyleFor(row);
+    return baseStyle === 1 ? 4 : 3;
+  }}
+  return xlsxStyleFor(row);
+}}
+
+function exportRowHeight(row) {{
+  const name = csvText(row, 2);
+  if (name.length > 48) return 36;
+  if (name.length > 32) return 28;
+  return row === 2 ? 31.2 : 18;
+}}
+
+function exportXlsx() {{
+  normalizeAllInputs();
+  recalc();
+  const {{ exportCols, exportRows, renumberMap }} = exportMatrixShape();
+  const sheetRows = exportRows.map((row, rowIndex) => {{
+    const cells = exportCols.map((col, colIndex) => xlsxCellXml(addr(colIndex + 1, rowIndex + 1), exportCellText(row, col, renumberMap), xlsxCellStyleFor(row, col), col === 1)).join('');
+    const height = exportRowHeight(row);
+    return `<row r="${{rowIndex + 1}}" ht="${{height}}" customHeight="1">${{cells}}</row>`;
+  }}).join('');
+  const widths = exportCols.map((col, index) => {{
+    const width = col === 2 ? 34 : (col === 1 || col === 3 ? 10 : 15);
+    return `<col min="${{index + 1}}" max="${{index + 1}}" width="${{width}}" customWidth="1"/>`;
+  }}).join('');
+  const lastRef = addr(exportCols.length, 1);
+  const matrixEnd = 4 + exportCols.filter(col => col >= meta.matrixStartCol && col <= meta.matrixEndCol).length;
+  const mergeXml = matrixEnd > 5
+    ? `<mergeCells count="2"><mergeCell ref="A1:${{lastRef}}"/><mergeCell ref="E2:${{addr(matrixEnd, 2)}}"/></mergeCells>`
+    : `<mergeCells count="1"><mergeCell ref="A1:${{lastRef}}"/></mergeCells>`;
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`);
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`);
+  zip.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`);
+  zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Chu chuyển đất đai" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`);
+  zip.file('xl/styles.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="3">
+    <font><sz val="12"/><name val="Times New Roman"/></font>
+    <font><b/><sz val="12"/><name val="Times New Roman"/></font>
+    <font><b/><sz val="12"/><name val="Times New Roman"/></font>
+  </fonts>
+  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
+  <borders count="1"><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="5">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`);
+  zip.file('xl/worksheets/sheet1.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetViews><sheetView workbookViewId="0"><pane xSplit="4" ySplit="3" topLeftCell="E4" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>
+  <cols>${{widths}}</cols>
+  <sheetData>${{sheetRows}}</sheetData>
+  ${{mergeXml}}
+</worksheet>`);
+  zip.generateAsync({{ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }})
+    .then(blob => {{
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'chu_chuyen_dat_dai.xlsx';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }});
+}}
+
+let searchHitTimer = 0;
+function jumpToLandCode(rawCode) {{
+  const code = normalizeLandCode(rawCode);
+  if (!code) return;
+  const row = rowsByCode[code];
+  const col = colsByCode[code];
+  if (!row || !col) {{
+    alert(`Không tìm thấy mã đất: ${{code}}`);
+    return;
+  }}
+  const td = cellsByKey.get(`${{row}}:${{col}}`);
+  if (!td) return;
+  td.scrollIntoView({{ block: 'center', inline: 'center', behavior: 'smooth' }});
+  clearTimeout(searchHitTimer);
+  document.querySelectorAll('.search-hit').forEach(el => el.classList.remove('search-hit'));
+  td.classList.add('search-hit');
+  searchHitTimer = setTimeout(() => td.classList.remove('search-hit'), 2600);
+}}
+
+function landName(code) {{
+  const row = rowsByCode[code];
+  const name = cellsByKey.get(`${{row}}:2`)?.textContent?.trim();
+  return name || code;
+}}
+
+function ownLeafSet(code) {{
+  return new Set(leaves(code));
+}}
+
+function reportIncomingEntries(code, calc) {{
+  const ownLeaves = ownLeafSet(code);
+  return inputCodes
+    .filter(sourceCode => !ownLeaves.has(sourceCode))
+    .map(sourceCode => [sourceCode, calc.matrixValue(sourceCode, code)])
+    .filter(([, value]) => Math.abs(value) > meta.tolerance)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+}}
+
+function reportOutgoingEntries(code, calc) {{
+  const ownLeaves = ownLeafSet(code);
+  return inputCodes
+    .filter(targetCode => !ownLeaves.has(targetCode))
+    .map(targetCode => [targetCode, calc.matrixValue(code, targetCode)])
+    .filter(([, value]) => Math.abs(value) > meta.tolerance)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+}}
+
+function hasReportData(code, calc) {{
+  return Math.abs(calc.currentArea(code)) > meta.tolerance ||
+    Math.abs(calc.matrixValue('DTTN', code)) > meta.tolerance ||
+    reportIncomingEntries(code, calc).length > 0 ||
+    reportOutgoingEntries(code, calc).length > 0;
+}}
+
+function reportCodeOptions() {{
+  return matrixCodes
+    .filter(code => rowsByCode[code] && colsByCode[code])
+    .map(code => ({{ code, name: landName(code) }}));
+}}
+
+function renderReportOptions(filter = '') {{
+  const q = normalizeHeaderKey(filter);
+  const selected = new Set(Array.from(document.querySelectorAll('#reportOptions input:checked')).map(input => input.value));
+  const options = reportCodeOptions().filter(item => {{
+    if (!q) return true;
+    return normalizeHeaderKey(item.code).includes(q) || normalizeHeaderKey(item.name).includes(q);
+  }});
+  $('#reportOptions').innerHTML = options.map(item => `
+    <label class="report-option">
+      <input type="checkbox" value="${{item.code}}" ${{selected.has(item.code) ? 'checked' : ''}}>
+      <span><strong>${{item.code}}</strong><br>${{item.name}}</span>
+    </label>
+  `).join('');
+}}
+
+function selectedReportCodes() {{
+  return Array.from(document.querySelectorAll('#reportOptions input:checked')).map(input => input.value);
+}}
+
+function reportLine(prefix, text, value, end = ';') {{
+  return `<div class="line">${{prefix}} ${{text}}<span class="amount">: ${{formatNumber(value)}} ha${{end}}</span></div>`;
+}}
+
+function reportBlock(code, calc, years) {{
+  const name = landName(code);
+  const current = calc.currentArea(code);
+  const plan = calc.matrixValue('DTTN', code);
+  const natural = calc.currentArea('DTTN');
+  const share = natural > meta.tolerance ? (plan / natural) * 100 : 0;
+  const change = plan - current;
+  const direction = change >= -meta.tolerance ? 'tăng' : 'giảm';
+  const incoming = reportIncomingEntries(code, calc);
+  const outgoing = reportOutgoingEntries(code, calc);
+  const incomingTotal = incoming.reduce((sum, [, value]) => sum + value, 0);
+  const outgoingTotal = outgoing.reduce((sum, [, value]) => sum + value, 0);
+  if (Math.abs(change) <= meta.tolerance) {{
+    return `
+    <div class="block">
+      <div class="title-line">* <strong><em>${{name}}:</em></strong></div>
+      <div>Quy hoạch sử dụng đất đến năm ${{years.planYear}} là ${{formatNumber(plan)}} ha, chiếm ${{formatNumber(share)}}% tổng diện tích tự nhiên, không biến động so với năm ${{years.currentYear}}.</div>
+    </div>`;
+  }}
+  const incomingLines = incoming.length
+    ? incoming.map(([sourceCode, value], index) => reportLine('-', landName(sourceCode), value, index === incoming.length - 1 ? '.' : ';')).join('')
+    : '';
+  const outgoingLines = outgoing.length
+    ? outgoing.map(([targetCode, value], index) => reportLine('-', landName(targetCode), value, index === outgoing.length - 1 ? '.' : ';')).join('')
+    : '';
+  const incomingSection = Math.abs(incomingTotal) > meta.tolerance
+    ? `<div class="section">+ Cộng tăng ${{formatNumber(incomingTotal)}} ha do chuyển sang từ các loại đất sau:</div>${{incomingLines}}`
+    : '';
+  const outgoingSection = Math.abs(outgoingTotal) > meta.tolerance
+    ? `<div class="section">+ Cộng giảm ${{formatNumber(outgoingTotal)}} ha, do chuyển sang các loại đất sau:</div>${{outgoingLines}}`
+    : '';
+  return `
+    <div class="block">
+      <div class="title-line">* <strong><em>${{name}}:</em></strong></div>
+      <div>Diện tích năm ${{years.currentYear}} là ${{formatNumber(current)}} ha, quy hoạch sử dụng đất đến năm ${{years.planYear}} là ${{formatNumber(plan)}} ha, chiếm ${{formatNumber(share)}}% tổng diện tích tự nhiên, ${{direction}} ${{formatNumber(Math.abs(change))}} ha so với năm ${{years.currentYear}}, chi tiết như sau:</div>
+      ${{incomingSection}}
+      ${{outgoingSection}}
+    </div>`;
+}}
+
+function reportYears() {{
+  const currentYear = Number(($('#projectCurrentYear')?.value || $('#reportCurrentYear').value || '').trim()) || 2020;
+  const planYear = yearFromPlanPeriod($('#projectPlanYear')?.value || $('#reportPlanYear').value, 2030);
+  $('#reportCurrentYear').value = currentYear;
+  $('#reportPlanYear').value = planYear;
+  return {{ currentYear, planYear }};
+}}
+
+function exportReportWord() {{
+  normalizeAllInputs();
+  recalc();
+  const codes = selectedReportCodes();
+  if (!codes.length) {{
+    alert('Hãy chọn ít nhất một loại đất để xuất.');
+    return;
+  }}
+  const calc = createCalcContext();
+  const years = reportYears();
+  const body = codes.map(code => reportBlock(code, calc, years)).join('');
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@page {{ margin: 2cm; }}
+body {{ font-family: "Times New Roman", serif; font-size: 13pt; line-height: 1.35; }}
+.block {{ margin: 0 0 14pt 0; }}
+.title-line {{ font-weight: 700; }}
+.section {{ margin-top: 6pt; }}
+.line {{ white-space: nowrap; }}
+.amount {{ display: inline-block; min-width: 150px; text-align: left; }}
+</style>
+</head>
+<body>${{body}}</body>
+</html>`;
+  download('thuyet_minh_cong_tang_cong_giam.doc', 'application/msword;charset=utf-8', '\\ufeff' + html);
+}}
+
+let pendingRecalc = 0;
+function scheduleRecalc() {{
+  if (pendingRecalc) return;
+  pendingRecalc = requestAnimationFrame(() => {{
+    pendingRecalc = 0;
+    recalc();
+  }});
+}}
+
+async function saveProjectToServer() {{
+  const response = await fetch(`${{apiBase}}/${{encodeURIComponent(projectId)}}`, {{
+    method: 'PUT',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{ data: readInputs() }})
+  }});
+  if (!response.ok) {{
+    const payload = await response.json().catch(() => ({{ error: response.statusText }}));
+    throw new Error(payload.error || 'Không lưu được dữ liệu lên server');
+  }}
+  return response.json();
+}}
+
+async function loadProjectFromServer() {{
+  try {{
+    const response = await fetch(`${{apiBase}}/${{encodeURIComponent(projectId)}}`);
+    if (response.status === 404) return false;
+    if (!response.ok) throw new Error('Không đọc được dữ liệu từ server');
+    const payload = await response.json();
+    if (payload.data && typeof payload.data === 'object') {{
+      applyInputs(payload.data);
+      localStorage.setItem(storageKey, JSON.stringify(payload.data));
+      normalizeAllInputs();
+      recalc();
+      return true;
+    }}
+  }} catch (error) {{
+    console.warn(error.message || error);
+  }}
+  return false;
+}}
+
+function closeMainMenu() {{
+  $('#menuList').hidden = true;
+  $('#menuBtn').setAttribute('aria-expanded', 'false');
+}}
+
+function closeToolDropdowns(except = null) {{
+  $$('.tool-group.open, .sample-downloads.open').forEach(group => {{
+    if (group !== except) group.classList.remove('open');
+  }});
+}}
+
+function showHomePage() {{
+  document.body.classList.add('home-mode');
+  document.body.classList.remove('module-mode');
+  $('#reportPanel').hidden = true;
+  $('#aiPanel').hidden = true;
+  $('#importLog').hidden = true;
+  closeMainMenu();
+}}
+
+function showLandTransferPage() {{
+  document.body.classList.add('module-mode');
+  document.body.classList.remove('home-mode');
+  closeMainMenu();
+  recalc();
+}}
+
+$('#menuBtn').addEventListener('click', event => {{
+  event.stopPropagation();
+  const menu = $('#menuList');
+  menu.hidden = !menu.hidden;
+  $('#menuBtn').setAttribute('aria-expanded', String(!menu.hidden));
+}});
+$('#openLandTransferBtn').addEventListener('click', showLandTransferPage);
+$('#homeBtn').addEventListener('click', showHomePage);
+$$('.tool-group-title').forEach(button => {{
+  button.addEventListener('click', event => {{
+    event.stopPropagation();
+    const group = event.currentTarget.closest('.tool-group');
+    const willOpen = !group.classList.contains('open');
+    closeToolDropdowns(group);
+    group.classList.toggle('open', willOpen);
+  }});
+}});
+$('.sample-downloads > span').addEventListener('click', event => {{
+  event.stopPropagation();
+  const group = event.currentTarget.closest('.sample-downloads');
+  const willOpen = !group.classList.contains('open');
+  closeToolDropdowns(group);
+  group.classList.toggle('open', willOpen);
+}});
+$$('.tool-items, .sample-items').forEach(panel => {{
+  panel.addEventListener('click', event => event.stopPropagation());
+}});
+document.addEventListener('click', event => {{
+  if (!event.target.closest('.main-menu')) closeMainMenu();
+  closeToolDropdowns();
+}});
+document.addEventListener('keydown', event => {{
+  if (event.key === 'Escape') {{
+    closeMainMenu();
+    closeToolDropdowns();
+  }}
+}});
+
+function landName(code) {{
+  const row = rowsByCode[code];
+  const cell = row ? cellsByKey.get(`${{row}}:2`) : null;
+  return cell ? cell.textContent.trim() : code;
+}}
+
+function buildAiContext() {{
+  normalizeAllInputs();
+  recalc();
+  const calc = createCalcContext();
+  const codes = matrixCodes.filter(code => rowsByCode[code]);
+  const landTypes = codes.map(code => {{
+    const current = calc.currentArea(code);
+    const plan = calc.matrixValue('DTTN', code);
+    const diagonal = calc.matrixValue(code, code);
+    return {{
+      code,
+      name: landName(code),
+      current: roundNumber(current),
+      planning: roundNumber(plan),
+      decrease: roundNumber(current - diagonal),
+      increase: roundNumber(plan - diagonal),
+      change: roundNumber(plan - current)
+    }};
+  }}).filter(item =>
+    Math.abs(item.current) > meta.tolerance ||
+    Math.abs(item.planning) > meta.tolerance ||
+    Math.abs(item.decrease) > meta.tolerance ||
+    Math.abs(item.increase) > meta.tolerance ||
+    Math.abs(item.change) > meta.tolerance
+  );
+
+  const transfers = [];
+  inputCodes.forEach(fromCode => {{
+    inputCodes.forEach(toCode => {{
+      const value = calc.matrixLeaf(fromCode, toCode);
+      if (Math.abs(value) > meta.tolerance) {{
+        transfers.push({{
+          fromCode,
+          fromName: landName(fromCode),
+          toCode,
+          toName: landName(toCode),
+          area: roundNumber(value)
+        }});
+      }}
+    }});
+  }});
+  transfers.sort((a, b) => Math.abs(b.area) - Math.abs(a.area));
+
+  const totalCurrent = calc.currentArea('DTTN');
+  const totalPlanning = calc.matrixValue('DTTN', 'DTTN');
+  return {{
+    unit: 'ha',
+    decimals: displayDecimals,
+    tolerance: meta.tolerance,
+    totals: {{
+      current: roundNumber(totalCurrent),
+      planning: roundNumber(totalPlanning),
+      difference: roundNumber(totalPlanning - totalCurrent)
+    }},
+    landTypes,
+    topTransfers: transfers.slice(0, 40)
+  }};
+}}
+
+function appendAiMessage(type, text) {{
+  const el = document.createElement('div');
+  el.className = `ai-message ${{type || ''}}`.trim();
+  el.textContent = text;
+  $('#aiMessages').appendChild(el);
+  $('#aiMessages').scrollTop = $('#aiMessages').scrollHeight;
+  return el;
+}}
+
+async function sendAiQuestion() {{
+  const input = $('#aiQuestion');
+  const question = input.value.trim();
+  if (!question) return;
+  input.value = '';
+  appendAiMessage('user', question);
+  const waiting = appendAiMessage('', 'AI đang phân tích dữ liệu...');
+  $('#aiSendBtn').disabled = true;
+  try {{
+    const response = await fetch('/api/ai', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{ question, context: buildAiContext() }})
+    }});
+    const payload = await response.json().catch(() => ({{ error: response.statusText }}));
+    if (!response.ok) throw new Error(payload.error || 'Không gọi được AI.');
+    waiting.textContent = payload.answer || 'AI không trả về nội dung.';
+  }} catch (error) {{
+    const message = error.message || String(error);
+    waiting.textContent = message.includes('fetch')
+      ? 'Không kết nối được server AI. Hãy chạy npm start và mở phần mềm tại http://127.0.0.1:3000.'
+      : message;
+  }} finally {{
+    $('#aiSendBtn').disabled = false;
+  }}
+}}
+
+inputEls.forEach(input => {{
+  input.addEventListener('input', () => {{
+    updateInputZeroState(input);
+    scheduleRecalc();
+  }});
+}});
+
+function applyHideZeroState(enabled) {{
+  document.body.classList.toggle('hide-zero', enabled);
+  $('#hideZeroToggle').checked = enabled;
+  localStorage.setItem(hideZeroKey, enabled ? '1' : '0');
+}}
+
+$('#hideZeroToggle').addEventListener('change', event => {{
+  applyHideZeroState(event.currentTarget.checked);
+}});
+
+let hoverRow = null;
+let hoverCol = null;
+let hoverCell = null;
+function clearTableHover() {{
+  if (hoverRow !== null) $$(`td[data-row="${{hoverRow}}"]`).forEach(td => td.classList.remove('hover-row'));
+  if (hoverCol !== null) $$(`td[data-col="${{hoverCol}}"]`).forEach(td => td.classList.remove('hover-col'));
+  if (hoverCell) hoverCell.classList.remove('hover-cell');
+  hoverRow = null;
+  hoverCol = null;
+  hoverCell = null;
+}}
+$('#landTable').addEventListener('mouseover', event => {{
+  const td = event.target.closest('td');
+  if (!td || hoverCell === td) return;
+  clearTableHover();
+  hoverRow = td.dataset.row;
+  hoverCol = td.dataset.col;
+  hoverCell = td;
+  $$(`td[data-row="${{hoverRow}}"]`).forEach(cell => cell.classList.add('hover-row'));
+  $$(`td[data-col="${{hoverCol}}"]`).forEach(cell => cell.classList.add('hover-col'));
+  td.classList.add('hover-cell');
+}});
+$('#landTable').addEventListener('mouseleave', clearTableHover);
+$('#codeSearchBtn').addEventListener('click', () => jumpToLandCode($('#codeSearch').value));
+$('#codeSearch').addEventListener('keydown', event => {{
+  if (event.key === 'Enter') {{
+    event.preventDefault();
+    jumpToLandCode(event.currentTarget.value);
+  }}
+}});
+$('#reportBtn').addEventListener('click', () => {{
+  syncProjectYearsToReport();
+  renderReportOptions($('#reportFilter').value);
+  $('#reportPanel').hidden = false;
+}});
+$('#reportCloseBtn').addEventListener('click', () => $('#reportPanel').hidden = true);
+$('#aiBtn').addEventListener('click', () => {{
+  $('#aiPanel').hidden = false;
+  $('#aiQuestion').focus();
+}});
+$('#aiCloseBtn').addEventListener('click', () => $('#aiPanel').hidden = true);
+$('#aiSendBtn').addEventListener('click', sendAiQuestion);
+$('#aiQuestion').addEventListener('keydown', event => {{
+  if (event.key === 'Enter' && !event.shiftKey) {{
+    event.preventDefault();
+    sendAiQuestion();
+  }}
+}});
+$('#reportFilter').addEventListener('input', event => renderReportOptions(event.currentTarget.value));
+['projectCommune', 'projectProvince', 'projectPreviousPlanYear', 'projectCurrentYear', 'projectPlanYear'].forEach(id => {{
+  const input = $(`#${{id}}`);
+  if (!input) return;
+  input.addEventListener('input', () => {{
+    projectTitlesConfirmed = false;
+    syncProjectYearsToReport();
+  }});
+  input.addEventListener('change', () => localStorage.setItem(storageKey, JSON.stringify(readInputs())));
+}});
+['reportCurrentYear', 'reportPlanYear'].forEach(id => {{
+  const input = $(`#${{id}}`);
+  if (!input) return;
+  input.addEventListener('input', syncReportYearsToProject);
+  input.addEventListener('change', () => localStorage.setItem(storageKey, JSON.stringify(readInputs())));
+}});
+$('#projectConfirmBtn').addEventListener('click', () => {{
+  projectTitlesConfirmed = true;
+  syncProjectYearsToReport();
+  updateProjectTitles();
+  localStorage.setItem(storageKey, JSON.stringify(readInputs()));
+  $('#projectConfirmBtn').textContent = 'Đã xác nhận';
+  setTimeout(() => $('#projectConfirmBtn').textContent = 'Xác nhận', 900);
+}});
+$('#gtpOpenBtn').addEventListener('click', () => $('#gtpInput').click());
+$('#gtpInput').addEventListener('change', async event => {{
+  const file = event.target.files[0];
+  if (!file) return;
+  try {{
+    await openGtpProjectFile(file);
+  }} catch (error) {{
+    alert(error.message || String(error));
+  }} finally {{
+    event.target.value = '';
+  }}
+}});
+$('#gtpSetupBtn').addEventListener('click', async () => {{
+  try {{
+    await saveGtpFile({{ choose: true }});
+  }} catch (error) {{
+    if (error && error.name === 'AbortError') return;
+    alert(error.message || String(error));
+  }}
+}});
+$('#gtpSaveBtn').addEventListener('click', async () => {{
+  try {{
+    await saveGtpFile({{ choose: !gtpFileHandle }});
+  }} catch (error) {{
+    if (error && error.name === 'AbortError') return;
+    alert(error.message || String(error));
+  }}
+}});
+$('#reportSelectActiveBtn').addEventListener('click', () => {{
+  normalizeAllInputs();
+  recalc();
+  const calc = createCalcContext();
+  renderReportOptions($('#reportFilter').value);
+  document.querySelectorAll('#reportOptions input').forEach(input => {{
+    input.checked = hasReportData(input.value, calc);
+  }});
+}});
+$('#reportClearBtn').addEventListener('click', () => {{
+  document.querySelectorAll('#reportOptions input').forEach(input => input.checked = false);
+}});
+$('#reportExportBtn').addEventListener('click', exportReportWord);
+$('#saveBtn').addEventListener('click', async () => {{
+  const data = readInputs();
+  localStorage.setItem(storageKey, JSON.stringify(data));
+  $('#saveBtn').disabled = true;
+  $('#saveBtn').textContent = 'Đang lưu';
+  const failures = [];
+  if (gtpFileHandle) {{
+    try {{
+      await saveGtpFile({{ silent: true }});
+    }} catch (error) {{
+      failures.push(error.message || String(error));
+    }}
+  }}
+  try {{
+    await saveProjectToServer();
+  }} catch (error) {{
+    failures.push(error.message || String(error));
+  }}
+  if (failures.length) {{
+    $('#saveBtn').textContent = 'Lưu lỗi';
+    alert(failures.join('\\n'));
+  }} else {{
+    $('#saveBtn').textContent = 'Đã lưu';
+  }}
+  try {{
+    setTimeout(() => {{
+      $('#saveBtn').disabled = false;
+      $('#saveBtn').textContent = 'Lưu';
+    }}, 900);
+  }} catch (error) {{}}
+}});
+$('#importGisBtn').addEventListener('click', () => $('#gisXlsxInput').click());
+$('#gisXlsxInput').addEventListener('change', async event => {{
+  const file = event.target.files[0];
+  if (!file) return;
+  try {{
+    await importGISOverlayExcel(file);
+  }} catch (error) {{
+    alert(error.message || String(error));
+  }} finally {{
+    event.target.value = '';
+  }}
+}});
+$('#importCurrentBtn').addEventListener('click', () => $('#currentXlsxInput').click());
+$('#currentXlsxInput').addEventListener('change', async event => {{
+  const file = event.target.files[0];
+  if (!file) return;
+  try {{
+    const result = await importCurrentAreasFromXlsx(file);
+    localStorage.setItem(storageKey, JSON.stringify(readInputs()));
+    const msg = `Đã nhập ${{result.imported}} ô hiện trạng từ XLSX` +
+      (result.matchedNoValue ? `; ${{result.matchedNoValue}} mã trùng nhưng trống diện tích` : '') +
+      (result.adjustments.length ? `; cân sai số làm tròn: ${{result.adjustments.map(item => `${{item.parentCode}} -> ${{item.targetCode}} ${{formatNumber(item.diff)}}`).join(', ')}}` : '') +
+      (result.unmatched.length ? `; bỏ qua mã không phải dòng nhập: ${{result.unmatched.slice(0, 8).join(', ')}}` : '');
+    alert(msg);
+  }} catch (error) {{
+    alert(error.message || String(error));
+  }} finally {{
+    event.target.value = '';
+  }}
+}});
+$('#importPreviousPlanBtn').addEventListener('click', () => $('#previousPlanXlsxInput').click());
+$('#previousPlanXlsxInput').addEventListener('change', async event => {{
+  const file = event.target.files[0];
+  if (!file) return;
+  try {{
+    const result = await importPreviousPlanExcel(file);
+    alert(`Đã nhập ${{result.validRows}} dòng quy hoạch kỳ trước từ XLSX`);
+  }} catch (error) {{
+    alert(error.message || String(error));
+  }} finally {{
+    event.target.value = '';
+  }}
+}});
+$('#jsonBtn').addEventListener('click', () => download('du_lieu_chu_chuyen_dat_dai.json', 'application/json;charset=utf-8', JSON.stringify(readInputs(), null, 2)));
+$('#xlsxBtn').addEventListener('click', exportXlsx);
+$('#csvBtn').addEventListener('click', exportCsv);
+$('#printBtn').addEventListener('click', () => window.print());
+$('#clearBtn').addEventListener('click', () => {{
+  if (!confirm('Xóa toàn bộ dữ liệu nhập trong trang?')) return;
+  const projectSettings = readProjectSettings();
+  inputEls.forEach(input => input.value = '');
+  applyPreviousPlanValues({{}});
+  applyProjectSettings(projectSettings);
+  localStorage.setItem(storageKey, JSON.stringify(readInputs()));
+  recalc();
+}});
+$('#loadBtn').addEventListener('click', () => $('#fileInput').click());
+$('#fileInput').addEventListener('change', async event => {{
+  const file = event.target.files[0];
+  if (!file) return;
+  applyProjectData(gtpDataFromPayload(JSON.parse(await file.text())));
+  event.target.value = '';
+}});
+
+const saved = localStorage.getItem(storageKey);
+if (saved) applyInputs(JSON.parse(saved));
+normalizeAllInputs();
+applyHideZeroState(localStorage.getItem(hideZeroKey) === '1');
+$('#statusMissing').textContent = meta.missingCodes.length ? `Thiếu mã: ${{meta.missingCodes.join(', ')}}` : 'Đủ mã nhập';
+$('#statusMissing').classList.toggle('warn', meta.missingCodes.length > 0);
+recalc();
+loadProjectFromServer();
+</script>
+</body>
+</html>
+"""
+    OUT.write_text(doc, encoding="utf-8")
+    print(OUT)
+    print("input_codes=", ",".join(input_codes))
+    print("missing_codes=", ",".join(missing_codes))
+
+
+if __name__ == "__main__":
+    main()

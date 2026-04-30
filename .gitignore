@@ -1,0 +1,13 @@
+.env
+node_modules/
+*.log
+*.err
+data/*.sqlite
+data/*.sqlite-*
+uploads/*
+exports/*
+!uploads/.gitkeep
+!exports/.gitkeep
+!data/.gitkeep
+__pycache__/
+*.pyc

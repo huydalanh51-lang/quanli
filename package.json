@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "description": "Web dong Node.js + Express cho bang chu chuyen dat dai.",
-  "main": "index.js",
+  "main": "server/index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "dependencies": {
     "express": "^4.19.2"
