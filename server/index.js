@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { URL } = require('url');
 const { DatabaseSync } = require('node:sqlite');
@@ -11,6 +12,9 @@ const publicDir = path.join(rootDir, 'public');
 const dataDir = path.join(rootDir, 'data');
 const uploadsDir = path.join(rootDir, 'uploads');
 const exportsDir = path.join(rootDir, 'exports');
+const protectedUploadsDir = path.join(rootDir, 'protected_uploads');
+const libraryPdfDir = path.join(protectedUploadsDir, 'pdf');
+const libraryCoverDir = path.join(protectedUploadsDir, 'covers');
 const envPath = path.join(rootDir, '.env');
 
 loadEnvFile(envPath);
@@ -23,7 +27,7 @@ process.on('unhandledRejection', error => {
   console.error('UNHANDLED_REJECTION', error && error.stack ? error.stack : error);
 });
 
-for (const dir of [publicDir, dataDir, uploadsDir, exportsDir]) {
+for (const dir of [publicDir, dataDir, uploadsDir, exportsDir, protectedUploadsDir, libraryPdfDir, libraryCoverDir]) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
@@ -48,10 +52,35 @@ const saveProjectStmt = db.prepare(`
     updated_at = CURRENT_TIMESTAMP
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS library_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    author TEXT NOT NULL DEFAULT '',
+    year INTEGER,
+    description TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '',
+    pdf_path TEXT NOT NULL,
+    pdf_name TEXT NOT NULL DEFAULT '',
+    cover_path TEXT,
+    cover_name TEXT NOT NULL DEFAULT '',
+    visible INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_library_documents_visible ON library_documents(visible);
+  CREATE INDEX IF NOT EXISTS idx_library_documents_category ON library_documents(category);
+  CREATE INDEX IF NOT EXISTS idx_library_documents_year ON library_documents(year);
+`);
+
 const port = Number(process.env.PORT || 3000);
 const openaiModel = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const geminiFallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash-lite';
+const libraryAdminSessions = new Map();
+const libraryViewTokens = new Map();
+const libraryTokenTtlMs = 10 * 60 * 1000;
+const adminSessionTtlMs = 8 * 60 * 60 * 1000;
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -96,6 +125,325 @@ function saveProject(id, data) {
 function validateProjectData(data) {
   return data && typeof data === 'object' && !Array.isArray(data);
 }
+
+function safeText(value, max = 500) {
+  return String(value ?? '').trim().slice(0, max);
+}
+
+function safeYear(value) {
+  const year = Number(value);
+  return Number.isFinite(year) && year >= 1800 && year <= 2300 ? Math.trunc(year) : null;
+}
+
+function randomToken(bytes = 24) {
+  return crypto.randomBytes(bytes).toString('base64url');
+}
+
+function timingSafeStringEqual(a, b) {
+  const left = Buffer.from(String(a || ''));
+  const right = Buffer.from(String(b || ''));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function sanitizeFileName(name, fallback) {
+  const ext = path.extname(String(name || '')).toLowerCase();
+  const base = path.basename(String(name || fallback), ext)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || fallback;
+  return `${base}${ext}`;
+}
+
+function parseDataUrl(dataUrl, allowedTypes) {
+  const raw = String(dataUrl || '');
+  const match = raw.match(/^data:([^;,]+);base64,(.+)$/);
+  if (!match) throw new Error('File upload không hợp lệ.');
+  const mime = match[1].toLowerCase();
+  if (allowedTypes && !allowedTypes.includes(mime)) throw new Error(`Không hỗ trợ định dạng ${mime}.`);
+  return { mime, buffer: Buffer.from(match[2], 'base64') };
+}
+
+function publicLibraryDoc(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    author: row.author,
+    year: row.year,
+    description: row.description,
+    category: row.category,
+    visible: Boolean(row.visible),
+    coverUrl: row.cover_path ? `/api/library/documents/${row.id}/cover` : '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function libraryQuery({ includeHidden = false, q = '', category = '', year = '' } = {}) {
+  const where = [];
+  const params = [];
+  if (!includeHidden) where.push('visible = 1');
+  if (q) {
+    where.push('(LOWER(title) LIKE ? OR LOWER(author) LIKE ? OR CAST(year AS TEXT) LIKE ? OR LOWER(category) LIKE ?)');
+    const needle = `%${String(q).toLowerCase()}%`;
+    params.push(needle, needle, `%${q}%`, needle);
+  }
+  if (category) {
+    where.push('category = ?');
+    params.push(category);
+  }
+  if (year) {
+    where.push('year = ?');
+    params.push(Number(year));
+  }
+  const sql = `
+    SELECT * FROM library_documents
+    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+    ORDER BY COALESCE(year, 0) DESC, updated_at DESC, id DESC
+  `;
+  return db.prepare(sql).all(...params).map(publicLibraryDoc);
+}
+
+function libraryCategories() {
+  return db.prepare(`
+    SELECT category, COUNT(*) AS count
+    FROM library_documents
+    WHERE category <> ''
+    GROUP BY category
+    ORDER BY category COLLATE NOCASE
+  `).all();
+}
+
+function libraryYears() {
+  return db.prepare(`
+    SELECT DISTINCT year
+    FROM library_documents
+    WHERE year IS NOT NULL
+    ORDER BY year DESC
+  `).all().map(row => row.year);
+}
+
+function getLibraryDocument(id, { includeHidden = false } = {}) {
+  const row = db.prepare('SELECT * FROM library_documents WHERE id = ?').get(Number(id));
+  if (!row) return null;
+  if (!includeHidden && !row.visible) return null;
+  return row;
+}
+
+function saveBase64Upload(dataUrl, originalName, targetDir, allowedTypes, fallbackExt) {
+  const parsed = parseDataUrl(dataUrl, allowedTypes);
+  const original = sanitizeFileName(originalName || `upload${fallbackExt}`, `upload${fallbackExt}`);
+  const ext = path.extname(original) || fallbackExt;
+  const fileName = `${Date.now()}-${randomToken(8)}${ext.toLowerCase()}`;
+  const filePath = path.join(targetDir, fileName);
+  fs.writeFileSync(filePath, parsed.buffer);
+  return { filePath, originalName: original, mime: parsed.mime };
+}
+
+function unlinkIfInside(filePath, baseDir) {
+  if (!filePath) return;
+  const resolved = path.resolve(filePath);
+  if (resolved.startsWith(path.resolve(baseDir)) && fs.existsSync(resolved)) {
+    fs.unlinkSync(resolved);
+  }
+}
+
+function upsertLibraryDocument(payload, existing = null) {
+  const title = safeText(payload.title, 220);
+  if (!title) throw new Error('Tên tài liệu là bắt buộc.');
+  const author = safeText(payload.author, 220);
+  const year = safeYear(payload.year);
+  const description = safeText(payload.description, 1000);
+  const category = safeText(payload.category, 120);
+  const visible = payload.visible === false ? 0 : 1;
+  let pdfPath = existing?.pdf_path || '';
+  let pdfName = existing?.pdf_name || '';
+  let coverPath = existing?.cover_path || '';
+  let coverName = existing?.cover_name || '';
+
+  if (payload.pdfDataUrl) {
+    const upload = saveBase64Upload(payload.pdfDataUrl, payload.pdfName, libraryPdfDir, ['application/pdf'], '.pdf');
+    if (existing?.pdf_path) unlinkIfInside(existing.pdf_path, libraryPdfDir);
+    pdfPath = upload.filePath;
+    pdfName = upload.originalName;
+  }
+  if (!pdfPath) throw new Error('File PDF là bắt buộc.');
+
+  if (payload.coverDataUrl) {
+    const upload = saveBase64Upload(payload.coverDataUrl, payload.coverName, libraryCoverDir, ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'], '.png');
+    if (existing?.cover_path) unlinkIfInside(existing.cover_path, libraryCoverDir);
+    coverPath = upload.filePath;
+    coverName = upload.originalName;
+  }
+
+  if (existing) {
+    db.prepare(`
+      UPDATE library_documents
+      SET title = ?, author = ?, year = ?, description = ?, category = ?,
+          pdf_path = ?, pdf_name = ?, cover_path = ?, cover_name = ?, visible = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(title, author, year, description, category, pdfPath, pdfName, coverPath || null, coverName, visible, existing.id);
+    return publicLibraryDoc(getLibraryDocument(existing.id, { includeHidden: true }));
+  }
+
+  const info = db.prepare(`
+    INSERT INTO library_documents
+      (title, author, year, description, category, pdf_path, pdf_name, cover_path, cover_name, visible)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(title, author, year, description, category, pdfPath, pdfName, coverPath || null, coverName, visible);
+  return publicLibraryDoc(getLibraryDocument(info.lastInsertRowid, { includeHidden: true }));
+}
+
+function ensureAdminConfigured() {
+  const user = process.env.LIBRARY_ADMIN_USER || process.env.ADMIN_USER;
+  const password = process.env.LIBRARY_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+  if (!user || !password) {
+    const error = new Error('Chưa cấu hình tài khoản quản trị. Hãy đặt LIBRARY_ADMIN_USER và LIBRARY_ADMIN_PASSWORD trong biến môi trường.');
+    error.status = 503;
+    throw error;
+  }
+  return { user, password };
+}
+
+function createAdminSession() {
+  const token = randomToken(32);
+  libraryAdminSessions.set(token, Date.now() + adminSessionTtlMs);
+  return token;
+}
+
+function isAdminToken(token) {
+  const expires = libraryAdminSessions.get(String(token || ''));
+  if (!expires) return false;
+  if (Date.now() > expires) {
+    libraryAdminSessions.delete(String(token || ''));
+    return false;
+  }
+  return true;
+}
+
+function adminTokenFromAuthorization(headerValue) {
+  const raw = String(headerValue || '');
+  return raw.startsWith('Bearer ') ? raw.slice(7) : '';
+}
+
+function requireLibraryAdmin(req, res, next) {
+  const token = adminTokenFromAuthorization(req.headers.authorization);
+  if (!isAdminToken(token)) {
+    res.status(401).json({ error: 'Bạn cần đăng nhập quản trị.' });
+    return;
+  }
+  next();
+}
+
+function createViewToken(docId) {
+  const token = randomToken(32);
+  libraryViewTokens.set(token, { docId: Number(docId), expires: Date.now() + libraryTokenTtlMs });
+  return token;
+}
+
+function validateViewToken(token, docId) {
+  const record = libraryViewTokens.get(String(token || ''));
+  if (!record || record.docId !== Number(docId) || Date.now() > record.expires) {
+    if (record) libraryViewTokens.delete(String(token || ''));
+    return false;
+  }
+  return true;
+}
+
+function samplePdfBuffer(title, subtitle) {
+  const safeTitle = String(title).replace(/[()\\]/g, '');
+  const safeSubtitle = String(subtitle).replace(/[()\\]/g, '');
+  const stream = [
+    'BT',
+    '/F1 22 Tf',
+    '72 740 Td',
+    `(${safeTitle}) Tj`,
+    '/F1 13 Tf',
+    '0 -36 Td',
+    `(${safeSubtitle}) Tj`,
+    '0 -28 Td',
+    '(Tai lieu mau trong Thu vien so PDF.) Tj',
+    'ET'
+  ].join('\n');
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  objects.forEach((obj, index) => {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${index + 1} 0 obj\n${obj}\nendobj\n`;
+  });
+  const xrefOffset = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach(offset => {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(pdf, 'utf8');
+}
+
+function sampleCoverSvg(title, color) {
+  const escaped = String(title).replace(/[<>&"]/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[ch]));
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="420" height="560" viewBox="0 0 420 560">
+<rect width="420" height="560" rx="18" fill="${color}"/>
+<rect x="28" y="28" width="364" height="504" rx="14" fill="rgba(255,255,255,0.86)"/>
+<text x="50%" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#0f172a">${escaped}</text>
+<text x="50%" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#334155">Thu vien so PDF</text>
+<text x="50%" y="472" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">Chi doc truc tuyen</text>
+</svg>`, 'utf8');
+}
+
+function seedLibrarySamples() {
+  const count = db.prepare('SELECT COUNT(*) AS count FROM library_documents').get().count;
+  if (count > 0) return;
+  const samples = [
+    {
+      title: 'Tài liệu mẫu quy hoạch sử dụng đất',
+      author: 'Nguyễn Quang Huy',
+      year: 2025,
+      category: 'Quy hoạch',
+      description: 'Tài liệu mẫu phục vụ kiểm tra giao diện thư viện số và trình đọc trực tuyến.',
+      color: '#d9f99d'
+    },
+    {
+      title: 'Hướng dẫn lập biểu chu chuyển đất đai',
+      author: 'Phần mềm đất đai',
+      year: 2026,
+      category: 'Hướng dẫn',
+      description: 'Mẫu tài liệu hướng dẫn thao tác với biểu chu chuyển và dữ liệu GIS.',
+      color: '#bfdbfe'
+    },
+    {
+      title: 'Quy định quản lý tài liệu số',
+      author: 'Bộ phận quản trị',
+      year: 2024,
+      category: 'Quy định',
+      description: 'Tài liệu mẫu mô phỏng nhóm văn bản quy định trong thư viện PDF.',
+      color: '#fde68a'
+    }
+  ];
+  for (const item of samples) {
+    const pdfPath = path.join(libraryPdfDir, `${randomToken(8)}.pdf`);
+    const coverPath = path.join(libraryCoverDir, `${randomToken(8)}.svg`);
+    fs.writeFileSync(pdfPath, samplePdfBuffer(item.title, item.description));
+    fs.writeFileSync(coverPath, sampleCoverSvg(item.title, item.color));
+    db.prepare(`
+      INSERT INTO library_documents
+        (title, author, year, description, category, pdf_path, pdf_name, cover_path, cover_name, visible)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `).run(item.title, item.author, item.year, item.description, item.category, pdfPath, `${item.title}.pdf`, coverPath, `${item.title}.svg`);
+  }
+}
+
+seedLibrarySamples();
 
 function extractResponseText(payload) {
   if (typeof payload.output_text === 'string') return payload.output_text;
@@ -294,6 +642,124 @@ function createExpressServer() {
     res.status(201).json(saveProject(req.body.id || 'default', req.body.data));
   });
 
+  app.post('/api/library/admin/login', (req, res) => {
+    try {
+      const { user, password } = ensureAdminConfigured();
+      const username = String(req.body?.username || '');
+      const inputPassword = String(req.body?.password || '');
+      if (!timingSafeStringEqual(username, user) || !timingSafeStringEqual(inputPassword, password)) {
+        res.status(401).json({ error: 'Sai tài khoản hoặc mật khẩu quản trị.' });
+        return;
+      }
+      res.json({ token: createAdminSession(), username: user, expiresIn: Math.floor(adminSessionTtlMs / 1000) });
+    } catch (error) {
+      res.status(error.status || 500).json({ error: error.message || 'Không đăng nhập được.' });
+    }
+  });
+
+  app.get('/api/library/documents', (req, res) => {
+    const includeHidden = req.query.includeHidden === '1' && isAdminToken(String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''));
+    res.json({
+      documents: libraryQuery({
+        includeHidden,
+        q: safeText(req.query.q, 160),
+        category: safeText(req.query.category, 120),
+        year: safeText(req.query.year, 12)
+      }),
+      categories: libraryCategories(),
+      years: libraryYears()
+    });
+  });
+
+  app.get('/api/library/categories', (req, res) => {
+    res.json({ categories: libraryCategories(), years: libraryYears() });
+  });
+
+  app.post('/api/library/documents', requireLibraryAdmin, (req, res) => {
+    try {
+      res.status(201).json({ document: upsertLibraryDocument(req.body || {}) });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Không lưu được tài liệu.' });
+    }
+  });
+
+  app.put('/api/library/documents/:id', requireLibraryAdmin, (req, res) => {
+    try {
+      const existing = getLibraryDocument(req.params.id, { includeHidden: true });
+      if (!existing) {
+        res.status(404).json({ error: 'Không tìm thấy tài liệu.' });
+        return;
+      }
+      res.json({ document: upsertLibraryDocument(req.body || {}, existing) });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Không cập nhật được tài liệu.' });
+    }
+  });
+
+  app.delete('/api/library/documents/:id', requireLibraryAdmin, (req, res) => {
+    const existing = getLibraryDocument(req.params.id, { includeHidden: true });
+    if (!existing) {
+      res.status(404).json({ error: 'Không tìm thấy tài liệu.' });
+      return;
+    }
+    unlinkIfInside(existing.pdf_path, libraryPdfDir);
+    unlinkIfInside(existing.cover_path, libraryCoverDir);
+    db.prepare('DELETE FROM library_documents WHERE id = ?').run(existing.id);
+    res.json({ ok: true });
+  });
+
+  app.patch('/api/library/documents/:id/visibility', requireLibraryAdmin, (req, res) => {
+    const existing = getLibraryDocument(req.params.id, { includeHidden: true });
+    if (!existing) {
+      res.status(404).json({ error: 'Không tìm thấy tài liệu.' });
+      return;
+    }
+    db.prepare('UPDATE library_documents SET visible = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(req.body?.visible === false ? 0 : 1, existing.id);
+    res.json({ document: publicLibraryDoc(getLibraryDocument(existing.id, { includeHidden: true })) });
+  });
+
+  app.post('/api/library/documents/:id/view-token', (req, res) => {
+    const document = getLibraryDocument(req.params.id);
+    if (!document) {
+      res.status(404).json({ error: 'Không tìm thấy tài liệu hoặc tài liệu đang bị ẩn.' });
+      return;
+    }
+    res.json({ token: createViewToken(document.id), expiresIn: Math.floor(libraryTokenTtlMs / 1000) });
+  });
+
+  app.get('/api/library/documents/:id/cover', (req, res) => {
+    const document = getLibraryDocument(req.params.id, { includeHidden: true });
+    if (!document || !document.cover_path || !fs.existsSync(document.cover_path)) {
+      res.status(404).end();
+      return;
+    }
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.setHeader('Content-Type', contentType(document.cover_path));
+    fs.createReadStream(document.cover_path).pipe(res);
+  });
+
+  app.get('/api/library/documents/:id/pdf', (req, res) => {
+    // Không thể chống tải/copy tuyệt đối trên web: nếu trình duyệt xem được thì người dùng vẫn có thể chụp màn hình
+    // hoặc dùng công cụ ngoài. Endpoint này chỉ không lộ đường dẫn thật, yêu cầu token ngắn hạn, tắt cache và dùng viewer canvas.
+    const document = getLibraryDocument(req.params.id);
+    if (!document || !validateViewToken(req.query.token, document.id)) {
+      res.status(403).json({ error: 'Token xem tài liệu không hợp lệ hoặc đã hết hạn.' });
+      return;
+    }
+    if (!fs.existsSync(document.pdf_path)) {
+      res.status(404).json({ error: 'File PDF không tồn tại trên server.' });
+      return;
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    fs.createReadStream(document.pdf_path).pipe(res);
+  });
+
   app.post('/api/ai', async (req, res) => {
     const question = String(req.body?.question || '').trim();
     if (!question) {
@@ -337,6 +803,8 @@ function contentType(filePath) {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.pdf': 'application/pdf',
     '.svg': 'image/svg+xml'
   }[ext] || 'application/octet-stream';
 }
@@ -381,6 +849,11 @@ function createFallbackServer() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
     const projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)$/);
+    const libraryDocMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)$/);
+    const libraryViewTokenMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)\/view-token$/);
+    const libraryCoverMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)\/cover$/);
+    const libraryPdfMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)\/pdf$/);
+    const libraryVisibilityMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)\/visibility$/);
 
     try {
       if (url.pathname === '/api/health' && req.method === 'GET') {
@@ -408,6 +881,143 @@ function createFallbackServer() {
           return;
         }
         sendJson(res, 201, saveProject(body.id || 'default', body.data));
+        return;
+      }
+      if (url.pathname === '/api/library/admin/login' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        try {
+          const { user, password } = ensureAdminConfigured();
+          if (!timingSafeStringEqual(body.username, user) || !timingSafeStringEqual(body.password, password)) {
+            sendJson(res, 401, { error: 'Sai tài khoản hoặc mật khẩu quản trị.' });
+            return;
+          }
+          sendJson(res, 200, { token: createAdminSession(), username: user, expiresIn: Math.floor(adminSessionTtlMs / 1000) });
+        } catch (error) {
+          sendJson(res, error.status || 500, { error: error.message || 'Không đăng nhập được.' });
+        }
+        return;
+      }
+      if (url.pathname === '/api/library/documents' && req.method === 'GET') {
+        const includeHidden = url.searchParams.get('includeHidden') === '1' && isAdminToken(adminTokenFromAuthorization(req.headers.authorization));
+        sendJson(res, 200, {
+          documents: libraryQuery({
+            includeHidden,
+            q: safeText(url.searchParams.get('q'), 160),
+            category: safeText(url.searchParams.get('category'), 120),
+            year: safeText(url.searchParams.get('year'), 12)
+          }),
+          categories: libraryCategories(),
+          years: libraryYears()
+        });
+        return;
+      }
+      if (url.pathname === '/api/library/categories' && req.method === 'GET') {
+        sendJson(res, 200, { categories: libraryCategories(), years: libraryYears() });
+        return;
+      }
+      if (url.pathname === '/api/library/documents' && req.method === 'POST') {
+        if (!isAdminToken(adminTokenFromAuthorization(req.headers.authorization))) {
+          sendJson(res, 401, { error: 'Bạn cần đăng nhập quản trị.' });
+          return;
+        }
+        try {
+          sendJson(res, 201, { document: upsertLibraryDocument(await readJsonBody(req)) });
+        } catch (error) {
+          sendJson(res, 400, { error: error.message || 'Không lưu được tài liệu.' });
+        }
+        return;
+      }
+      if (libraryDocMatch && req.method === 'PUT') {
+        if (!isAdminToken(adminTokenFromAuthorization(req.headers.authorization))) {
+          sendJson(res, 401, { error: 'Bạn cần đăng nhập quản trị.' });
+          return;
+        }
+        const existing = getLibraryDocument(libraryDocMatch[1], { includeHidden: true });
+        if (!existing) {
+          sendJson(res, 404, { error: 'Không tìm thấy tài liệu.' });
+          return;
+        }
+        try {
+          sendJson(res, 200, { document: upsertLibraryDocument(await readJsonBody(req), existing) });
+        } catch (error) {
+          sendJson(res, 400, { error: error.message || 'Không cập nhật được tài liệu.' });
+        }
+        return;
+      }
+      if (libraryDocMatch && req.method === 'DELETE') {
+        if (!isAdminToken(adminTokenFromAuthorization(req.headers.authorization))) {
+          sendJson(res, 401, { error: 'Bạn cần đăng nhập quản trị.' });
+          return;
+        }
+        const existing = getLibraryDocument(libraryDocMatch[1], { includeHidden: true });
+        if (!existing) {
+          sendJson(res, 404, { error: 'Không tìm thấy tài liệu.' });
+          return;
+        }
+        unlinkIfInside(existing.pdf_path, libraryPdfDir);
+        unlinkIfInside(existing.cover_path, libraryCoverDir);
+        db.prepare('DELETE FROM library_documents WHERE id = ?').run(existing.id);
+        sendJson(res, 200, { ok: true });
+        return;
+      }
+      if (libraryVisibilityMatch && req.method === 'PATCH') {
+        if (!isAdminToken(adminTokenFromAuthorization(req.headers.authorization))) {
+          sendJson(res, 401, { error: 'Bạn cần đăng nhập quản trị.' });
+          return;
+        }
+        const existing = getLibraryDocument(libraryVisibilityMatch[1], { includeHidden: true });
+        if (!existing) {
+          sendJson(res, 404, { error: 'Không tìm thấy tài liệu.' });
+          return;
+        }
+        const body = await readJsonBody(req);
+        db.prepare('UPDATE library_documents SET visible = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+          .run(body.visible === false ? 0 : 1, existing.id);
+        sendJson(res, 200, { document: publicLibraryDoc(getLibraryDocument(existing.id, { includeHidden: true })) });
+        return;
+      }
+      if (libraryViewTokenMatch && req.method === 'POST') {
+        const document = getLibraryDocument(libraryViewTokenMatch[1]);
+        if (!document) {
+          sendJson(res, 404, { error: 'Không tìm thấy tài liệu hoặc tài liệu đang bị ẩn.' });
+          return;
+        }
+        sendJson(res, 200, { token: createViewToken(document.id), expiresIn: Math.floor(libraryTokenTtlMs / 1000) });
+        return;
+      }
+      if (libraryCoverMatch && req.method === 'GET') {
+        const document = getLibraryDocument(libraryCoverMatch[1], { includeHidden: true });
+        if (!document || !document.cover_path || !fs.existsSync(document.cover_path)) {
+          res.writeHead(404);
+          res.end();
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': contentType(document.cover_path),
+          'Cache-Control': 'private, max-age=300'
+        });
+        fs.createReadStream(document.cover_path).pipe(res);
+        return;
+      }
+      if (libraryPdfMatch && req.method === 'GET') {
+        const document = getLibraryDocument(libraryPdfMatch[1]);
+        if (!document || !validateViewToken(url.searchParams.get('token'), document.id)) {
+          sendJson(res, 403, { error: 'Token xem tài liệu không hợp lệ hoặc đã hết hạn.' });
+          return;
+        }
+        if (!fs.existsSync(document.pdf_path)) {
+          sendJson(res, 404, { error: 'File PDF không tồn tại trên server.' });
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'inline; filename="document.pdf"',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+          'Pragma': 'no-cache',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Robots-Tag': 'noindex, nofollow'
+        });
+        fs.createReadStream(document.pdf_path).pipe(res);
         return;
       }
       if (url.pathname === '/api/ai' && req.method === 'POST') {

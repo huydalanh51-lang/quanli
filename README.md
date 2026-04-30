@@ -31,6 +31,8 @@ OPENAI_MODEL=gpt-4.1-mini
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_FALLBACK_MODEL=gemini-2.0-flash-lite
+LIBRARY_ADMIN_USER=admin
+LIBRARY_ADMIN_PASSWORD=mat-khau-manh-cua-ban
 PORT=3000
 ```
 
@@ -87,5 +89,15 @@ Content-Type: application/json
 ```
 
 Database duoc tao tu dong tai `data/projects.sqlite`.
+
+## Thu vien so PDF
+
+- Trang chu co menu `Thu vien tai lieu`.
+- File PDF duoc luu trong `protected_uploads/`, khong nam trong `public/`.
+- Admin dang nhap bang `LIBRARY_ADMIN_USER` va `LIBRARY_ADMIN_PASSWORD`.
+- Upload tai lieu bang giao dien quan tri: ten tai lieu, tac gia/don vi, nam, mo ta, danh muc, PDF va anh bia.
+- Trinh doc PDF dung PDF.js de render len canvas, khong hien nut tai xuong/in va co watermark tren trang doc.
+
+Luu y bao mat: tren moi truong web khong the chong tai xuong/copy/chup man hinh 100%. Phan mem chi han che nguoi dung pho thong bang cach khong public file goc, dung token ngan han, khong tao text layer, chan chuot phai va cac phim tat pho bien.
 
 Ghi chu: server uu tien chay bang Express sau khi `npm install`. Neu moi truong chua cai duoc `express`, server co fallback Node thuan de van kiem tra duoc frontend va API co ban, nhung ban nen chay `npm install` de dung dung backend Express.

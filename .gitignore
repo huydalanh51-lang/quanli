@@ -6,8 +6,10 @@ data/*.sqlite
 data/*.sqlite-*
 uploads/*
 exports/*
+protected_uploads/*
 !uploads/.gitkeep
 !exports/.gitkeep
 !data/.gitkeep
+!protected_uploads/.gitkeep
 __pycache__/
 *.pyc

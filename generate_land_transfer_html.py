@@ -555,6 +555,290 @@ body.docs-mode .home-page {{
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
 }}
+.library-shell {{
+  min-height: calc(100vh - 104px);
+  padding: 18px;
+}}
+.library-head {{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(240, 253, 250, 0.98), rgba(239, 246, 255, 0.98));
+}}
+.library-head h1 {{
+  margin: 0;
+  color: #0f172a;
+  font-size: 23px;
+  line-height: 1.2;
+}}
+.library-head p {{
+  margin: 6px 0 0;
+  max-width: 760px;
+  color: #475569;
+  font-size: 13px;
+}}
+.library-head-actions,
+.reader-tools,
+.library-admin-actions {{
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}}
+.library-controls {{
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 220px) minmax(130px, 180px) auto;
+  gap: 9px;
+  margin: 14px 0;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: #fff;
+}}
+.library-controls input,
+.library-controls select,
+.library-admin input,
+.library-admin select,
+.library-admin textarea,
+.reader-page-input {{
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  padding: 5px 9px;
+  color: #0f172a;
+  background: #fff;
+  font-size: 13px;
+}}
+.library-admin textarea {{
+  min-height: 72px;
+  resize: vertical;
+}}
+.library-grid {{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}}
+.library-card {{
+  display: flex;
+  flex-direction: column;
+  min-height: 348px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.30);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.10);
+}}
+.library-cover {{
+  height: 172px;
+  background: linear-gradient(135deg, #e0f2fe, #dcfce7);
+  display: grid;
+  place-items: center;
+}}
+.library-cover img {{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}}
+.library-cover-placeholder {{
+  padding: 12px;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+}}
+.library-card-body {{
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  padding: 12px;
+}}
+.library-card h3 {{
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  line-height: 1.3;
+}}
+.library-meta {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  color: #475569;
+  font-size: 12px;
+}}
+.library-pill {{
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+}}
+.library-description {{
+  flex: 1;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+}}
+.library-empty {{
+  padding: 28px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #64748b;
+  text-align: center;
+  background: #f8fafc;
+}}
+.library-admin,
+.pdf-reader {{
+  position: fixed;
+  inset: 88px 18px 18px;
+  z-index: 120;
+  overflow: auto;
+  border: 1px solid rgba(100, 116, 139, 0.34);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.30);
+}}
+.library-admin[hidden],
+.pdf-reader[hidden] {{
+  display: none;
+}}
+.library-admin-inner {{
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+}}
+.library-admin-card {{
+  border: 1px solid rgba(148, 163, 184, 0.30);
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fafc;
+}}
+.library-admin-card h2,
+.library-admin-card h3 {{
+  margin: 0 0 10px;
+  color: #0f172a;
+  font-size: 16px;
+}}
+.library-admin-form {{
+  display: grid;
+  gap: 9px;
+}}
+.library-admin-form label {{
+  display: grid;
+  gap: 4px;
+  color: #475569;
+  font-size: 12px;
+}}
+.library-admin-table {{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}}
+.library-admin-table th,
+.library-admin-table td {{
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px 6px;
+  text-align: left;
+  vertical-align: top;
+}}
+.library-admin-table th {{
+  color: #334155;
+  background: #f1f5f9;
+}}
+.pdf-reader {{
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+}}
+.reader-topbar {{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid #cbd5e1;
+  background: rgba(255, 255, 255, 0.96);
+}}
+.reader-title {{
+  min-width: 180px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}}
+.reader-page-input {{
+  width: 72px;
+  text-align: center;
+}}
+.reader-notice {{
+  padding: 9px 14px;
+  color: #7a271a;
+  border-bottom: 1px solid #fed7aa;
+  background: #fff7ed;
+  font-size: 13px;
+}}
+.pdf-stage {{
+  flex: 1;
+  overflow: auto;
+  display: grid;
+  place-items: start center;
+  padding: 18px;
+  user-select: none;
+  -webkit-user-select: none;
+}}
+.pdf-canvas-wrap {{
+  position: relative;
+  max-width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+}}
+#pdfCanvas {{
+  display: block;
+  max-width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}}
+.reader-loading {{
+  position: absolute;
+  inset: 10px;
+  display: grid;
+  place-items: center;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+}}
+@media (max-width: 820px) {{
+  .library-head {{
+    flex-direction: column;
+  }}
+  .library-controls {{
+    grid-template-columns: 1fr;
+  }}
+  .library-admin,
+  .pdf-reader {{
+    inset: 74px 8px 8px;
+  }}
+  .library-admin-inner {{
+    grid-template-columns: 1fr;
+  }}
+  .reader-topbar {{
+    align-items: flex-start;
+    flex-direction: column;
+  }}
+}}
 .badge {{
   display: inline-flex;
   align-items: center;
@@ -1311,7 +1595,124 @@ td.search-hit {{
   <input id="gtpInput" class="hidden-input" type="file" accept=".gtp,application/json">
 </header>
 <main id="homePage" class="home-page" aria-label="Trang chính"></main>
-<main id="documentLibraryPage" class="docs-page" aria-label="Thư viện tài liệu"></main>
+<main id="documentLibraryPage" class="docs-page" aria-label="Thư viện tài liệu">
+  <section class="library-shell">
+    <div class="library-head">
+      <div>
+        <h1>Thư viện số tài liệu PDF</h1>
+        <p>Tài liệu được đọc trực tuyến trong trình xem riêng của phần mềm. File PDF được lưu ở vùng bảo vệ trên server, không đặt trong thư mục public.</p>
+      </div>
+      <div class="library-head-actions">
+        <button id="libraryHomeBtn" type="button">Màn chính</button>
+        <button id="libraryAdminOpenBtn" class="primary" type="button">Quản trị</button>
+      </div>
+    </div>
+    <div class="library-controls">
+      <input id="librarySearch" type="search" placeholder="Tìm theo tên, tác giả, năm, danh mục">
+      <select id="libraryCategoryFilter"><option value="">Tất cả danh mục</option></select>
+      <select id="libraryYearFilter"><option value="">Tất cả năm</option></select>
+      <button id="libraryRefreshBtn" type="button">Làm mới</button>
+    </div>
+    <div id="libraryGrid" class="library-grid"></div>
+    <div id="libraryEmpty" class="library-empty" hidden>Chưa có tài liệu phù hợp.</div>
+  </section>
+</main>
+<section id="libraryAdminPanel" class="library-admin" hidden>
+  <div class="library-admin-inner">
+    <div class="library-admin-card">
+      <div class="library-admin-actions">
+        <h2 style="flex:1">Quản trị thư viện</h2>
+        <button id="libraryAdminCloseBtn" type="button">Đóng</button>
+      </div>
+      <div id="libraryLoginBox" class="library-admin-form">
+        <label>Tài khoản quản trị
+          <input id="libraryAdminUser" type="text" autocomplete="username">
+        </label>
+        <label>Mật khẩu
+          <input id="libraryAdminPassword" type="password" autocomplete="current-password">
+        </label>
+        <button id="libraryLoginBtn" class="primary" type="button">Đăng nhập</button>
+        <div id="libraryLoginMsg" class="library-empty" hidden></div>
+      </div>
+      <form id="libraryDocForm" class="library-admin-form" hidden>
+        <input id="libraryDocId" type="hidden">
+        <label>Tên tài liệu
+          <input id="libraryDocTitle" type="text" required>
+        </label>
+        <label>Tác giả / đơn vị biên soạn
+          <input id="libraryDocAuthor" type="text">
+        </label>
+        <label>Năm xuất bản
+          <input id="libraryDocYear" type="number" min="1800" max="2300">
+        </label>
+        <label>Danh mục tài liệu
+          <input id="libraryDocCategory" type="text" list="libraryCategorySuggestions">
+        </label>
+        <datalist id="libraryCategorySuggestions"></datalist>
+        <label>Mô tả ngắn
+          <textarea id="libraryDocDescription"></textarea>
+        </label>
+        <label>File PDF
+          <input id="libraryDocPdf" type="file" accept="application/pdf">
+        </label>
+        <label>Ảnh bìa nếu có
+          <input id="libraryDocCover" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+        </label>
+        <label class="import-options">
+          <input id="libraryDocVisible" type="checkbox" checked>
+          Hiển thị tài liệu
+        </label>
+        <div class="library-admin-actions">
+          <button id="libraryDocSaveBtn" class="primary" type="submit">Lưu tài liệu</button>
+          <button id="libraryDocNewBtn" type="button">Tạo mới</button>
+        </div>
+        <div id="libraryAdminMsg" class="library-empty" hidden></div>
+      </form>
+    </div>
+    <div class="library-admin-card">
+      <div class="library-admin-actions">
+        <h3 style="flex:1">Danh sách tài liệu</h3>
+        <button id="libraryAdminReloadBtn" type="button">Tải lại</button>
+      </div>
+      <div style="overflow:auto">
+        <table class="library-admin-table">
+          <thead>
+            <tr>
+              <th>Tên tài liệu</th>
+              <th>Danh mục</th>
+              <th>Năm</th>
+              <th>Trạng thái</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="libraryAdminRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="pdfReader" class="pdf-reader" hidden>
+  <div class="reader-topbar">
+    <div id="readerTitle" class="reader-title">Tài liệu PDF</div>
+    <div class="reader-tools">
+      <button id="readerPrevBtn" type="button">Trang trước</button>
+      <input id="readerPageInput" class="reader-page-input" type="number" min="1" value="1">
+      <span id="readerPageTotal">/ 1</span>
+      <button id="readerNextBtn" type="button">Trang sau</button>
+      <button id="readerZoomOutBtn" type="button">Thu nhỏ</button>
+      <button id="readerZoomInBtn" type="button">Phóng to</button>
+      <button id="readerFullscreenBtn" type="button">Toàn màn hình</button>
+      <button id="readerCloseBtn" type="button">Đóng</button>
+    </div>
+  </div>
+  <div class="reader-notice">Tài liệu chỉ được phép đọc trực tuyến, không được sao chép hoặc tải xuống.</div>
+  <div id="pdfStage" class="pdf-stage">
+    <div id="pdfCanvasWrap" class="pdf-canvas-wrap">
+      <canvas id="pdfCanvas"></canvas>
+      <div id="readerLoading" class="reader-loading" hidden>Đang tải tài liệu...</div>
+    </div>
+  </div>
+</section>
 <section id="importLog" class="import-log" hidden></section>
 <section id="reportPanel" class="report-panel" hidden>
   <div class="report-card">
@@ -1375,6 +1776,7 @@ const storageKey = 'land-transfer-html-v1';
 const hideZeroKey = 'land-transfer-hide-zero';
 const projectId = 'default';
 const apiBase = '/api/projects';
+const libraryApiBase = '/api/library';
 const inputCodes = meta.inputCodes;
 const inputSet = new Set(inputCodes);
 const rowsByCode = meta.codeRows;
@@ -1395,6 +1797,13 @@ const previousPlanValues = {{}};
 let projectTitlesConfirmed = false;
 let gtpFileHandle = null;
 let gtpFileName = '';
+let libraryDocuments = [];
+let libraryAdminToken = localStorage.getItem('library-admin-token') || '';
+let activePdf = null;
+let activePdfPage = 1;
+let activePdfScale = 1.2;
+let activePdfRenderTask = null;
+let activePdfRenderSerial = 0;
 let nextDynamicRow = meta.planRow + 1;
 let nextDynamicCol = (meta.previousPlanCol || meta.planCol) + 1;
 
@@ -2788,6 +3197,352 @@ async function loadProjectFromServer() {{
   return false;
 }}
 
+function libraryAdminHeaders() {{
+  return libraryAdminToken ? {{ Authorization: `Bearer ${{libraryAdminToken}}` }} : {{}};
+}}
+
+function showLibraryMessage(target, message, isError = false) {{
+  const box = $(target);
+  if (!box) return;
+  box.hidden = !message;
+  box.textContent = message || '';
+  box.style.borderColor = isError ? '#f4b0a1' : '#bbf7d0';
+  box.style.background = isError ? '#fff1ed' : '#f0fdf4';
+  box.style.color = isError ? '#7a271a' : '#166534';
+}}
+
+function escapeHtml(value) {{
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({{
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }}[ch]));
+}}
+
+function fileToDataUrl(file) {{
+  return new Promise((resolve, reject) => {{
+    if (!file) {{
+      resolve('');
+      return;
+    }}
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Không đọc được file.'));
+    reader.readAsDataURL(file);
+  }});
+}}
+
+async function loadPdfJs() {{
+  if (window.pdfjsLib) return window.pdfjsLib;
+  await new Promise((resolve, reject) => {{
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Không tải được PDF.js. Hãy kiểm tra kết nối mạng.'));
+    document.head.appendChild(script);
+  }});
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  return window.pdfjsLib;
+}}
+
+function libraryQueryString(includeHidden = false) {{
+  const params = new URLSearchParams();
+  const q = $('#librarySearch')?.value.trim();
+  const category = $('#libraryCategoryFilter')?.value;
+  const year = $('#libraryYearFilter')?.value;
+  if (q) params.set('q', q);
+  if (category) params.set('category', category);
+  if (year) params.set('year', year);
+  if (includeHidden) params.set('includeHidden', '1');
+  const text = params.toString();
+  return text ? `?${{text}}` : '';
+}}
+
+async function fetchLibraryDocuments(includeHidden = false) {{
+  const response = await fetch(`${{libraryApiBase}}/documents${{libraryQueryString(includeHidden)}}`, {{
+    headers: includeHidden ? libraryAdminHeaders() : {{}}
+  }});
+  const payload = await response.json().catch(() => ({{}}));
+  if (!response.ok) throw new Error(payload.error || 'Không tải được thư viện tài liệu.');
+  libraryDocuments = payload.documents || [];
+  renderLibraryFilters(payload);
+  renderLibraryGrid(libraryDocuments);
+  if (includeHidden) renderLibraryAdminRows(libraryDocuments);
+  return payload;
+}}
+
+function renderLibraryFilters(payload = {{}}) {{
+  const categorySelect = $('#libraryCategoryFilter');
+  const yearSelect = $('#libraryYearFilter');
+  const currentCategory = categorySelect.value;
+  const currentYear = yearSelect.value;
+  categorySelect.innerHTML = '<option value="">Tất cả danh mục</option>' +
+    (payload.categories || []).map(item => `<option value="${{escapeHtml(item.category)}}">${{escapeHtml(item.category)}} (${{item.count}})</option>`).join('');
+  yearSelect.innerHTML = '<option value="">Tất cả năm</option>' +
+    (payload.years || []).map(year => `<option value="${{year}}">${{year}}</option>`).join('');
+  categorySelect.value = currentCategory;
+  yearSelect.value = currentYear;
+  const datalist = $('#libraryCategorySuggestions');
+  if (datalist) {{
+    datalist.innerHTML = (payload.categories || []).map(item => `<option value="${{escapeHtml(item.category)}}"></option>`).join('');
+  }}
+}}
+
+function renderLibraryGrid(documents) {{
+  const grid = $('#libraryGrid');
+  const empty = $('#libraryEmpty');
+  grid.innerHTML = documents.map(doc => `
+    <article class="library-card">
+      <div class="library-cover">
+        ${{doc.coverUrl ? `<img src="${{doc.coverUrl}}" alt="Bìa tài liệu ${{escapeHtml(doc.title)}}">` : `<div class="library-cover-placeholder">${{escapeHtml(doc.title)}}</div>`}}
+      </div>
+      <div class="library-card-body">
+        <h3>${{escapeHtml(doc.title)}}</h3>
+        <div class="library-meta">
+          <span class="library-pill">${{escapeHtml(doc.category || 'Chưa phân loại')}}</span>
+          <span class="library-pill">${{doc.year || 'Không rõ năm'}}</span>
+        </div>
+        <div class="library-meta">${{escapeHtml(doc.author || 'Chưa rõ tác giả')}}</div>
+        <div class="library-description">${{escapeHtml(doc.description || '')}}</div>
+        <button class="primary library-read-btn" type="button" data-id="${{doc.id}}">Đọc trực tuyến</button>
+      </div>
+    </article>
+  `).join('');
+  empty.hidden = documents.length > 0;
+}}
+
+function renderLibraryAdminRows(documents) {{
+  const tbody = $('#libraryAdminRows');
+  tbody.innerHTML = documents.map(doc => `
+    <tr>
+      <td><strong>${{escapeHtml(doc.title)}}</strong><br><span class="library-meta">${{escapeHtml(doc.author || '')}}</span></td>
+      <td>${{escapeHtml(doc.category || '')}}</td>
+      <td>${{doc.year || ''}}</td>
+      <td>${{doc.visible ? 'Hiển thị' : 'Đang ẩn'}}</td>
+      <td>
+        <button type="button" data-action="edit" data-id="${{doc.id}}">Sửa</button>
+        <button type="button" data-action="toggle" data-id="${{doc.id}}">${{doc.visible ? 'Ẩn' : 'Hiện'}}</button>
+        <button type="button" data-action="delete" data-id="${{doc.id}}">Xóa</button>
+      </td>
+    </tr>
+  `).join('');
+}}
+
+function resetLibraryDocForm() {{
+  $('#libraryDocForm').reset();
+  $('#libraryDocId').value = '';
+  $('#libraryDocVisible').checked = true;
+  showLibraryMessage('#libraryAdminMsg', '');
+}}
+
+function fillLibraryDocForm(doc) {{
+  $('#libraryDocId').value = doc.id;
+  $('#libraryDocTitle').value = doc.title || '';
+  $('#libraryDocAuthor').value = doc.author || '';
+  $('#libraryDocYear').value = doc.year || '';
+  $('#libraryDocCategory').value = doc.category || '';
+  $('#libraryDocDescription').value = doc.description || '';
+  $('#libraryDocVisible').checked = Boolean(doc.visible);
+  $('#libraryDocPdf').value = '';
+  $('#libraryDocCover').value = '';
+  showLibraryMessage('#libraryAdminMsg', `Đang sửa: ${{doc.title}}`);
+}}
+
+async function openLibraryAdminPanel() {{
+  $('#libraryAdminPanel').hidden = false;
+  showLibraryMessage('#libraryLoginMsg', '');
+  showLibraryMessage('#libraryAdminMsg', '');
+  const isLogged = Boolean(libraryAdminToken);
+  $('#libraryLoginBox').hidden = isLogged;
+  $('#libraryDocForm').hidden = !isLogged;
+  if (isLogged) {{
+    try {{
+      await fetchLibraryDocuments(true);
+    }} catch (error) {{
+      libraryAdminToken = '';
+      localStorage.removeItem('library-admin-token');
+      $('#libraryLoginBox').hidden = false;
+      $('#libraryDocForm').hidden = true;
+      showLibraryMessage('#libraryLoginMsg', error.message || String(error), true);
+    }}
+  }}
+}}
+
+async function libraryAdminLogin() {{
+  const username = $('#libraryAdminUser').value.trim();
+  const password = $('#libraryAdminPassword').value;
+  const response = await fetch(`${{libraryApiBase}}/admin/login`, {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{ username, password }})
+  }});
+  const payload = await response.json().catch(() => ({{}}));
+  if (!response.ok) throw new Error(payload.error || 'Không đăng nhập được.');
+  libraryAdminToken = payload.token;
+  localStorage.setItem('library-admin-token', libraryAdminToken);
+  $('#libraryLoginBox').hidden = true;
+  $('#libraryDocForm').hidden = false;
+  resetLibraryDocForm();
+  await fetchLibraryDocuments(true);
+}}
+
+async function saveLibraryDocument(event) {{
+  event.preventDefault();
+  const id = $('#libraryDocId').value;
+  const pdfFile = $('#libraryDocPdf').files[0];
+  if (!id && !pdfFile) {{
+    showLibraryMessage('#libraryAdminMsg', 'Tài liệu mới cần có file PDF.', true);
+    return;
+  }}
+  const coverFile = $('#libraryDocCover').files[0];
+  const payload = {{
+    title: $('#libraryDocTitle').value,
+    author: $('#libraryDocAuthor').value,
+    year: $('#libraryDocYear').value,
+    category: $('#libraryDocCategory').value,
+    description: $('#libraryDocDescription').value,
+    visible: $('#libraryDocVisible').checked,
+    pdfName: pdfFile?.name || '',
+    coverName: coverFile?.name || '',
+    pdfDataUrl: await fileToDataUrl(pdfFile),
+    coverDataUrl: await fileToDataUrl(coverFile)
+  }};
+  const response = await fetch(`${{libraryApiBase}}/documents${{id ? `/${{id}}` : ''}}`, {{
+    method: id ? 'PUT' : 'POST',
+    headers: {{ 'Content-Type': 'application/json', ...libraryAdminHeaders() }},
+    body: JSON.stringify(payload)
+  }});
+  const result = await response.json().catch(() => ({{}}));
+  if (!response.ok) throw new Error(result.error || 'Không lưu được tài liệu.');
+  showLibraryMessage('#libraryAdminMsg', 'Đã lưu tài liệu.');
+  resetLibraryDocForm();
+  await fetchLibraryDocuments(true);
+}}
+
+async function handleLibraryAdminAction(event) {{
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const id = Number(button.dataset.id);
+  const doc = libraryDocuments.find(item => Number(item.id) === id);
+  if (!doc) return;
+  const action = button.dataset.action;
+  if (action === 'edit') {{
+    fillLibraryDocForm(doc);
+    return;
+  }}
+  if (action === 'toggle') {{
+    const response = await fetch(`${{libraryApiBase}}/documents/${{id}}/visibility`, {{
+      method: 'PATCH',
+      headers: {{ 'Content-Type': 'application/json', ...libraryAdminHeaders() }},
+      body: JSON.stringify({{ visible: !doc.visible }})
+    }});
+    const payload = await response.json().catch(() => ({{}}));
+    if (!response.ok) throw new Error(payload.error || 'Không đổi được trạng thái tài liệu.');
+    await fetchLibraryDocuments(true);
+    return;
+  }}
+  if (action === 'delete') {{
+    if (!confirm(`Xóa tài liệu "${{doc.title}}"?`)) return;
+    const response = await fetch(`${{libraryApiBase}}/documents/${{id}}`, {{
+      method: 'DELETE',
+      headers: libraryAdminHeaders()
+    }});
+    const payload = await response.json().catch(() => ({{}}));
+    if (!response.ok) throw new Error(payload.error || 'Không xóa được tài liệu.');
+    await fetchLibraryDocuments(true);
+  }}
+}}
+
+function drawPdfWatermark(ctx, width, height) {{
+  const text = 'Thư viện số - Chỉ đọc trực tuyến';
+  ctx.save();
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = '#0f766e';
+  ctx.font = `${{Math.max(22, Math.round(width / 28))}}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.translate(width / 2, height / 2);
+  ctx.rotate(-Math.PI / 6);
+  for (let y = -height; y <= height; y += 170) {{
+    for (let x = -width; x <= width; x += 420) {{
+      ctx.fillText(text, x, y);
+    }}
+  }}
+  ctx.restore();
+}}
+
+async function renderPdfPage() {{
+  if (!activePdf) return;
+  const serial = ++activePdfRenderSerial;
+  $('#readerLoading').hidden = false;
+  try {{
+    if (activePdfRenderTask) activePdfRenderTask.cancel();
+  }} catch (error) {{}}
+  const page = await activePdf.getPage(activePdfPage);
+  if (serial !== activePdfRenderSerial) return;
+  const canvas = $('#pdfCanvas');
+  const ctx = canvas.getContext('2d', {{ alpha: false }});
+  const viewport = page.getViewport({{ scale: activePdfScale }});
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+  canvas.style.width = `${{Math.floor(viewport.width)}}px`;
+  canvas.style.height = `${{Math.floor(viewport.height)}}px`;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  activePdfRenderTask = page.render({{ canvasContext: ctx, viewport }});
+  await activePdfRenderTask.promise.catch(error => {{
+    if (error?.name !== 'RenderingCancelledException') throw error;
+  }});
+  if (serial !== activePdfRenderSerial) return;
+  drawPdfWatermark(ctx, canvas.width, canvas.height);
+  $('#readerPageInput').value = activePdfPage;
+  $('#readerPageTotal').textContent = `/ ${{activePdf.numPages}}`;
+  $('#readerPrevBtn').disabled = activePdfPage <= 1;
+  $('#readerNextBtn').disabled = activePdfPage >= activePdf.numPages;
+  $('#readerLoading').hidden = true;
+}}
+
+async function openPdfReader(doc) {{
+  $('#pdfReader').hidden = false;
+  $('#readerLoading').hidden = false;
+  $('#readerTitle').textContent = doc.title;
+  const tokenResponse = await fetch(`${{libraryApiBase}}/documents/${{doc.id}}/view-token`, {{ method: 'POST' }});
+  const tokenPayload = await tokenResponse.json().catch(() => ({{}}));
+  if (!tokenResponse.ok) throw new Error(tokenPayload.error || 'Không tạo được phiên đọc tài liệu.');
+  const pdfjs = await loadPdfJs();
+  const url = `${{libraryApiBase}}/documents/${{doc.id}}/pdf?token=${{encodeURIComponent(tokenPayload.token)}}`;
+  activePdf = await pdfjs.getDocument({{ url, disableAutoFetch: true, disableStream: true }}).promise;
+  activePdfPage = 1;
+  activePdfScale = 1.2;
+  await renderPdfPage();
+}}
+
+function closePdfReader() {{
+  $('#pdfReader').hidden = true;
+  activePdf = null;
+  activePdfRenderSerial++;
+}}
+
+async function changePdfPage(delta) {{
+  if (!activePdf) return;
+  activePdfPage = Math.min(activePdf.numPages, Math.max(1, activePdfPage + delta));
+  await renderPdfPage();
+}}
+
+async function setPdfPage(value) {{
+  if (!activePdf) return;
+  const next = Number(value);
+  if (!Number.isFinite(next)) return;
+  activePdfPage = Math.min(activePdf.numPages, Math.max(1, Math.trunc(next)));
+  await renderPdfPage();
+}}
+
+async function zoomPdf(delta) {{
+  activePdfScale = Math.min(3, Math.max(0.6, activePdfScale + delta));
+  await renderPdfPage();
+}}
+
 function closeMainMenu() {{
   $('#menuList').hidden = true;
   $('#menuBtn').setAttribute('aria-expanded', 'false');
@@ -2825,6 +3580,7 @@ function showDocumentLibraryPage() {{
   $('#aiPanel').hidden = true;
   $('#importLog').hidden = true;
   closeMainMenu();
+  fetchLibraryDocuments().catch(error => alert(error.message || String(error)));
 }}
 
 $('#menuBtn').addEventListener('click', event => {{
@@ -2836,6 +3592,58 @@ $('#menuBtn').addEventListener('click', event => {{
 $('#openLandTransferBtn').addEventListener('click', showLandTransferPage);
 $('#openDocumentLibraryBtn').addEventListener('click', showDocumentLibraryPage);
 $('#homeBtn').addEventListener('click', showHomePage);
+$('#libraryHomeBtn').addEventListener('click', showHomePage);
+$('#libraryAdminOpenBtn').addEventListener('click', openLibraryAdminPanel);
+$('#libraryAdminCloseBtn').addEventListener('click', () => $('#libraryAdminPanel').hidden = true);
+$('#libraryLoginBtn').addEventListener('click', () => {{
+  libraryAdminLogin().catch(error => showLibraryMessage('#libraryLoginMsg', error.message || String(error), true));
+}});
+$('#libraryDocForm').addEventListener('submit', event => {{
+  saveLibraryDocument(event).catch(error => showLibraryMessage('#libraryAdminMsg', error.message || String(error), true));
+}});
+$('#libraryDocNewBtn').addEventListener('click', resetLibraryDocForm);
+$('#libraryAdminReloadBtn').addEventListener('click', () => {{
+  fetchLibraryDocuments(true).catch(error => showLibraryMessage('#libraryAdminMsg', error.message || String(error), true));
+}});
+$('#libraryAdminRows').addEventListener('click', event => {{
+  handleLibraryAdminAction(event).catch(error => showLibraryMessage('#libraryAdminMsg', error.message || String(error), true));
+}});
+$('#libraryGrid').addEventListener('click', event => {{
+  const button = event.target.closest('.library-read-btn');
+  if (!button) return;
+  const doc = libraryDocuments.find(item => Number(item.id) === Number(button.dataset.id));
+  if (doc) openPdfReader(doc).catch(error => alert(error.message || String(error)));
+}});
+['librarySearch', 'libraryCategoryFilter', 'libraryYearFilter'].forEach(id => {{
+  const input = $(`#${{id}}`);
+  input.addEventListener(id === 'librarySearch' ? 'input' : 'change', () => fetchLibraryDocuments().catch(error => alert(error.message || String(error))));
+}});
+$('#libraryRefreshBtn').addEventListener('click', () => fetchLibraryDocuments().catch(error => alert(error.message || String(error))));
+$('#readerCloseBtn').addEventListener('click', closePdfReader);
+$('#readerPrevBtn').addEventListener('click', () => changePdfPage(-1));
+$('#readerNextBtn').addEventListener('click', () => changePdfPage(1));
+$('#readerPageInput').addEventListener('change', event => setPdfPage(event.currentTarget.value));
+$('#readerZoomOutBtn').addEventListener('click', () => zoomPdf(-0.15));
+$('#readerZoomInBtn').addEventListener('click', () => zoomPdf(0.15));
+$('#readerFullscreenBtn').addEventListener('click', () => {{
+  const reader = $('#pdfReader');
+  if (!document.fullscreenElement) reader.requestFullscreen?.();
+  else document.exitFullscreen?.();
+}});
+$('#pdfReader').addEventListener('contextmenu', event => event.preventDefault());
+$('#pdfReader').addEventListener('selectstart', event => event.preventDefault());
+$('#pdfReader').addEventListener('dragstart', event => event.preventDefault());
+document.addEventListener('keydown', event => {{
+  if ($('#pdfReader').hidden) return;
+  const key = event.key.toLowerCase();
+  const blocked = event.key === 'F12' ||
+    event.key === 'PrintScreen' ||
+    ((event.ctrlKey || event.metaKey) && ['c', 'v', 's', 'p', 'a', 'u'].includes(key));
+  if (blocked) {{
+    event.preventDefault();
+    event.stopPropagation();
+  }}
+}});
 $$('.tool-group-title').forEach(button => {{
   button.addEventListener('click', event => {{
     event.stopPropagation();
