@@ -149,8 +149,24 @@ body.home-mode .table-wrap,
 body.home-mode #importLog {
   display: none;
 }
-body.module-mode .home-page {
+body.docs-mode .module-only,
+body.docs-mode .table-wrap,
+body.docs-mode #importLog {
   display: none;
+}
+body.module-mode .home-page,
+body.module-mode .docs-page,
+body.home-mode .docs-page,
+body.docs-mode .home-page {
+  display: none;
+}
+.docs-page {
+  min-height: calc(100vh - 74px);
+  margin: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
 }
 .badge {
   display: inline-flex;
@@ -802,6 +818,7 @@ td.search-hit {
     <button id="menuBtn" class="menu-trigger" type="button" aria-expanded="false">Menu</button>
     <div id="menuList" class="menu-list" hidden>
       <button id="openLandTransferBtn" type="button">Chu chuyển đất đai</button>
+      <button id="openDocumentLibraryBtn" type="button">Thư viện tài liệu</button>
     </div>
   </nav>
   <div class="status module-only">
@@ -917,6 +934,7 @@ td.search-hit {
   <input id="gtpInput" class="hidden-input" type="file" accept=".gtp,application/json">
 </header>
 <main id="homePage" class="home-page" aria-label="Trang chính"></main>
+<main id="documentLibraryPage" class="docs-page" aria-label="Thư viện tài liệu"></main>
 <section id="importLog" class="import-log" hidden></section>
 <section id="reportPanel" class="report-panel" hidden>
   <div class="report-card">
@@ -2419,6 +2437,7 @@ function closeToolDropdowns(except = null) {
 function showHomePage() {
   document.body.classList.add('home-mode');
   document.body.classList.remove('module-mode');
+  document.body.classList.remove('docs-mode');
   $('#reportPanel').hidden = true;
   $('#aiPanel').hidden = true;
   $('#importLog').hidden = true;
@@ -2428,8 +2447,19 @@ function showHomePage() {
 function showLandTransferPage() {
   document.body.classList.add('module-mode');
   document.body.classList.remove('home-mode');
+  document.body.classList.remove('docs-mode');
   closeMainMenu();
   recalc();
+}
+
+function showDocumentLibraryPage() {
+  document.body.classList.add('docs-mode');
+  document.body.classList.remove('home-mode');
+  document.body.classList.remove('module-mode');
+  $('#reportPanel').hidden = true;
+  $('#aiPanel').hidden = true;
+  $('#importLog').hidden = true;
+  closeMainMenu();
 }
 
 $('#menuBtn').addEventListener('click', event => {
@@ -2439,6 +2469,7 @@ $('#menuBtn').addEventListener('click', event => {
   $('#menuBtn').setAttribute('aria-expanded', String(!menu.hidden));
 });
 $('#openLandTransferBtn').addEventListener('click', showLandTransferPage);
+$('#openDocumentLibraryBtn').addEventListener('click', showDocumentLibraryPage);
 $('#homeBtn').addEventListener('click', showHomePage);
 $$('.tool-group-title').forEach(button => {
   button.addEventListener('click', event => {
