@@ -103,6 +103,7 @@ const supabaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/\s+/g
 const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 const supabaseBucket = String(process.env.SUPABASE_BUCKET || 'library-documents').trim();
 const supabaseLibraryIndexKey = '_metadata/library_documents.json';
+const supabaseWebgisPrefix = '_webgis';
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -183,6 +184,51 @@ function saveProject(id, data) {
 
 function validateProjectData(data) {
   return data && typeof data === 'object' && !Array.isArray(data);
+}
+
+function webgisObjectKey(id) {
+  return `${supabaseWebgisPrefix}/${normalizeProjectId(id)}.json`;
+}
+
+async function loadWebgisState(id) {
+  const projectId = normalizeProjectId(id);
+  if (libraryUsesSupabase()) {
+    const object = await supabaseDownloadObject(webgisObjectKey(projectId));
+    if (object) {
+      try {
+        return {
+          id: projectId,
+          data: JSON.parse(object.buffer.toString('utf8')),
+          storage: 'supabase'
+        };
+      } catch (error) {
+        throw new Error('File du lieu WebGIS tren Supabase bi loi JSON.');
+      }
+    }
+    const sqliteProject = loadProject(projectId);
+    if (sqliteProject) {
+      await saveWebgisState(projectId, sqliteProject.data);
+      return { id: projectId, data: sqliteProject.data, storage: 'supabase-migrated' };
+    }
+    return null;
+  }
+  const project = loadProject(projectId);
+  return project ? { ...project, storage: 'sqlite' } : null;
+}
+
+async function saveWebgisState(id, data) {
+  const projectId = normalizeProjectId(id);
+  if (!validateProjectData(data)) {
+    const error = new Error('Request body must include an object field named data');
+    error.status = 400;
+    throw error;
+  }
+  if (libraryUsesSupabase()) {
+    const body = Buffer.from(JSON.stringify(data, null, 2), 'utf8');
+    await supabaseUploadObject(webgisObjectKey(projectId), body, 'application/json; charset=utf-8');
+    return { ok: true, id: projectId, storage: 'supabase' };
+  }
+  return { ...saveProject(projectId, data), storage: 'sqlite' };
 }
 
 function safeText(value, max = 500) {
@@ -992,7 +1038,8 @@ function createExpressServer() {
       database: path.relative(rootDir, dbPath),
       storage: path.relative(rootDir, storageRootDir) || '.',
       persistentStorage: !isSamePath(storageRootDir, rootDir),
-      libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local'
+      libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local',
+      webgisStorage: libraryUsesSupabase() ? 'supabase' : 'sqlite'
     });
   });
 
@@ -1019,6 +1066,27 @@ function createExpressServer() {
       return;
     }
     res.status(201).json(saveProject(req.body.id || 'default', req.body.data));
+  });
+
+  app.get('/api/webgis/:id', async (req, res) => {
+    try {
+      const state = await loadWebgisState(req.params.id);
+      if (!state) {
+        res.status(404).json({ error: 'WebGIS data not found' });
+        return;
+      }
+      res.json(state);
+    } catch (error) {
+      res.status(error.status || 500).json({ error: error.message || 'Khong doc duoc du lieu WebGIS.' });
+    }
+  });
+
+  app.put('/api/webgis/:id', async (req, res) => {
+    try {
+      res.json(await saveWebgisState(req.params.id, req.body?.data));
+    } catch (error) {
+      res.status(error.status || 500).json({ error: error.message || 'Khong luu duoc du lieu WebGIS.' });
+    }
   });
 
   app.post('/api/library/admin/login', (req, res) => {
@@ -1252,6 +1320,7 @@ function createFallbackServer() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
     const projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)$/);
+    const webgisMatch = url.pathname.match(/^\/api\/webgis\/([^/]+)$/);
     const libraryDocMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)$/);
     const libraryViewTokenMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)\/view-token$/);
     const libraryCoverMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)\/cover$/);
@@ -1266,7 +1335,8 @@ function createFallbackServer() {
           database: path.relative(rootDir, dbPath),
           storage: path.relative(rootDir, storageRootDir) || '.',
           persistentStorage: !isSamePath(storageRootDir, rootDir),
-          libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local'
+          libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local',
+          webgisStorage: libraryUsesSupabase() ? 'supabase' : 'sqlite'
         });
         return;
       }
@@ -1291,6 +1361,20 @@ function createFallbackServer() {
           return;
         }
         sendJson(res, 201, saveProject(body.id || 'default', body.data));
+        return;
+      }
+      if (webgisMatch && req.method === 'GET') {
+        const state = await loadWebgisState(webgisMatch[1]);
+        sendJson(res, state ? 200 : 404, state || { error: 'WebGIS data not found' });
+        return;
+      }
+      if (webgisMatch && req.method === 'PUT') {
+        const body = await readJsonBody(req);
+        try {
+          sendJson(res, 200, await saveWebgisState(webgisMatch[1], body.data));
+        } catch (error) {
+          sendJson(res, error.status || 500, { error: error.message || 'Khong luu duoc du lieu WebGIS.' });
+        }
         return;
       }
       if (url.pathname === '/api/library/admin/login' && req.method === 'POST') {

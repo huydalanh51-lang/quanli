@@ -694,6 +694,7 @@ let webgisState = {
 
 const webgisStorageKey = 'webgis-state-v1';
 const webgisProjectId = 'webgis-default';
+const webgisApiBase = '/api/webgis';
 let webgisSaveTimer = 0;
 
 function webgisEl(id) {
@@ -818,12 +819,12 @@ function webgisLoadLocal() {
 async function webgisLoadSavedData() {
   const localData = webgisLoadLocal();
   try {
-    const response = await fetch(`${apiBase}/${encodeURIComponent(webgisProjectId)}`, { cache: 'no-store' });
+    const response = await fetch(`${webgisApiBase}/${encodeURIComponent(webgisProjectId)}`, { cache: 'no-store' });
     if (response.ok) {
       const payload = await response.json();
       if (webgisValidPayload(payload.data)) {
         webgisSaveLocal(payload.data);
-        webgisSetSaveStatus('Đã nạp dữ liệu đã lưu');
+        webgisSetSaveStatus(payload.storage === 'supabase' || payload.storage === 'supabase-migrated' ? 'Đã nạp từ Supabase' : 'Đã nạp dữ liệu đã lưu');
         return payload.data;
       }
     }
@@ -842,13 +843,15 @@ async function webgisSaveNow() {
   const savedLocal = webgisSaveLocal(data);
   webgisSetSaveStatus('Đang tự lưu...');
   try {
-    const response = await fetch(`${apiBase}/${encodeURIComponent(webgisProjectId)}`, {
+    const response = await fetch(`${webgisApiBase}/${encodeURIComponent(webgisProjectId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data })
     });
     if (!response.ok) throw new Error(await response.text());
-    webgisSetSaveStatus(`Đã tự lưu ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`);
+    const result = await response.json().catch(() => ({}));
+    const target = result.storage === 'supabase' ? 'Supabase' : 'server';
+    webgisSetSaveStatus(`Đã tự lưu ${target} ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`);
   } catch (error) {
     webgisSetSaveStatus(savedLocal ? 'Đã lưu tạm trên trình duyệt' : 'Không lưu được dữ liệu', true);
   }
