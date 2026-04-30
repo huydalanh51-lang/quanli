@@ -375,12 +375,26 @@ async function supabaseDownloadObject(key) {
   });
   if (response.status === 404) return null;
   if (!response.ok) {
-    throw new Error(`Khong doc duoc file tu Supabase Storage: ${await response.text()}`);
+    const errorText = await response.text();
+    if (isSupabaseMissingObject(response, errorText)) return null;
+    throw new Error(`Khong doc duoc file tu Supabase Storage: ${errorText}`);
   }
   return {
     buffer: Buffer.from(await response.arrayBuffer()),
     mime: response.headers.get('content-type') || contentType(key)
   };
+}
+
+function isSupabaseMissingObject(response, errorText) {
+  if (response.status === 404) return true;
+  try {
+    const payload = JSON.parse(errorText);
+    const statusCode = Number(payload.statusCode || payload.status || 0);
+    const message = String(payload.message || payload.error || '').toLowerCase();
+    return statusCode === 404 && message.includes('not found');
+  } catch (error) {
+    return false;
+  }
 }
 
 async function supabaseDeleteObjects(keys) {
