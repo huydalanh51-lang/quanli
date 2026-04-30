@@ -426,11 +426,17 @@ body.docs-mode .home-page {
 }
 .reader-loading {
   position: absolute;
-  inset: 10px;
-  display: grid;
-  place-items: center;
-  color: #475569;
-  background: rgba(255, 255, 255, 0.72);
+  top: 18px;
+  right: 18px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  color: #ffffff;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
   font-size: 13px;
 }
 @media (max-width: 820px) {
@@ -3093,7 +3099,7 @@ async function handleLibraryAdminAction(event) {
 function drawPdfWatermark(ctx, width, height) {
   const text = 'Thư viện số - Chỉ đọc trực tuyến';
   ctx.save();
-  ctx.globalAlpha = 0.16;
+  ctx.globalAlpha = 0.09;
   ctx.fillStyle = '#0f766e';
   ctx.font = `${Math.max(22, Math.round(width / 28))}px Arial`;
   ctx.textAlign = 'center';
@@ -3114,28 +3120,33 @@ async function renderPdfPage() {
   try {
     if (activePdfRenderTask) activePdfRenderTask.cancel();
   } catch (error) {}
-  const page = await activePdf.getPage(activePdfPage);
-  if (serial !== activePdfRenderSerial) return;
-  const canvas = $('#pdfCanvas');
-  const ctx = canvas.getContext('2d', { alpha: false });
-  const viewport = page.getViewport({ scale: activePdfScale });
-  canvas.width = Math.floor(viewport.width);
-  canvas.height = Math.floor(viewport.height);
-  canvas.style.width = `${Math.floor(viewport.width)}px`;
-  canvas.style.height = `${Math.floor(viewport.height)}px`;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  activePdfRenderTask = page.render({ canvasContext: ctx, viewport });
-  await activePdfRenderTask.promise.catch(error => {
-    if (error?.name !== 'RenderingCancelledException') throw error;
-  });
-  if (serial !== activePdfRenderSerial) return;
-  drawPdfWatermark(ctx, canvas.width, canvas.height);
-  $('#readerPageInput').value = activePdfPage;
-  $('#readerPageTotal').textContent = `/ ${activePdf.numPages}`;
-  $('#readerPrevBtn').disabled = activePdfPage <= 1;
-  $('#readerNextBtn').disabled = activePdfPage >= activePdf.numPages;
-  $('#readerLoading').hidden = true;
+  try {
+    const page = await activePdf.getPage(activePdfPage);
+    if (serial !== activePdfRenderSerial) return;
+    const canvas = $('#pdfCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const cssViewport = page.getViewport({ scale: activePdfScale });
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2.5);
+    const renderViewport = page.getViewport({ scale: activePdfScale * pixelRatio });
+    canvas.width = Math.floor(renderViewport.width);
+    canvas.height = Math.floor(renderViewport.height);
+    canvas.style.width = `${Math.floor(cssViewport.width)}px`;
+    canvas.style.height = `${Math.floor(cssViewport.height)}px`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    activePdfRenderTask = page.render({ canvasContext: ctx, viewport: renderViewport });
+    await activePdfRenderTask.promise.catch(error => {
+      if (error?.name !== 'RenderingCancelledException') throw error;
+    });
+    if (serial !== activePdfRenderSerial) return;
+    drawPdfWatermark(ctx, canvas.width, canvas.height);
+    $('#readerPageInput').value = activePdfPage;
+    $('#readerPageTotal').textContent = `/ ${activePdf.numPages}`;
+    $('#readerPrevBtn').disabled = activePdfPage <= 1;
+    $('#readerNextBtn').disabled = activePdfPage >= activePdf.numPages;
+  } finally {
+    if (serial === activePdfRenderSerial) $('#readerLoading').hidden = true;
+  }
 }
 
 async function openPdfReader(doc) {
