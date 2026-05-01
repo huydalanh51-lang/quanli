@@ -35,6 +35,8 @@ DECREASE_COL = 67
 CHANGE_COL = 68
 PLAN_COL = 69
 PREVIOUS_PLAN_COL = 70
+PREVIOUS_PLAN_CHANGE_COL = 71
+PREVIOUS_PLAN_STRUCTURE_COL = 72
 TOTAL_INCREASE_ROW = 67
 PLAN_ROW = 68
 PREVIOUS_PLAN_DIR = BASE_DIR / "Dulieu"
@@ -1501,7 +1503,7 @@ def main() -> None:
     wb = openpyxl.load_workbook(SOURCE, data_only=False)
     ws = wb["Sheet1"]
     previous_plan_values = {}
-    total_columns = ws.max_column + 1
+    total_columns = ws.max_column + 3
 
     merged_parent = {}
     merged_skip = set()
@@ -1565,6 +1567,8 @@ def main() -> None:
         px = int(width * 8)
         colgroup.append(f'<col style="width:{px}px;min-width:{px}px">')
     colgroup.append('<col style="width:112px;min-width:112px">')
+    colgroup.append('<col style="width:112px;min-width:112px">')
+    colgroup.append('<col style="width:92px;min-width:92px">')
 
     rows_html = []
     for row in range(1, ws.max_row + 1):
@@ -1622,6 +1626,20 @@ def main() -> None:
                 f'data-row="{row}" data-col="{PREVIOUS_PLAN_COL}" rowspan="2">'
                 'Quy hoạch kỳ trước</td>'
             )
+            cells.append(
+                f'<td class="xl3" data-addr="{get_column_letter(PREVIOUS_PLAN_CHANGE_COL)}{row}" '
+                f'data-row="{row}" data-col="{PREVIOUS_PLAN_CHANGE_COL}" colspan="2">'
+                'T&#259;ng (+) gi&#7843;m (-)</td>'
+            )
+        elif row == 3:
+            cells.append(
+                f'<td class="xl3" data-addr="{get_column_letter(PREVIOUS_PLAN_CHANGE_COL)}{row}" '
+                f'data-row="{row}" data-col="{PREVIOUS_PLAN_CHANGE_COL}">Di&#7879;n t&#237;ch</td>'
+            )
+            cells.append(
+                f'<td class="xl3" data-addr="{get_column_letter(PREVIOUS_PLAN_STRUCTURE_COL)}{row}" '
+                f'data-row="{row}" data-col="{PREVIOUS_PLAN_STRUCTURE_COL}">C&#417; c&#7845;u (%)</td>'
+            )
         elif row >= 4:
             previous_code = str(ws.cell(row, 3).value or "").strip().upper()
             if row == 4:
@@ -1631,6 +1649,16 @@ def main() -> None:
                 f'<td class="xl7" data-addr="{get_column_letter(PREVIOUS_PLAN_COL)}{row}" '
                 f'data-row="{row}" data-col="{PREVIOUS_PLAN_COL}" data-previous-plan="1" data-auto="1">'
                 f'<span class="value">{previous_text}</span></td>'
+            )
+            cells.append(
+                f'<td class="xl7" data-addr="{get_column_letter(PREVIOUS_PLAN_CHANGE_COL)}{row}" '
+                f'data-row="{row}" data-col="{PREVIOUS_PLAN_CHANGE_COL}" data-previous-change="1" data-auto="1">'
+                '<span class="value"></span></td>'
+            )
+            cells.append(
+                f'<td class="xl7" data-addr="{get_column_letter(PREVIOUS_PLAN_STRUCTURE_COL)}{row}" '
+                f'data-row="{row}" data-col="{PREVIOUS_PLAN_STRUCTURE_COL}" data-previous-structure="1" data-auto="1">'
+                '<span class="value"></span></td>'
             )
         rows_html.append(f'<tr style="height:{height}px">{"".join(cells)}</tr>')
 
@@ -1648,6 +1676,8 @@ def main() -> None:
         "changeCol": CHANGE_COL,
         "planCol": PLAN_COL,
         "previousPlanCol": PREVIOUS_PLAN_COL,
+        "previousPlanChangeCol": PREVIOUS_PLAN_CHANGE_COL,
+        "previousPlanStructureCol": PREVIOUS_PLAN_STRUCTURE_COL,
         "totalIncreaseRow": TOTAL_INCREASE_ROW,
         "planRow": PLAN_ROW,
         "tolerance": 0.0001,
@@ -3284,7 +3314,7 @@ let activePdfScale = 1.2;
 let activePdfRenderTask = null;
 let activePdfRenderSerial = 0;
 let nextDynamicRow = meta.planRow + 1;
-let nextDynamicCol = (meta.previousPlanCol || meta.planCol) + 1;
+let nextDynamicCol = (meta.previousPlanStructureCol || meta.previousPlanCol || meta.planCol) + 1;
 
 function isDiagonalMatrixCell(td) {{
   const row = Number(td.dataset.row || 0);
@@ -3407,7 +3437,7 @@ function addMatrixRow(code) {{
       colCode
     }}));
   }}
-  for (let col = meta.decreaseCol; col <= (meta.previousPlanCol || meta.planCol); col++) {{
+  for (let col = meta.decreaseCol; col <= (meta.previousPlanStructureCol || meta.previousPlanCol || meta.planCol); col++) {{
     tr.appendChild(createCell(row, col, '', {{ className: 'xl8', auto: true, code }}));
   }}
   document.querySelector('#landTable tbody').appendChild(tr);
@@ -3497,6 +3527,7 @@ function applyProjectSettings(settings = {{}}) {{
 
 function readInputs() {{
   normalizeAllInputs();
+  collectPreviousPlanValues();
   const data = {{}};
   inputEls.forEach((input, address) => {{
     data[address] = input.value.trim();
@@ -3671,6 +3702,38 @@ function applyPreviousPlanValues(values) {{
   }});
 }}
 
+function collectPreviousPlanValues() {{
+  document.querySelectorAll('td[data-previous-plan="1"]').forEach(td => {{
+    const row = Number(td.dataset.row || 0);
+    const code = row === meta.dttnRow ? 'DTTN' : rowCodes[String(row)];
+    const text = td.querySelector('.value')?.textContent || '';
+    const value = parseNumericText(text);
+    if (code && Number.isFinite(value)) previousPlanValues[code] = formatNumber(value);
+  }});
+}}
+
+function previousPlanValueFor(code, row) {{
+  const normalized = code || (row === meta.dttnRow ? 'DTTN' : rowCodes[String(row)]);
+  const stored = previousPlanValues[normalized];
+  let value = parseNumericText(stored);
+  if (Number.isFinite(value)) return value;
+  const td = cellsByKey.get(`${{row}}:${{meta.previousPlanCol}}`);
+  value = parseNumericText(td?.textContent || '');
+  return Number.isFinite(value) ? value : NaN;
+}}
+
+function setPreviousPlanChange(row, code, current) {{
+  if (!meta.previousPlanChangeCol || !meta.previousPlanStructureCol) return;
+  const previous = previousPlanValueFor(code, row);
+  if (!Number.isFinite(previous) || Math.abs(previous) <= meta.tolerance) {{
+    setAuto(row, meta.previousPlanChangeCol, NaN);
+    setAuto(row, meta.previousPlanStructureCol, NaN);
+    return;
+  }}
+  setAuto(row, meta.previousPlanChangeCol, current - previous);
+  setAuto(row, meta.previousPlanStructureCol, (current / previous) * 100);
+}}
+
 function detectPreviousPlanColumns(rows) {{
   let codeCol = null;
   let areaCol = null;
@@ -3743,6 +3806,7 @@ async function importPreviousPlanExcel(file) {{
     validRows++;
   }}
   applyPreviousPlanValues(imported);
+  recalc();
   localStorage.setItem(storageKey, JSON.stringify(readInputs()));
   const el = $('#importLog');
   el.hidden = false;
@@ -4187,6 +4251,7 @@ function createCalcContext() {{
 }}
 
 function recalc() {{
+  collectPreviousPlanValues();
   const {{ currentArea, matrixLeaf, matrixValue }} = createCalcContext();
   for (const code of Object.keys(rowsByCode)) {{
     setAuto(rowsByCode[code], meta.currentCol, currentArea(code));
@@ -4220,12 +4285,14 @@ function recalc() {{
     setAuto(row, meta.decreaseCol, current - diagonal);
     setAuto(row, meta.planCol, plan);
     setAuto(row, meta.changeCol, plan - current);
+    setPreviousPlanChange(row, code, current);
   }}
   setAuto(meta.dttnRow, meta.decreaseCol,
     ['NNP', 'PNN', 'CSD'].reduce((sum, code) => sum + getAuto(rowsByCode[code] || 0, meta.decreaseCol), 0)
   );
   setAuto(meta.dttnRow, meta.planCol, ['NNP', 'PNN', 'CSD'].reduce((sum, code) => sum + refreshedCalc.matrixValue('DTTN', code), 0));
   setAuto(meta.dttnRow, meta.changeCol, getAuto(meta.dttnRow, meta.planCol) - getAuto(meta.dttnRow, meta.currentCol));
+  setPreviousPlanChange(meta.dttnRow, 'DTTN', getAuto(meta.dttnRow, meta.currentCol));
 
   for (const colCode of matrixCodes) {{
     const col = colsByCode[colCode];
@@ -4251,7 +4318,7 @@ function updateWarnings(calc) {{
     const current = calc.currentArea(code);
     if (Math.abs(rowSum - current) > tol) {{
       rowErrors++;
-      for (let col = 1; col <= (meta.previousPlanCol || meta.planCol); col++) {{
+      for (let col = 1; col <= (meta.previousPlanStructureCol || meta.previousPlanCol || meta.planCol); col++) {{
         const td = cellsByKey.get(`${{row}}:${{col}}`);
         if (td) nextWarnCells.add(td);
       }}
@@ -4347,8 +4414,10 @@ function exportMatrixShape() {{
     ...activeCodes.map(code => colsByCode[code]).filter(Boolean),
     meta.decreaseCol,
     meta.changeCol,
-    meta.planCol
-  ];
+    meta.planCol,
+    meta.previousPlanChangeCol,
+    meta.previousPlanStructureCol
+  ].filter(Boolean);
   const exportDataRows = [];
   for (const [code, row] of calcRowEntries) {{
     if (row === meta.dttnRow || activeSet.has(code)) exportDataRows.push(row);
@@ -4413,9 +4482,14 @@ function exportXlsx() {{
   }}).join('');
   const lastRef = addr(exportCols.length, 1);
   const matrixEnd = 4 + exportCols.filter(col => col >= meta.matrixStartCol && col <= meta.matrixEndCol).length;
-  const mergeXml = matrixEnd > 5
-    ? `<mergeCells count="2"><mergeCell ref="A1:${{lastRef}}"/><mergeCell ref="E2:${{addr(matrixEnd, 2)}}"/></mergeCells>`
-    : `<mergeCells count="1"><mergeCell ref="A1:${{lastRef}}"/></mergeCells>`;
+  const mergeRefs = [`<mergeCell ref="A1:${{lastRef}}"/>`];
+  if (matrixEnd > 5) mergeRefs.push(`<mergeCell ref="E2:${{addr(matrixEnd, 2)}}"/>`);
+  const previousChangeIndex = exportCols.indexOf(meta.previousPlanChangeCol) + 1;
+  const previousStructureIndex = exportCols.indexOf(meta.previousPlanStructureCol) + 1;
+  if (previousChangeIndex > 0 && previousStructureIndex > previousChangeIndex) {{
+    mergeRefs.push(`<mergeCell ref="${{addr(previousChangeIndex, 2)}}:${{addr(previousStructureIndex, 2)}}"/>`);
+  }}
+  const mergeXml = `<mergeCells count="${{mergeRefs.length}}">${{mergeRefs.join('')}}</mergeCells>`;
   const zip = new JSZip();
   zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
