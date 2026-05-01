@@ -35,6 +35,10 @@ LIBRARY_ADMIN_USER=admin
 LIBRARY_ADMIN_PASSWORD=mat-khau-manh-cua-ban
 LIBRARY_GUEST_USER=khach
 LIBRARY_GUEST_PASSWORD=khach
+LIBRARY_GUEST_USER_01=khach01
+LIBRARY_GUEST_PASSWORD_01=mat-khau-khach-01
+LIBRARY_GUEST_USER_02=khach02
+LIBRARY_GUEST_PASSWORD_02=mat-khau-khach-02
 APP_STORAGE_DIR=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -144,6 +148,7 @@ Khi co cac bien nay, phan mem se luu metadata thu vien tai `_metadata/library_do
 - File PDF duoc luu trong `protected_uploads/`, khong nam trong `public/`.
 - Admin dang nhap bang `LIBRARY_ADMIN_USER` va `LIBRARY_ADMIN_PASSWORD`.
 - Tai khoan khach dang nhap bang `LIBRARY_GUEST_USER` va `LIBRARY_GUEST_PASSWORD` de chi doc tai lieu. Neu khong cau hinh, backend dung mac dinh `khach` / `khach`.
+- Co the tao nhieu tai khoan khach bang cac cap bien danh so: `LIBRARY_GUEST_USER_01` + `LIBRARY_GUEST_PASSWORD_01`, `LIBRARY_GUEST_USER_02` + `LIBRARY_GUEST_PASSWORD_02`,... Tren Render khong duoc tao trung key, nen moi tai khoan khach can dung mot so rieng.
 - Upload tai lieu bang giao dien quan tri: ten tai lieu, tac gia/don vi, nam, mo ta, danh muc, PDF va anh bia.
 - Trinh doc PDF dung PDF.js de render len canvas, khong hien nut tai xuong/in va co watermark tren trang doc.
 

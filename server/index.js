@@ -659,10 +659,28 @@ function ensureAdminConfigured() {
 }
 
 function libraryGuestCredentials() {
-  return {
-    user: process.env.LIBRARY_GUEST_USER || 'khach',
-    password: process.env.LIBRARY_GUEST_PASSWORD || 'khach'
+  const pairs = [];
+  const addPair = (user, password) => {
+    const normalizedUser = String(user || '').trim();
+    const normalizedPassword = String(password || '');
+    if (!normalizedUser || !normalizedPassword) return;
+    if (pairs.some(pair => pair.user === normalizedUser)) return;
+    pairs.push({ user: normalizedUser, password: normalizedPassword });
   };
+
+  addPair(process.env.LIBRARY_GUEST_USER, process.env.LIBRARY_GUEST_PASSWORD);
+
+  Object.keys(process.env)
+    .map(key => key.match(/^LIBRARY_GUEST_USER_(\d+)$/))
+    .filter(Boolean)
+    .map(match => match[1])
+    .sort((a, b) => Number(a) - Number(b))
+    .forEach(index => {
+      addPair(process.env[`LIBRARY_GUEST_USER_${index}`], process.env[`LIBRARY_GUEST_PASSWORD_${index}`]);
+    });
+
+  if (!pairs.length) addPair('khach', 'khach');
+  return pairs;
 }
 
 function createLibrarySession(role) {
@@ -737,8 +755,10 @@ function loginLibraryAccount(username, inputPassword) {
   } catch (error) {
     // Admin login is optional for read-only library access.
   }
-  const guest = libraryGuestCredentials();
-  if (timingSafeStringEqual(userName, guest.user) && timingSafeStringEqual(password, guest.password)) {
+  const guest = libraryGuestCredentials().find(account =>
+    timingSafeStringEqual(userName, account.user) && timingSafeStringEqual(password, account.password)
+  );
+  if (guest) {
     const token = createLibrarySession('guest');
     return { token, role: 'guest', username: guest.user, expiresIn: Math.floor(librarySessionTtlMs / 1000) };
   }
