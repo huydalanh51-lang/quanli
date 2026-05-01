@@ -3733,7 +3733,7 @@ function previousPlanValueFor(code, row) {{
 }}
 
 function updatePreviousPlanIndicator(row, structure) {{
-  const planCell = cellsByKey.get(`${{row}}:${{meta.planCol}}`);
+  const planCell = cellsByKey.get(`${{row}}:${{meta.previousPlanCol}}`);
   if (!planCell) return;
   const rounded = roundNumber(structure);
   const shouldWarn = Number.isFinite(structure) && Math.abs(rounded - 100) > meta.tolerance;
