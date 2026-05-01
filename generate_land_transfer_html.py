@@ -4414,9 +4414,7 @@ function exportMatrixShape() {{
     ...activeCodes.map(code => colsByCode[code]).filter(Boolean),
     meta.decreaseCol,
     meta.changeCol,
-    meta.planCol,
-    meta.previousPlanChangeCol,
-    meta.previousPlanStructureCol
+    meta.planCol
   ].filter(Boolean);
   const exportDataRows = [];
   for (const [code, row] of calcRowEntries) {{
