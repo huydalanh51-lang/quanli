@@ -2613,6 +2613,7 @@ button:hover {{ filter: brightness(0.97); }}
 .swatch.diagonal {{ background: var(--diagonal); }}
 .swatch.auto {{ background: var(--auto); }}
 .swatch.locked {{ background: #ffffff; }}
+.swatch.plan-alert {{ background: #fee2e2; border-color: #fca5a5; }}
 .view-options {{
   display: flex;
   align-items: center;
@@ -2751,6 +2752,14 @@ td.hover-cell {{
 td.warn {{
   background: #ffe4e6 !important;
   color: #7f1d1d !important;
+}}
+td.plan-target-alert {{
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  font-weight: 700;
+}}
+td.plan-target-alert .value {{
+  color: #991b1b !important;
 }}
 td.search-hit {{
   outline: 3px solid #2563eb !important;
@@ -3253,6 +3262,7 @@ td.search-hit {{
     <span class="legend-item"><span class="swatch diagonal"></span>Ô giữ nguyên loại đất / đường chéo</span>
     <span class="legend-item"><span class="swatch auto"></span>Ô công thức / tổng hợp</span>
     <span class="legend-item"><span class="swatch locked"></span>Ô khóa không nhập</span>
+    <span class="legend-item"><span class="swatch plan-alert"></span>C&#7843;nh b&#225;o ch&#432;a &#273;&#7841;t / v&#432;&#7907;t ch&#7881; ti&#234;u</span>
   </div>
   <label class="view-options">
     <input id="hideZeroToggle" type="checkbox">
@@ -3722,16 +3732,34 @@ function previousPlanValueFor(code, row) {{
   return Number.isFinite(value) ? value : NaN;
 }}
 
+function updatePreviousPlanIndicator(row, structure) {{
+  const planCell = cellsByKey.get(`${{row}}:${{meta.planCol}}`);
+  if (!planCell) return;
+  const rounded = roundNumber(structure);
+  const shouldWarn = Number.isFinite(structure) && Math.abs(rounded - 100) > meta.tolerance;
+  planCell.classList.toggle('plan-target-alert', shouldWarn);
+  if (!shouldWarn) {{
+    planCell.removeAttribute('title');
+    return;
+  }}
+  planCell.title = rounded < 100
+    ? 'ChÆ°a Ä‘áº¡t chá»‰ tiĂªu so vá»›i quy hoáº¡ch ká»³ trÆ°á»›c'
+    : 'VÆ°á»£t chá»‰ tiĂªu so vá»›i quy hoáº¡ch ká»³ trÆ°á»›c';
+}}
+
 function setPreviousPlanChange(row, code, current) {{
   if (!meta.previousPlanChangeCol || !meta.previousPlanStructureCol) return;
   const previous = previousPlanValueFor(code, row);
   if (!Number.isFinite(previous) || Math.abs(previous) <= meta.tolerance) {{
     setAuto(row, meta.previousPlanChangeCol, NaN);
     setAuto(row, meta.previousPlanStructureCol, NaN);
+    updatePreviousPlanIndicator(row, NaN);
     return;
   }}
+  const structure = (current / previous) * 100;
   setAuto(row, meta.previousPlanChangeCol, current - previous);
-  setAuto(row, meta.previousPlanStructureCol, (current / previous) * 100);
+  setAuto(row, meta.previousPlanStructureCol, structure);
+  updatePreviousPlanIndicator(row, structure);
 }}
 
 function detectPreviousPlanColumns(rows) {{
