@@ -24,6 +24,7 @@ LAND_NAME_FIXES = {
 }
 
 STT_FIXES_BY_CODE = {
+    "NKH": "1.10",
     "TIN": "2.10",
 }
 
@@ -101,21 +102,21 @@ WEBGIS_SAMPLE_DATA = {
 WEBGIS_CSS = r"""
 .webgis-page {
   overflow: hidden;
-  background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 52%, #f8fafc 100%);
+  background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 48%, #f8fafc 100%);
 }
 .webgis-shell {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 102px);
-  border-radius: 8px;
+  min-height: calc(100vh - 104px);
+  border-radius: 18px;
   overflow: hidden;
 }
 .webgis-topbar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(220px, 460px) auto;
+  grid-template-columns: minmax(280px, 1fr) minmax(260px, 500px) auto;
   gap: 12px;
   align-items: center;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-bottom: 1px solid #dbe7f3;
   background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(237,248,255,0.96));
 }
@@ -248,11 +249,11 @@ WEBGIS_CSS = r"""
 }
 .webgis-workspace {
   display: grid;
-  grid-template-columns: 304px minmax(360px, 1fr) 320px;
-  gap: 10px;
+  grid-template-columns: 304px minmax(520px, 1fr) 340px;
+  gap: 12px;
   min-height: 0;
   flex: 1;
-  padding: 10px;
+  padding: 12px;
 }
 .webgis-sidebar,
 .webgis-info {
@@ -264,9 +265,10 @@ WEBGIS_CSS = r"""
 }
 .webgis-panel {
   border: 1px solid #d4e2ef;
-  border-radius: 8px;
+  border-radius: 14px;
   background: rgba(255,255,255,0.96);
-  box-shadow: 0 10px 24px rgba(15, 47, 87, 0.08);
+  box-shadow: 0 12px 30px rgba(15, 47, 87, 0.08);
+  overflow: hidden;
 }
 .webgis-panel-head {
   display: flex;
@@ -330,30 +332,35 @@ WEBGIS_CSS = r"""
 }
 .webgis-map-panel {
   position: relative;
-  min-height: 620px;
+  min-height: calc(100vh - 224px);
   overflow: hidden;
   border: 1px solid #cbdcec;
-  border-radius: 8px;
+  border-radius: 16px;
   background: #eaf2f8;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65), 0 12px 30px rgba(15, 47, 87, 0.12);
 }
 .webgis-map {
   width: 100%;
   height: 100%;
-  min-height: 620px;
+  min-height: calc(100vh - 224px);
 }
 .webgis-map-tools {
   position: absolute;
   z-index: 500;
-  top: 12px;
-  left: 12px;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
   max-width: calc(100% - 24px);
+  justify-content: center;
   padding: 8px;
   border: 1px solid rgba(183, 200, 218, 0.72);
-  border-radius: 10px;
+  border-radius: 999px;
   background: rgba(255,255,255,0.94);
   box-shadow: 0 14px 30px rgba(15,47,87,0.14);
   backdrop-filter: blur(8px);
+}
+.webgis-map-tools button {
+  border-radius: 999px;
 }
 .webgis-coordinate-bar,
 .webgis-measure-badge {
@@ -1721,11 +1728,11 @@ def main() -> None:
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root {{
-  --bg: #eef4f1;
+  --bg: #eef5fb;
   --panel: #ffffff;
-  --ink: #17202a;
+  --ink: #0f172a;
   --muted: #64748b;
-  --line: #d5dde8;
+  --line: #d8e3ee;
   --accent: #0f766e;
   --accent-2: #2563eb;
   --surface: rgba(255, 255, 255, 0.88);
@@ -1742,34 +1749,37 @@ body {{
   margin: 0;
   min-height: 100vh;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.28)),
-    linear-gradient(135deg, #eef4f1 0%, #f8fafc 52%, #edf3f7 100%);
+    radial-gradient(circle at 18% 12%, rgba(37, 99, 235, 0.14), transparent 28%),
+    radial-gradient(circle at 84% 10%, rgba(14, 165, 233, 0.12), transparent 30%),
+    linear-gradient(135deg, #eef5fb 0%, #f8fbff 48%, #edf4fa 100%);
   background-attachment: fixed;
   color: var(--ink);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif;
 }}
 .appbar {{
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 70;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 10px 14px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(244, 250, 247, 0.92));
+  min-height: 74px;
+  padding: 10px 16px 10px 108px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.94));
   border-bottom: 1px solid rgba(148, 163, 184, 0.42);
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
   backdrop-filter: blur(12px);
 }}
 .title {{
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
   text-transform: uppercase;
-  color: #0f3d31;
+  color: #0f2f57;
+  letter-spacing: 0;
 }}
 .subtitle {{
-  color: #1e4d5f;
+  color: #315d87;
   font-size: 12px;
   font-weight: 700;
 }}
@@ -1799,6 +1809,75 @@ body {{
   color: #64748b;
   font-size: 11px;
   font-weight: 600;
+}}
+.app-sidebar {{
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  bottom: 12px;
+  z-index: 90;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(14px);
+}}
+.side-logo {{
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 4px;
+  border-radius: 14px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+  font-size: 20px;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
+}}
+.side-nav {{
+  display: grid;
+  gap: 7px;
+}}
+.side-nav button {{
+  width: 58px;
+  min-height: 58px;
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 6px 4px;
+  background: transparent;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+  box-shadow: none;
+}}
+.side-icon {{
+  font-size: 19px;
+  line-height: 1;
+}}
+.side-nav button:hover {{
+  background: #eff6ff;
+  color: #1d4ed8;
+  filter: none;
+}}
+body.home-mode #sideHomeBtn,
+body.module-mode #sideLandTransferBtn,
+body.docs-mode #sideLibraryBtn,
+body.webgis-mode #sideWebGisBtn {{
+  border-color: #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  color: #1d4ed8;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.72);
 }}
 .status {{
   display: flex;
@@ -1850,14 +1929,107 @@ body {{
 }}
 .home-page {{
   min-height: calc(100vh - 74px);
-  margin: 14px;
+  margin: 14px 14px 14px 110px;
   border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 8px;
+  border-radius: 18px;
   background:
-    linear-gradient(180deg, rgba(6, 25, 65, 0.05), rgba(6, 25, 65, 0.10)),
+    linear-gradient(135deg, rgba(11, 39, 89, 0.72), rgba(14, 116, 144, 0.42)),
     url("{home_bg_data_url}") center / cover no-repeat,
     linear-gradient(135deg, #0752b7, #52c7e8);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 18px 42px rgba(15, 23, 42, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 20px 50px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}}
+.dashboard {{
+  min-height: calc(100vh - 104px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 30px;
+  padding: clamp(22px, 4vw, 52px);
+}}
+.dashboard-hero {{
+  max-width: 880px;
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(15, 23, 42, 0.22);
+}}
+.dashboard-eyebrow {{
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 11px;
+  border: 1px solid rgba(255,255,255,0.36);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+}}
+.dashboard h1 {{
+  margin: 18px 0 10px;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1.04;
+  letter-spacing: 0;
+}}
+.dashboard-subtitle {{
+  margin: 0;
+  max-width: 760px;
+  color: rgba(255,255,255,0.92);
+  font-size: clamp(16px, 2vw, 20px);
+  line-height: 1.55;
+}}
+.module-grid {{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}}
+.module-card {{
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  min-height: 238px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.44);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.92);
+  color: #0f172a;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.20);
+  backdrop-filter: blur(14px);
+}}
+.module-card-icon {{
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #dbeafe, #eff6ff);
+  color: #1d4ed8;
+  font-size: 24px;
+}}
+.module-card h2 {{
+  margin: 16px 0 8px;
+  color: #0f2f57;
+  font-size: 21px;
+  line-height: 1.25;
+}}
+.module-card p {{
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.55;
+}}
+.module-card button {{
+  justify-self: start;
+  margin-top: 18px;
+  min-height: 38px;
+  border-radius: 11px;
+  padding: 0 15px;
+}}
+.dashboard-footer {{
+  color: rgba(255,255,255,0.78);
+  font-size: 12px;
+  text-align: right;
 }}
 body.home-mode .module-only,
 body.home-mode .table-wrap,
@@ -1885,17 +2057,18 @@ body.webgis-mode .docs-page {{
 }}
 .docs-page {{
   min-height: calc(100vh - 74px);
-  margin: 14px;
+  margin: 14px 14px 14px 110px;
   border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 8px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
 }}
 .webgis-page {{
   min-height: calc(100vh - 74px);
-  margin: 14px;
+  margin: 14px 14px 14px 110px;
   border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 8px;
+  border-radius: 18px;
   background: #ffffff;
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.10);
 }}
@@ -2582,7 +2755,7 @@ button:hover {{ filter: brightness(0.97); }}
   justify-content: space-between;
   align-items: center;
   gap: 8px 14px;
-  margin: 12px 14px -4px;
+  margin: 12px 14px -4px 110px;
   padding: 8px 10px;
   border: 1px solid rgba(148, 163, 184, 0.34);
   border-radius: 8px;
@@ -2625,9 +2798,9 @@ button:hover {{ filter: brightness(0.97); }}
   height: calc(100vh - 184px);
   min-height: 420px;
   overflow: auto;
-  margin: 14px;
+  margin: 14px 14px 14px 110px;
   border: 1px solid rgba(148, 163, 184, 0.44);
-  border-radius: 8px;
+  border-radius: 14px;
   background:
     linear-gradient(rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.94)),
     repeating-linear-gradient(135deg, rgba(15, 118, 110, 0.05) 0 12px, rgba(37, 99, 235, 0.04) 12px 24px);
@@ -2947,6 +3120,49 @@ td.search-hit {{
 .table-wrap td[data-auto="1"]:not(.diagonal) {{
   background-color: var(--locked) !important;
 }}
+@media (max-width: 980px) {{
+  .appbar {{
+    padding-left: 14px;
+  }}
+  .app-sidebar {{
+    top: auto;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    height: 76px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+  }}
+  .side-logo {{
+    display: none;
+  }}
+  .side-nav {{
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }}
+  .home-page,
+  .docs-page,
+  .webgis-page {{
+    margin: 10px 10px 96px;
+  }}
+  .table-toolbar {{
+    margin: 10px 10px -2px;
+  }}
+  .table-wrap {{
+    height: calc(100vh - 248px);
+    margin: 12px 10px 96px;
+  }}
+  .module-grid {{
+    grid-template-columns: 1fr;
+  }}
+  .dashboard {{
+    padding: 22px;
+  }}
+}}
 </style>
 </head>
 <body class="home-mode">
@@ -2954,8 +3170,8 @@ td.search-hit {{
   <div class="brand">
     <img class="brand-logo" src="{logo_data_url}" alt="Logo Nguyễn Quang Huy">
     <div class="brand-text">
-      <div class="title">PHẦN MỀM ĐẤT ĐAI</div>
-      <div class="subtitle">Biểu chu chuyển sử dụng đất</div>
+      <div class="title">PHẦN MỀM QUẢN LÝ ĐẤT ĐAI</div>
+      <div class="subtitle">Công cụ hỗ trợ lập, kiểm tra và xuất biểu chu chuyển sử dụng đất</div>
       <div class="designer">Designed by Nguyễn Quang Huy</div>
     </div>
   </div>
@@ -2964,7 +3180,7 @@ td.search-hit {{
     <div id="menuList" class="menu-list" hidden>
       <button id="openLandTransferBtn" type="button">Chu chuyển đất đai</button>
       <button id="openDocumentLibraryBtn" type="button">Thư viện tài liệu</button>
-      <button id="openWebGisBtn" type="button">WebGis</button>
+      <button id="openWebGisBtn" type="button">WebGIS</button>
     </div>
   </nav>
   <div class="status module-only">
@@ -3077,7 +3293,45 @@ td.search-hit {{
   <input id="gisXlsxInput" class="hidden-input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
   <input id="gtpInput" class="hidden-input" type="file" accept=".gtp,application/json">
 </header>
-<main id="homePage" class="home-page" aria-label="Trang chính"></main>
+<aside class="app-sidebar" aria-label="Điều hướng module">
+  <div class="side-logo" aria-hidden="true">ĐĐ</div>
+  <nav class="side-nav">
+    <button id="sideHomeBtn" type="button" title="Trang chủ"><span class="side-icon">⌂</span><span>Trang chủ</span></button>
+    <button id="sideLandTransferBtn" type="button" title="Chu chuyển đất đai"><span class="side-icon">▦</span><span>Chu chuyển</span></button>
+    <button id="sideLibraryBtn" type="button" title="Thư viện tài liệu PDF"><span class="side-icon">□</span><span>Thư viện</span></button>
+    <button id="sideWebGisBtn" type="button" title="WebGIS quản lý dữ liệu đất đai"><span class="side-icon">◎</span><span>WebGIS</span></button>
+  </nav>
+</aside>
+<main id="homePage" class="home-page" aria-label="Trang chính">
+  <section class="dashboard">
+    <div class="dashboard-hero">
+      <span class="dashboard-eyebrow">Phần mềm đất đai</span>
+      <h1>PHẦN MỀM QUẢN LÝ ĐẤT ĐAI</h1>
+      <p class="dashboard-subtitle">Công cụ hỗ trợ lập, kiểm tra và xuất biểu chu chuyển sử dụng đất với các module chuyên biệt cho số liệu, tài liệu và bản đồ.</p>
+    </div>
+    <div class="module-grid" aria-label="Danh sách module">
+      <article class="module-card">
+        <div class="module-card-icon" aria-hidden="true">▦</div>
+        <h2>Chu chuyển đất đai</h2>
+        <p>Nhập hiện trạng, import bảng chồng xếp GIS, kiểm tra ma trận, xuất CSV/XLSX/Word và quản lý dữ liệu dự án.</p>
+        <button id="homeLandTransferBtn" class="primary" type="button">Mở biểu chu chuyển</button>
+      </article>
+      <article class="module-card">
+        <div class="module-card-icon" aria-hidden="true">□</div>
+        <h2>Thư viện tài liệu PDF</h2>
+        <p>Quản lý, phân loại và đọc tài liệu PDF trực tuyến theo quyền khách hoặc admin trong không gian gọn gàng.</p>
+        <button id="homeLibraryBtn" class="primary" type="button">Mở thư viện</button>
+      </article>
+      <article class="module-card">
+        <div class="module-card-icon" aria-hidden="true">◎</div>
+        <h2>WebGIS quản lý dữ liệu đất đai</h2>
+        <p>Hiển thị lớp bản đồ, tra cứu thửa đất, import GeoJSON và xem thuộc tính không gian trong giao diện GIS chuyên nghiệp.</p>
+        <button id="homeWebGisBtn" class="primary" type="button">Mở WebGIS</button>
+      </article>
+    </div>
+    <footer class="dashboard-footer">Designed by Nguyễn Quang Huy</footer>
+  </section>
+</main>
 <main id="documentLibraryPage" class="docs-page" aria-label="Thư viện tài liệu">
   <section class="library-shell">
     <div class="library-head">
@@ -5241,6 +5495,13 @@ $('#menuBtn').addEventListener('click', event => {{
 $('#openLandTransferBtn').addEventListener('click', showLandTransferPage);
 $('#openDocumentLibraryBtn').addEventListener('click', showDocumentLibraryPage);
 $('#openWebGisBtn').addEventListener('click', showWebGisPage);
+$('#sideHomeBtn').addEventListener('click', showHomePage);
+$('#sideLandTransferBtn').addEventListener('click', showLandTransferPage);
+$('#sideLibraryBtn').addEventListener('click', showDocumentLibraryPage);
+$('#sideWebGisBtn').addEventListener('click', showWebGisPage);
+$('#homeLandTransferBtn').addEventListener('click', showLandTransferPage);
+$('#homeLibraryBtn').addEventListener('click', showDocumentLibraryPage);
+$('#homeWebGisBtn').addEventListener('click', showWebGisPage);
 $('#homeBtn').addEventListener('click', showHomePage);
 $('#libraryHomeBtn').addEventListener('click', showHomePage);
 $('#libraryLogoutBtn').addEventListener('click', () => {{
