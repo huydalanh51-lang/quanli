@@ -2157,7 +2157,7 @@ body.webgis-mode .docs-page {{
 }}
 .library-admin-inner {{
   display: grid;
-  grid-template-columns: minmax(240px, 300px) minmax(300px, 420px) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
   gap: 14px;
   padding: 14px;
 }}
@@ -3083,7 +3083,6 @@ td.search-hit {{
     <div class="library-head">
       <div>
         <h1>Thư viện số tài liệu PDF</h1>
-        <p>Tài liệu được đọc trực tuyến trong trình xem riêng của phần mềm. File PDF được lưu ở vùng bảo vệ trên server, không đặt trong thư mục public.</p>
       </div>
       <div class="library-head-actions">
         <span id="librarySessionBadge" class="library-session-badge" hidden></span>
@@ -3129,20 +3128,6 @@ td.search-hit {{
     <button id="libraryAdminCloseBtn" type="button">&#272;&#243;ng</button>
   </div>
   <div class="library-admin-inner">
-    <div class="library-admin-card">
-      <h3>&#272;&#259;ng nh&#7853;p qu&#7843;n tr&#7883;</h3>
-      <div id="libraryLoginBox" class="library-admin-form">
-        <label>Tài khoản quản trị
-          <input id="libraryAdminUser" type="text" autocomplete="username">
-        </label>
-        <label>Mật khẩu
-          <input id="libraryAdminPassword" type="password" autocomplete="current-password">
-        </label>
-        <button id="libraryLoginBtn" class="primary" type="button">Đăng nhập</button>
-        <div id="libraryLoginMsg" class="library-empty" hidden></div>
-      </div>
-      <div id="libraryLoginStatus" class="library-admin-status" hidden></div>
-    </div>
     <div id="libraryUploadCard" class="library-admin-card" hidden>
       <h3>Upload t&#224;i li&#7879;u</h3>
       <form id="libraryDocForm" class="library-admin-form" hidden>
@@ -4996,25 +4981,14 @@ async function openLibraryAdminPanel() {{
     return;
   }}
   $('#libraryAdminPanel').hidden = false;
-  showLibraryMessage('#libraryLoginMsg', '');
-  showLibraryMessage('#libraryLoginStatus', '');
   showLibraryMessage('#libraryAdminMsg', '');
-  const isLogged = Boolean(libraryAdminToken);
-  $('#libraryLoginBox').hidden = isLogged;
-  $('#libraryUploadCard').hidden = !isLogged;
-  $('#libraryDocForm').hidden = !isLogged;
-  if (isLogged) {{
-    showLibraryMessage('#libraryLoginStatus', '\u0110\u00e3 \u0111\u0103ng nh\u1eadp th\u00e0nh c\u00f4ng. B\u1ea1n c\u00f3 th\u1ec3 upload ho\u1eb7c ch\u1ec9nh s\u1eeda t\u00e0i li\u1ec7u \u1edf khung b\u00ean c\u1ea1nh.');
-    try {{
-      await fetchLibraryDocuments(true);
-    }} catch (error) {{
-      clearLibrarySession();
-      $('#libraryLoginBox').hidden = false;
-      $('#libraryUploadCard').hidden = true;
-      $('#libraryDocForm').hidden = true;
-      showLibraryMessage('#libraryLoginStatus', '');
-      showLibraryMessage('#libraryLoginMsg', error.message || String(error), true);
-    }}
+  $('#libraryUploadCard').hidden = false;
+  $('#libraryDocForm').hidden = false;
+  try {{
+    await fetchLibraryDocuments(true);
+  }} catch (error) {{
+    $('#libraryAdminPanel').hidden = true;
+    showLibraryAccessPanel(error.message || String(error));
   }}
 }}
 
@@ -5031,27 +5005,6 @@ async function libraryAccessLogin() {{
   setLibrarySession(payload);
   hideLibraryAccessPanel();
   showDocumentLibraryPage();
-}}
-
-async function libraryAdminLogin() {{
-  const username = $('#libraryAdminUser').value.trim();
-  const password = $('#libraryAdminPassword').value;
-  const response = await fetch(`${{libraryApiBase}}/login`, {{
-    method: 'POST',
-    headers: {{ 'Content-Type': 'application/json' }},
-    body: JSON.stringify({{ username, password }})
-  }});
-  const payload = await response.json().catch(() => ({{}}));
-  if (!response.ok) throw new Error(payload.error || 'Không đăng nhập được.');
-  if (payload.role !== 'admin') throw new Error('Tài khoản khách chỉ được đọc tài liệu, không thể quản trị.');
-  setLibrarySession(payload);
-  $('#libraryLoginBox').hidden = true;
-  $('#libraryUploadCard').hidden = false;
-  $('#libraryDocForm').hidden = false;
-  showLibraryMessage('#libraryLoginMsg', '');
-  showLibraryMessage('#libraryLoginStatus', '\u0110\u00e3 \u0111\u0103ng nh\u1eadp th\u00e0nh c\u00f4ng. B\u1ea1n c\u00f3 th\u1ec3 upload ho\u1eb7c ch\u1ec9nh s\u1eeda t\u00e0i li\u1ec7u \u1edf khung b\u00ean c\u1ea1nh.');
-  resetLibraryDocForm();
-  await fetchLibraryDocuments(true);
 }}
 
 async function saveLibraryDocument(event) {{
@@ -5307,9 +5260,6 @@ $('#libraryAccessLoginBtn').addEventListener('click', () => {{
 }});
 $('#libraryAdminOpenBtn').addEventListener('click', openLibraryAdminPanel);
 $('#libraryAdminCloseBtn').addEventListener('click', () => $('#libraryAdminPanel').hidden = true);
-$('#libraryLoginBtn').addEventListener('click', () => {{
-  libraryAdminLogin().catch(error => showLibraryMessage('#libraryLoginMsg', error.message || String(error), true));
-}});
 $('#libraryDocForm').addEventListener('submit', event => {{
   saveLibraryDocument(event).catch(error => showLibraryMessage('#libraryAdminMsg', error.message || String(error), true));
 }});
