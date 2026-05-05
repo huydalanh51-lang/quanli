@@ -184,6 +184,24 @@ WEBGIS_CSS = r"""
   background: #fff1f2;
   color: #991b1b;
 }
+.webgis-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.webgis-stat {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid #cfe0f2;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #315d87;
+  font-size: 12px;
+  font-weight: 800;
+}
 .webgis-actions button,
 .webgis-map-tools button,
 .webgis-search button,
@@ -313,6 +331,13 @@ WEBGIS_CSS = r"""
   font-size: 13px;
   font-weight: 700;
 }
+.webgis-layer-count {
+  display: inline-flex;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
 .webgis-layer-tools {
   grid-column: 2 / 4;
   display: flex;
@@ -385,11 +410,38 @@ WEBGIS_CSS = r"""
 }
 .webgis-detail-empty {
   min-height: 140px;
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+}
+.webgis-empty-card {
+  display: grid;
+  gap: 10px;
+  min-height: 180px;
+  padding: 14px;
+  border: 1px dashed #cbdcec;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f8fbff, #eff6ff);
+}
+.webgis-empty-icon {
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  color: #64748b;
-  text-align: center;
-  font-size: 13px;
+  border-radius: 14px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 22px;
+  font-weight: 800;
+}
+.webgis-empty-card strong {
+  color: #0f2f57;
+  font-size: 15px;
+}
+.webgis-empty-card ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.55;
 }
 .webgis-detail-table {
   width: 100%;
@@ -555,6 +607,11 @@ WEBGIS_HTML = r"""
       <div class="webgis-title">
         <strong>WEBGIS QUẢN LÝ DỮ LIỆU ĐẤT ĐAI</strong>
         <span>Hiển thị, tra cứu và quản lý dữ liệu bản đồ đất đai/quy hoạch</span>
+        <div class="webgis-stats" aria-label="Thống kê dữ liệu WebGIS">
+          <span id="webgisLayerCount" class="webgis-stat">0 lớp</span>
+          <span id="webgisFeatureCount" class="webgis-stat">0 đối tượng</span>
+          <span id="webgisVisibleCount" class="webgis-stat">0 đang bật</span>
+        </div>
       </div>
       <div class="webgis-search">
         <input id="webgisSearchInput" type="search" placeholder="Tìm mã thửa, chủ sử dụng, mã đất, địa danh, quy hoạch">
@@ -631,7 +688,16 @@ WEBGIS_HTML = r"""
             <h2>Thông tin đối tượng</h2>
           </div>
           <div id="webgisFeatureDetail" class="webgis-panel-body">
-            <div class="webgis-detail-empty">Bấm vào thửa đất, vùng quy hoạch, tuyến hoặc điểm công trình để xem thông tin.</div>
+            <div class="webgis-detail-empty">
+              <div class="webgis-empty-card">
+                <div class="webgis-empty-icon">◎</div>
+                <strong>Chưa chọn đối tượng bản đồ</strong>
+                <ul>
+                  <li>Bấm vào thửa đất, vùng quy hoạch, tuyến hoặc điểm công trình để xem thông tin.</li>
+                  <li>Dùng ô tìm kiếm để tra theo mã thửa, mã đất, chủ sử dụng hoặc địa danh.</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
         <section class="webgis-panel">
@@ -732,6 +798,38 @@ function webgisLayerLabel(id) {
 function webgisLayerColor(id, feature) {
   const code = String(feature?.properties?.loai_dat || '').toUpperCase();
   return webgisLandColors[code] || webgisState.layerDefs.find(layer => layer.id === id)?.color || '#2563eb';
+}
+
+function webgisEmptyDetailHtml() {
+  return `
+    <div class="webgis-detail-empty">
+      <div class="webgis-empty-card">
+        <div class="webgis-empty-icon">◎</div>
+        <strong>Chưa chọn đối tượng bản đồ</strong>
+        <ul>
+          <li>Bấm vào thửa đất, vùng quy hoạch, tuyến hoặc điểm công trình để xem thông tin.</li>
+          <li>Dùng ô tìm kiếm để tra theo mã thửa, mã đất, chủ sử dụng hoặc địa danh.</li>
+        </ul>
+      </div>
+    </div>
+  `;
+}
+
+function webgisLayerFeatureCount(layerId) {
+  return webgisState.features.filter(feature => feature.properties?.layer === layerId).length;
+}
+
+function webgisUpdateStats() {
+  const layerCount = webgisState.layerDefs.length;
+  const featureCount = webgisState.features.length;
+  const visibleIds = new Set(webgisState.layerDefs.filter(def => def.visible !== false).map(def => def.id));
+  const visibleFeatureCount = webgisState.features.filter(feature => visibleIds.has(feature.properties?.layer)).length;
+  const layerEl = webgisEl('webgisLayerCount');
+  const featureEl = webgisEl('webgisFeatureCount');
+  const visibleEl = webgisEl('webgisVisibleCount');
+  if (layerEl) layerEl.textContent = `${layerCount} lớp`;
+  if (featureEl) featureEl.textContent = `${featureCount} đối tượng`;
+  if (visibleEl) visibleEl.textContent = `${visibleFeatureCount} đang bật`;
 }
 
 function webgisNormalizeFeatures(collection, defaultLayer = '') {
@@ -906,7 +1004,7 @@ function webgisPopupHtml(feature) {
 function webgisRenderFeatureDetail(feature) {
   const detail = webgisEl('webgisFeatureDetail');
   if (!feature) {
-    detail.innerHTML = '<div class="webgis-detail-empty">Bấm vào thửa đất, vùng quy hoạch, tuyến hoặc điểm công trình để xem thông tin.</div>';
+    detail.innerHTML = webgisEmptyDetailHtml();
     webgisEl('webgisFeatureEditor').value = '';
     return;
   }
@@ -974,6 +1072,7 @@ function webgisRebuildOverlays() {
   webgisRenderLayerList();
   webgisRenderLegend();
   webgisPopulateAttrLayerSelect();
+  webgisUpdateStats();
 }
 
 function webgisRenderLayerList() {
@@ -983,6 +1082,7 @@ function webgisRenderLayerList() {
       <span class="webgis-symbol" style="background:${webgisEscape(def.color)}"></span>
       <div class="webgis-layer-main">
         <label><input type="checkbox" data-webgis-layer-toggle="${webgisEscape(def.id)}" ${def.visible === false ? '' : 'checked'}> ${webgisEscape(def.label)}</label>
+        <span class="webgis-layer-count">${webgisLayerFeatureCount(def.id)} đối tượng</span>
       </div>
       <button type="button" data-webgis-layer-zoom="${webgisEscape(def.id)}">Zoom</button>
       <div class="webgis-layer-tools">
@@ -1232,6 +1332,7 @@ function webgisBindEvents() {
       const layer = webgisState.overlayLayers.get(toggleId);
       if (event.target.checked) layer?.addTo(webgisState.map);
       else if (layer) webgisState.map.removeLayer(layer);
+      webgisUpdateStats();
       webgisScheduleSave();
     }
     if (opacityId) {
@@ -1810,6 +1911,34 @@ body {{
   font-size: 11px;
   font-weight: 600;
 }}
+.module-label {{
+  display: none;
+  width: max-content;
+  max-width: 420px;
+  margin-top: 3px;
+  padding: 4px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}}
+body:not(.home-mode) .subtitle,
+body:not(.home-mode) .designer {{
+  display: none;
+}}
+body:not(.home-mode) .module-label {{
+  display: inline-flex;
+  align-items: center;
+}}
+body:not(.home-mode) .appbar {{
+  min-height: 62px;
+  align-items: center;
+}}
 .app-sidebar {{
   position: fixed;
   top: 10px;
@@ -1864,6 +1993,16 @@ body {{
 .side-icon {{
   font-size: 19px;
   line-height: 1;
+}}
+.side-icon svg {{
+  display: block;
+  width: 21px;
+  height: 21px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }}
 .side-nav button:hover {{
   background: #eff6ff;
@@ -1945,6 +2084,25 @@ body.webgis-mode #sideWebGisBtn {{
   font-size: clamp(16px, 2vw, 20px);
   line-height: 1.55;
 }}
+.dashboard-metrics {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}}
+.dashboard-metric {{
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  backdrop-filter: blur(10px);
+}}
 .module-grid {{
   display: grid;
   grid-template-columns: repeat(3, minmax(220px, 1fr));
@@ -1972,6 +2130,18 @@ body.webgis-mode #sideWebGisBtn {{
   background: linear-gradient(135deg, #dbeafe, #eff6ff);
   color: #1d4ed8;
   font-size: 24px;
+}}
+.module-card-tag {{
+  justify-self: start;
+  margin-top: 14px;
+  min-height: 26px;
+  padding: 4px 9px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
 }}
 .module-card h2 {{
   margin: 16px 0 8px;
@@ -2085,6 +2255,28 @@ body.webgis-mode .docs-page {{
   font-size: 12px;
   font-weight: 700;
 }}
+.library-session-badge.admin {{
+  border-color: #99f6e4;
+  color: #115e59;
+  background: #f0fdfa;
+}}
+.library-session-badge.guest {{
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  background: #eff6ff;
+}}
+.library-session-hint {{
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}}
 .library-controls {{
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(150px, 220px) minmax(130px, 180px) auto;
@@ -2116,7 +2308,7 @@ body.webgis-mode .docs-page {{
 }}
 .library-grid {{
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 260px));
+  grid-template-columns: repeat(auto-fill, minmax(238px, 260px));
   gap: 14px;
   align-items: stretch;
 }}
@@ -2124,7 +2316,7 @@ body.webgis-mode .docs-page {{
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 358px;
+  height: 388px;
   min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.30);
@@ -2134,7 +2326,9 @@ body.webgis-mode .docs-page {{
 }}
 .library-cover {{
   position: relative;
-  height: 164px;
+  height: 158px;
+  min-height: 158px;
+  max-height: 158px;
   overflow: hidden;
   background: linear-gradient(135deg, #e0f2fe, #dcfce7);
   display: grid;
@@ -2299,6 +2493,18 @@ body.webgis-mode .docs-page {{
   grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
   gap: 14px;
   padding: 14px;
+}}
+.library-card-status {{
+  display: inline-flex;
+  align-self: flex-start;
+  min-height: 23px;
+  padding: 3px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
 }}
 .library-admin-toolbar {{
   position: sticky;
@@ -2876,6 +3082,10 @@ body.hide-zero td.zero-cell input:not(:focus) {{
   color: transparent;
   caret-color: #111827;
 }}
+body.compact-zero-cols col.compact-hidden,
+body.compact-zero-cols td.compact-hidden {{
+  display: none !important;
+}}
 td.hover-row::after,
 td.hover-col::after {{
   content: "";
@@ -3138,6 +3348,7 @@ td.search-hit {{
     <div class="brand-text">
       <div class="title">PHẦN MỀM QUẢN LÝ ĐẤT ĐAI</div>
       <div class="subtitle">Công cụ hỗ trợ lập, kiểm tra và xuất biểu chu chuyển sử dụng đất</div>
+      <div id="activeModuleLabel" class="module-label">Trang chủ</div>
       <div class="designer">Designed by Nguyễn Quang Huy</div>
     </div>
   </div>
@@ -3254,10 +3465,10 @@ td.search-hit {{
 <aside class="app-sidebar" aria-label="Điều hướng module">
   <div class="side-logo" aria-hidden="true">ĐĐ</div>
   <nav class="side-nav">
-    <button id="sideHomeBtn" type="button" title="Trang chủ"><span class="side-icon">⌂</span><span>Trang chủ</span></button>
-    <button id="sideLandTransferBtn" type="button" title="Chu chuyển đất đai"><span class="side-icon">▦</span><span>Chu chuyển</span></button>
-    <button id="sideLibraryBtn" type="button" title="Thư viện tài liệu PDF"><span class="side-icon">□</span><span>Thư viện</span></button>
-    <button id="sideWebGisBtn" type="button" title="WebGIS quản lý dữ liệu đất đai"><span class="side-icon">◎</span><span>WebGIS</span></button>
+    <button id="sideHomeBtn" type="button" title="Trang chủ"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg></span><span>Trang chủ</span></button>
+    <button id="sideLandTransferBtn" type="button" title="Chu chuyển đất đai"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"></path><path d="M4 12h16"></path><path d="M4 19h16"></path><path d="M8 5v14"></path><path d="M16 5v14"></path></svg></span><span>Chu chuyển</span></button>
+    <button id="sideLibraryBtn" type="button" title="Thư viện tài liệu PDF"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"></path><path d="M14 3v4h4"></path><path d="M8.5 12h7"></path><path d="M8.5 16h5"></path></svg></span><span>Thư viện</span></button>
+    <button id="sideWebGisBtn" type="button" title="WebGIS quản lý dữ liệu đất đai"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18 3 20V6l6-2 6 2 6-2v14l-6 2z"></path><path d="M9 4v14"></path><path d="M15 6v14"></path></svg></span><span>WebGIS</span></button>
   </nav>
 </aside>
 <main id="homePage" class="home-page" aria-label="Trang chính">
@@ -3266,22 +3477,30 @@ td.search-hit {{
       <span class="dashboard-eyebrow">Phần mềm đất đai</span>
       <h1>PHẦN MỀM QUẢN LÝ ĐẤT ĐAI</h1>
       <p class="dashboard-subtitle">Công cụ hỗ trợ lập, kiểm tra và xuất biểu chu chuyển sử dụng đất với các module chuyên biệt cho số liệu, tài liệu và bản đồ.</p>
+      <div class="dashboard-metrics" aria-label="Điểm nhận diện chức năng">
+        <span class="dashboard-metric">Biểu chu chuyển đất đai</span>
+        <span class="dashboard-metric">Thư viện PDF bảo vệ</span>
+        <span class="dashboard-metric">WebGIS dữ liệu đất đai</span>
+      </div>
     </div>
     <div class="module-grid" aria-label="Danh sách module">
       <article class="module-card">
         <div class="module-card-icon" aria-hidden="true">▦</div>
+        <span class="module-card-tag">Ma trận chu chuyển</span>
         <h2>Chu chuyển đất đai</h2>
         <p>Nhập hiện trạng, import bảng chồng xếp GIS, kiểm tra ma trận, xuất CSV/XLSX/Word và quản lý dữ liệu dự án.</p>
         <button id="homeLandTransferBtn" class="primary" type="button">Mở biểu chu chuyển</button>
       </article>
       <article class="module-card">
         <div class="module-card-icon" aria-hidden="true">□</div>
+        <span class="module-card-tag">Tài liệu PDF</span>
         <h2>Thư viện tài liệu PDF</h2>
         <p>Quản lý, phân loại và đọc tài liệu PDF trực tuyến theo quyền khách hoặc admin trong không gian gọn gàng.</p>
         <button id="homeLibraryBtn" class="primary" type="button">Mở thư viện</button>
       </article>
       <article class="module-card">
         <div class="module-card-icon" aria-hidden="true">◎</div>
+        <span class="module-card-tag">Bản đồ GIS</span>
         <h2>WebGIS quản lý dữ liệu đất đai</h2>
         <p>Hiển thị lớp bản đồ, tra cứu thửa đất, import GeoJSON và xem thuộc tính không gian trong giao diện GIS chuyên nghiệp.</p>
         <button id="homeWebGisBtn" class="primary" type="button">Mở WebGIS</button>
@@ -3298,6 +3517,7 @@ td.search-hit {{
       </div>
       <div class="library-head-actions">
         <span id="librarySessionBadge" class="library-session-badge" hidden></span>
+        <span id="librarySessionHint" class="library-session-hint" hidden></span>
         <button id="libraryHomeBtn" type="button">Màn chính</button>
         <button id="libraryLogoutBtn" type="button" hidden>Đăng xuất</button>
         <button id="libraryAdminOpenBtn" class="primary" type="button">Quản trị</button>
@@ -3465,6 +3685,10 @@ td.search-hit {{
     <input id="hideZeroToggle" type="checkbox">
     Ẩn ô 0,00
   </label>
+  <label class="view-options">
+    <input id="compactColumnsToggle" type="checkbox">
+    Ẩn cột không phát sinh
+  </label>
 </section>
 <main class="table-wrap">
 <table id="landTable">
@@ -3485,6 +3709,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const storageKey = 'land-transfer-html-v1';
 const hideZeroKey = 'land-transfer-hide-zero';
+const compactColumnsKey = 'land-transfer-compact-zero-cols';
 const projectId = 'default';
 const apiBase = '/api/projects';
 const libraryApiBase = '/api/library';
@@ -4531,6 +4756,7 @@ function recalc() {{
   );
 
   updateWarnings({{ currentArea: refreshedCalc.currentArea, matrixLeaf: refreshedCalc.matrixLeaf }});
+  updateCompactColumns();
 }}
 
 function updateWarnings(calc) {{
@@ -4564,6 +4790,39 @@ function updateWarnings(calc) {{
   const rowBadge = $('#statusRows');
   rowBadge.textContent = `${{rowErrors}} lệch hàng`;
   rowBadge.classList.toggle('warn', rowErrors > 0);
+}}
+
+function compactColumnIsActive(code, calc) {{
+  const tol = meta.tolerance;
+  if (Math.abs(calc.currentArea(code)) > tol) return true;
+  if (Math.abs(calc.matrixValue('DTTN', code)) > tol) return true;
+  if (Math.abs(calc.matrixValue(code, 'DTTN')) > tol) return true;
+  for (const otherCode of matrixCodes) {{
+    if (Math.abs(calc.matrixValue(code, otherCode)) > tol) return true;
+    if (Math.abs(calc.matrixValue(otherCode, code)) > tol) return true;
+  }}
+  return false;
+}}
+
+function updateCompactColumns() {{
+  const enabled = document.body.classList.contains('compact-zero-cols');
+  const calc = enabled ? createCalcContext() : null;
+  matrixCodes.forEach(code => {{
+    const col = colsByCode[code];
+    if (!col) return;
+    const hide = enabled && !compactColumnIsActive(code, calc);
+    const colEl = document.querySelector(`#landTable col:nth-child(${{col}})`);
+    if (colEl) colEl.classList.toggle('compact-hidden', hide);
+    document.querySelectorAll(`#landTable td[data-col="${{col}}"]`).forEach(td => td.classList.toggle('compact-hidden', hide));
+  }});
+}}
+
+function applyCompactColumnsState(enabled) {{
+  document.body.classList.toggle('compact-zero-cols', enabled);
+  const checkbox = $('#compactColumnsToggle');
+  if (checkbox) checkbox.checked = enabled;
+  localStorage.setItem(compactColumnsKey, enabled ? '1' : '0');
+  updateCompactColumns();
 }}
 
 function download(name, type, text) {{
@@ -4997,7 +5256,14 @@ function updateLibrarySessionUi() {{
   const badge = $('#librarySessionBadge');
   if (badge) {{
     badge.hidden = !logged;
-    badge.textContent = isAdmin ? 'Admin' : 'Khách';
+    badge.textContent = isAdmin ? 'Vai trò: Admin' : 'Vai trò: Khách';
+    badge.classList.toggle('admin', isAdmin);
+    badge.classList.toggle('guest', logged && !isAdmin);
+  }}
+  const hint = $('#librarySessionHint');
+  if (hint) {{
+    hint.hidden = !logged;
+    hint.textContent = isAdmin ? 'Được upload, sửa, ẩn/hiện và xóa tài liệu' : 'Chỉ được đọc tài liệu trực tuyến';
   }}
   const logoutBtn = $('#libraryLogoutBtn');
   if (logoutBtn) logoutBtn.hidden = !logged;
@@ -5136,6 +5402,7 @@ function renderLibraryGrid(documents) {{
       </div>
       <div class="library-card-body">
         <h3>${{escapeHtml(doc.title)}}</h3>
+        <span class="library-card-status">Chỉ đọc trực tuyến</span>
         <div class="library-meta">
           <span class="library-pill">${{escapeHtml(doc.category || 'Chưa phân loại')}}</span>
           <span class="library-pill">${{doc.year || 'Không rõ năm'}}</span>
@@ -5389,7 +5656,13 @@ function closeToolDropdowns(except = null) {{
   }});
 }}
 
+function setActiveModuleLabel(label) {{
+  const el = $('#activeModuleLabel');
+  if (el) el.textContent = label || 'Trang chủ';
+}}
+
 function showHomePage() {{
+  setActiveModuleLabel('Trang chủ');
   document.body.classList.add('home-mode');
   document.body.classList.remove('module-mode');
   document.body.classList.remove('docs-mode');
@@ -5402,6 +5675,7 @@ function showHomePage() {{
 }}
 
 function showLandTransferPage() {{
+  setActiveModuleLabel('Chu chuyển đất đai');
   document.body.classList.add('module-mode');
   document.body.classList.remove('home-mode');
   document.body.classList.remove('docs-mode');
@@ -5416,6 +5690,7 @@ function showDocumentLibraryPage() {{
     showLibraryAccessPanel();
     return;
   }}
+  setActiveModuleLabel('Thư viện tài liệu PDF');
   document.body.classList.add('docs-mode');
   document.body.classList.remove('home-mode');
   document.body.classList.remove('module-mode');
@@ -5429,6 +5704,7 @@ function showDocumentLibraryPage() {{
 }}
 
 function showWebGisPage() {{
+  setActiveModuleLabel('WebGIS quản lý dữ liệu đất đai');
   document.body.classList.add('webgis-mode');
   document.body.classList.remove('home-mode');
   document.body.classList.remove('module-mode');
@@ -5665,6 +5941,9 @@ function applyHideZeroState(enabled) {{
 $('#hideZeroToggle').addEventListener('change', event => {{
   applyHideZeroState(event.currentTarget.checked);
 }});
+$('#compactColumnsToggle').addEventListener('change', event => {{
+  applyCompactColumnsState(event.currentTarget.checked);
+}});
 
 let hoverRow = null;
 let hoverCol = null;
@@ -5878,6 +6157,7 @@ const saved = localStorage.getItem(storageKey);
 if (saved) applyInputs(JSON.parse(saved));
 normalizeAllInputs();
 applyHideZeroState(localStorage.getItem(hideZeroKey) === '1');
+applyCompactColumnsState(localStorage.getItem(compactColumnsKey) === '1');
 updateLibrarySessionUi();
 $('#statusMissing').textContent = meta.missingCodes.length ? `Thiếu mã: ${{meta.missingCodes.join(', ')}}` : 'Đủ mã nhập';
 $('#statusMissing').classList.toggle('warn', meta.missingCodes.length > 0);
