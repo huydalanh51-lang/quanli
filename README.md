@@ -39,6 +39,8 @@ LIBRARY_GUEST_USER_01=khach01
 LIBRARY_GUEST_PASSWORD_01=mat-khau-khach-01
 LIBRARY_GUEST_USER_02=khach02
 LIBRARY_GUEST_PASSWORD_02=mat-khau-khach-02
+WEBGIS_ADMIN_USER=admin
+WEBGIS_ADMIN_PASSWORD=mat-khau-webgis-manh
 APP_STORAGE_DIR=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -163,8 +165,9 @@ Luu y bao mat: tren moi truong web khong the chong tai xuong/copy/chup man hinh 
 - Co tra cuu theo ma thua, chu su dung, ma loai dat, dia danh va quy hoach.
 - Co popup thong tin, bang thuoc tinh, highlight dong/doi tuong, do khoang cach, do dien tich, in ban do, chup anh ban do va hien toa do con tro.
 - Co file du lieu mau tai `public/webgis/sample-land-data.geojson`.
-- Khi upload GeoJSON, bat/tat layer, doi do trong suot hoac sua thuoc tinh doi tuong, WebGIS se tu dong luu qua API `/api/webgis/webgis-default`; neu da cau hinh `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET` thi du lieu duoc luu vao Supabase Storage tai `_webgis/webgis-default.json`. Neu chua cau hinh Supabase thi fallback ve SQLite, va van co ban luu tam trong trinh duyet.
-- Cong cu quan tri WebGIS hien la ban demo: upload GeoJSON, them layer moi va sua thuoc tinh doi tuong dang chon. Du lieu da add se duoc nap lai sau khi reload trang neu backend con du lieu.
+- Admin WebGIS dang nhap bang `WEBGIS_ADMIN_USER` va `WEBGIS_ADMIN_PASSWORD`. Neu chua cau hinh rieng, backend tu dung lai `LIBRARY_ADMIN_USER` va `LIBRARY_ADMIN_PASSWORD`.
+- Khi upload GeoJSON hoac sua thuoc tinh doi tuong, nguoi dung phai dang nhap admin WebGIS. Cac thao tac quan tri se tu dong luu qua API `/api/webgis/webgis-default`; neu da cau hinh `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET` thi du lieu duoc luu vao Supabase Storage tai `_webgis/webgis-default.json`. Neu chua cau hinh Supabase thi fallback ve SQLite, va van co ban luu tam trong trinh duyet.
+- Nguoi xem khong dang nhap van duoc xem/tra cuu ban do. Neu ho doi bat/tat layer hoac do trong suot, thay doi chi luu tam tren trinh duyet va khong ghi de du lieu server.
 
 Huong nang cap: khi du lieu lon, nen chuyen GeoJSON sang backend Node.js + PostgreSQL/PostGIS, phan trang/loc theo bbox, hoac tao vector tile de ban do nhe hon. Voi nhieu diem, nen dung clustering hoac tile point layer.
 

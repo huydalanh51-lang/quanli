@@ -813,6 +813,23 @@ body.webgis-mode .docs-page {
   display: grid;
   gap: 8px;
 }
+.webgis-admin-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.webgis-admin-session {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: #f0fdfa;
+  color: #115e59;
+  font-size: 11px;
+  font-weight: 800;
+}
 .webgis-admin-grid label {
   display: grid;
   gap: 4px;
@@ -825,6 +842,21 @@ body.webgis-mode .docs-page {
   color: #64748b;
   font-size: 12px;
   line-height: 1.4;
+}
+.webgis-admin-status {
+  margin: 0;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 9px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.webgis-admin-status.error {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
 }
 .webgis-attr-panel {
   margin: 0 10px 10px;
@@ -2313,10 +2345,31 @@ td.search-hit {
             <div id="webgisLegend" class="webgis-legend"></div>
           </div>
         </section>
+        <section id="webgisAdminLoginPanel" class="webgis-panel webgis-admin-panel" hidden>
+          <div class="webgis-panel-head">
+            <h3>&#272;&#259;ng nh&#7853;p admin WebGIS</h3>
+            <button id="webgisCloseAdminLoginBtn" type="button">&#272;&#243;ng</button>
+          </div>
+          <div class="webgis-panel-body webgis-admin-grid">
+            <p class="webgis-admin-note">T&#224;i kho&#7843;n n&#224;y ch&#7881; d&#224;nh cho qu&#7843;n tr&#7883; WebGIS: upload GeoJSON, s&#7917;a thu&#7897;c t&#237;nh v&#224; l&#432;u d&#7919; li&#7879;u b&#7843;n &#273;&#7891;.</p>
+            <label>T&#224;i kho&#7843;n
+              <input id="webgisAdminUsername" type="text" autocomplete="username">
+            </label>
+            <label>M&#7853;t kh&#7849;u
+              <input id="webgisAdminPassword" type="password" autocomplete="current-password">
+            </label>
+            <button id="webgisAdminLoginSubmit" class="primary" type="button">&#272;&#259;ng nh&#7853;p</button>
+            <p id="webgisAdminLoginStatus" class="webgis-admin-status" hidden></p>
+          </div>
+        </section>
         <section id="webgisAdminPanel" class="webgis-panel webgis-admin-panel" hidden>
           <div class="webgis-panel-head">
             <h3>Quản trị dữ liệu</h3>
-            <button id="webgisCloseAdminBtn" type="button">Đóng</button>
+            <div class="webgis-admin-head-actions">
+              <span id="webgisAdminSessionBadge" class="webgis-admin-session" hidden>Admin</span>
+              <button id="webgisAdminLogoutBtn" type="button">&#272;&#259;ng xu&#7845;t</button>
+              <button id="webgisCloseAdminBtn" type="button">Đóng</button>
+            </div>
           </div>
           <div class="webgis-panel-body webgis-admin-grid">
             <p class="webgis-admin-note">Bản demo xử lý GeoJSON trên trình duyệt. Khi nâng cấp backend có thể lưu vào PostGIS và cấp quyền admin.</p>
@@ -2650,7 +2703,11 @@ let webgisState = {
 const webgisStorageKey = 'webgis-state-v1';
 const webgisProjectId = 'webgis-default';
 const webgisApiBase = '/api/webgis';
+const webgisAdminTokenKey = 'webgis-admin-token';
+const webgisAdminUserKey = 'webgis-admin-user';
 let webgisSaveTimer = 0;
+let webgisAdminToken = localStorage.getItem(webgisAdminTokenKey) || '';
+let webgisAdminUser = localStorage.getItem(webgisAdminUserKey) || '';
 
 function webgisEl(id) {
   return document.getElementById(id);
@@ -2787,6 +2844,93 @@ function webgisSetSaveStatus(text, isError = false) {
   status.classList.toggle('error', Boolean(isError));
 }
 
+function webgisAdminHeaders() {
+  return webgisAdminToken ? { Authorization: `Bearer ${webgisAdminToken}` } : {};
+}
+
+function webgisSetAdminStatus(text, isError = false) {
+  const status = webgisEl('webgisAdminLoginStatus');
+  if (!status) return;
+  status.hidden = !text;
+  status.textContent = text || '';
+  status.classList.toggle('error', Boolean(isError));
+}
+
+function webgisUpdateAdminUi() {
+  const logged = Boolean(webgisAdminToken);
+  const adminPanel = webgisEl('webgisAdminPanel');
+  const loginPanel = webgisEl('webgisAdminLoginPanel');
+  const adminBtn = webgisEl('webgisAdminBtn');
+  const badge = webgisEl('webgisAdminSessionBadge');
+  if (adminBtn) adminBtn.textContent = logged ? 'Quản trị dữ liệu' : 'Đăng nhập admin';
+  if (badge) {
+    badge.hidden = !logged;
+    badge.textContent = logged ? `Admin${webgisAdminUser ? ': ' + webgisAdminUser : ''}` : 'Admin';
+  }
+  if (!logged && adminPanel) adminPanel.hidden = true;
+  if (logged && loginPanel) loginPanel.hidden = true;
+}
+
+function webgisShowAdminLogin(message = '') {
+  const panel = webgisEl('webgisAdminLoginPanel');
+  if (!panel) return;
+  panel.hidden = false;
+  webgisEl('webgisAdminPanel').hidden = true;
+  webgisSetAdminStatus(message, Boolean(message));
+  webgisInvalidateSize(80);
+  window.setTimeout(() => webgisEl('webgisAdminUsername')?.focus(), 60);
+}
+
+function webgisRequireAdmin(message = 'Vui lòng đăng nhập admin WebGIS để quản trị dữ liệu.') {
+  if (webgisAdminToken) return true;
+  webgisShowAdminLogin(message);
+  return false;
+}
+
+function webgisSetAdminSession(payload) {
+  webgisAdminToken = payload.token || '';
+  webgisAdminUser = payload.username || '';
+  if (webgisAdminToken) {
+    localStorage.setItem(webgisAdminTokenKey, webgisAdminToken);
+    localStorage.setItem(webgisAdminUserKey, webgisAdminUser);
+  }
+  webgisUpdateAdminUi();
+}
+
+function webgisClearAdminSession() {
+  webgisAdminToken = '';
+  webgisAdminUser = '';
+  localStorage.removeItem(webgisAdminTokenKey);
+  localStorage.removeItem(webgisAdminUserKey);
+  webgisUpdateAdminUi();
+}
+
+async function webgisLoginAdmin() {
+  const username = webgisEl('webgisAdminUsername').value.trim();
+  const password = webgisEl('webgisAdminPassword').value;
+  if (!username || !password) {
+    webgisSetAdminStatus('Vui lòng nhập tài khoản và mật khẩu admin WebGIS.', true);
+    return;
+  }
+  webgisSetAdminStatus('Đang đăng nhập...');
+  const response = await fetch('/api/webgis/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    webgisSetAdminStatus(payload.error || 'Không đăng nhập được admin WebGIS.', true);
+    return;
+  }
+  webgisSetAdminSession(payload);
+  webgisEl('webgisAdminPassword').value = '';
+  webgisEl('webgisAdminPanel').hidden = false;
+  webgisSetAdminStatus('Đã đăng nhập admin WebGIS thành công.');
+  webgisSetSaveStatus('Admin WebGIS đã đăng nhập');
+  webgisInvalidateSize(80);
+}
+
 function webgisSaveLocal(data) {
   try {
     localStorage.setItem(webgisStorageKey, JSON.stringify(data));
@@ -2832,13 +2976,21 @@ async function webgisSaveNow() {
   if (!webgisState.initialized) return;
   const data = webgisStatePayload();
   const savedLocal = webgisSaveLocal(data);
+  if (!webgisAdminToken) {
+    webgisSetSaveStatus(savedLocal ? 'Chưa đăng nhập admin WebGIS, dữ liệu chỉ lưu tạm trên trình duyệt' : 'Không lưu được dữ liệu tạm', !savedLocal);
+    return;
+  }
   webgisSetSaveStatus('Đang tự lưu...');
   try {
     const response = await fetch(`${webgisApiBase}/${encodeURIComponent(webgisProjectId)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...webgisAdminHeaders() },
       body: JSON.stringify({ data })
     });
+    if (response.status === 401) {
+      webgisClearAdminSession();
+      webgisShowAdminLogin('Phiên admin WebGIS đã hết hạn. Vui lòng đăng nhập lại.');
+    }
     if (!response.ok) throw new Error(await response.text());
     const result = await response.json().catch(() => ({}));
     const target = result.storage === 'supabase' ? 'Supabase' : 'server';
@@ -3162,6 +3314,7 @@ async function webgisTakeScreenshot() {
 }
 
 async function webgisImportGeoJson() {
+  if (!webgisRequireAdmin()) return;
   const file = webgisEl('webgisImportInput').files?.[0];
   const name = webgisEl('webgisNewLayerName').value.trim() || file?.name?.replace(/\.(geojson|json)$/i, '') || 'Layer GeoJSON';
   if (!file) {
@@ -3185,6 +3338,7 @@ async function webgisImportGeoJson() {
 }
 
 function webgisSaveSelectedFeatureProps() {
+  if (!webgisRequireAdmin()) return;
   const id = webgisState.selectedFeatureId;
   if (!id) {
     alert('Hãy chọn một đối tượng trên bản đồ trước.');
@@ -3268,8 +3422,23 @@ function webgisBindEvents() {
     const row = event.target.closest('tr[data-feature-id]');
     if (row) webgisZoomToFeature(row.dataset.featureId);
   });
-  webgisEl('webgisAdminBtn').addEventListener('click', () => webgisEl('webgisAdminPanel').hidden = !webgisEl('webgisAdminPanel').hidden);
+  webgisEl('webgisAdminBtn').addEventListener('click', () => {
+    if (!webgisRequireAdmin()) return;
+    webgisEl('webgisAdminPanel').hidden = !webgisEl('webgisAdminPanel').hidden;
+    webgisEl('webgisAdminLoginPanel').hidden = true;
+    webgisInvalidateSize(80);
+  });
   webgisEl('webgisCloseAdminBtn').addEventListener('click', () => webgisEl('webgisAdminPanel').hidden = true);
+  webgisEl('webgisCloseAdminLoginBtn').addEventListener('click', () => webgisEl('webgisAdminLoginPanel').hidden = true);
+  webgisEl('webgisAdminLoginSubmit').addEventListener('click', () => webgisLoginAdmin().catch(error => webgisSetAdminStatus(error.message || String(error), true)));
+  webgisEl('webgisAdminPassword').addEventListener('keydown', event => {
+    if (event.key === 'Enter') webgisLoginAdmin().catch(error => webgisSetAdminStatus(error.message || String(error), true));
+  });
+  webgisEl('webgisAdminLogoutBtn').addEventListener('click', () => {
+    webgisClearAdminSession();
+    webgisSetSaveStatus('Đã đăng xuất admin WebGIS');
+    webgisShowAdminLogin('Đã đăng xuất admin WebGIS.');
+  });
   webgisEl('webgisImportBtn').addEventListener('click', () => webgisImportGeoJson().catch(error => alert(error.message || String(error))));
   webgisEl('webgisSaveFeatureBtn').addEventListener('click', webgisSaveSelectedFeatureProps);
   webgisEl('webgisLocateBtn').addEventListener('click', () => webgisState.map.locate({ setView: true, maxZoom: 17 }));
@@ -3319,6 +3488,7 @@ async function initializeWebGIS() {
       L.control.layers({ OpenStreetMap: osm, 'Ảnh vệ tinh': satellite, 'Địa hình': terrain }, null, { position: 'topright', collapsed: true }).addTo(map);
       webgisRebuildOverlays();
       webgisBindEvents();
+      webgisUpdateAdminUi();
       map.on('mousemove', event => {
         webgisEl('webgisCoordinateBar').textContent = `Tọa độ: ${event.latlng.lat.toFixed(6)}, ${event.latlng.lng.toFixed(6)}`;
       });
@@ -5321,6 +5491,7 @@ function showWebGisPage() {
   $('#pdfReader').hidden = true;
   $('#importLog').hidden = true;
   closeMainMenu();
+  webgisUpdateAdminUi();
   initializeWebGIS().catch(error => {
     webgisSetSaveStatus('Không khởi động được WebGIS', true);
     alert(error.message || String(error));

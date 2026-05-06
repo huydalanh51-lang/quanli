@@ -96,6 +96,7 @@ const geminiFallbackModel = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-fla
 const libraryAdminSessions = new Map();
 const libraryAccessSessions = new Map();
 const libraryViewTokens = new Map();
+const webgisAdminSessions = new Map();
 const libraryTokenTtlMs = 10 * 60 * 1000;
 const adminSessionTtlMs = 8 * 60 * 60 * 1000;
 const librarySessionTtlMs = 8 * 60 * 60 * 1000;
@@ -658,6 +659,17 @@ function ensureAdminConfigured() {
   return { user, password };
 }
 
+function ensureWebgisAdminConfigured() {
+  const user = process.env.WEBGIS_ADMIN_USER || process.env.LIBRARY_ADMIN_USER || process.env.ADMIN_USER;
+  const password = process.env.WEBGIS_ADMIN_PASSWORD || process.env.LIBRARY_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+  if (!user || !password) {
+    const error = new Error('Chua cau hinh tai khoan quan tri WebGIS. Hay dat WEBGIS_ADMIN_USER va WEBGIS_ADMIN_PASSWORD trong bien moi truong.');
+    error.status = 503;
+    throw error;
+  }
+  return { user, password };
+}
+
 function libraryGuestCredentials() {
   const pairs = [];
   const addPair = (user, password) => {
@@ -700,6 +712,23 @@ function isAdminToken(token) {
   if (!expires) return false;
   if (Date.now() > expires) {
     libraryAdminSessions.delete(String(token || ''));
+    return false;
+  }
+  return true;
+}
+
+function createWebgisAdminSession() {
+  const token = randomToken(32);
+  webgisAdminSessions.set(token, Date.now() + adminSessionTtlMs);
+  return token;
+}
+
+function isWebgisAdminToken(token) {
+  const rawToken = String(token || '');
+  const expires = webgisAdminSessions.get(rawToken);
+  if (!expires) return false;
+  if (Date.now() > expires) {
+    webgisAdminSessions.delete(rawToken);
     return false;
   }
   return true;
@@ -765,6 +794,32 @@ function loginLibraryAccount(username, inputPassword) {
   const error = new Error('Sai tai khoan hoac mat khau thu vien.');
   error.status = 401;
   throw error;
+}
+
+function loginWebgisAdminAccount(username, inputPassword) {
+  const { user, password } = ensureWebgisAdminConfigured();
+  const userName = String(username || '');
+  const rawPassword = String(inputPassword || '');
+  if (!timingSafeStringEqual(userName, user) || !timingSafeStringEqual(rawPassword, password)) {
+    const error = new Error('Sai tai khoan hoac mat khau quan tri WebGIS.');
+    error.status = 401;
+    throw error;
+  }
+  return {
+    token: createWebgisAdminSession(),
+    role: 'admin',
+    username: user,
+    expiresIn: Math.floor(adminSessionTtlMs / 1000)
+  };
+}
+
+function requireWebgisAdmin(req, res, next) {
+  const token = adminTokenFromAuthorization(req.headers.authorization);
+  if (!isWebgisAdminToken(token)) {
+    res.status(401).json({ error: 'Ban can dang nhap admin WebGIS de luu hoac quan tri du lieu.' });
+    return;
+  }
+  next();
 }
 
 function requireLibraryAdmin(req, res, next) {
@@ -1101,7 +1156,15 @@ function createExpressServer() {
     }
   });
 
-  app.put('/api/webgis/:id', async (req, res) => {
+  app.post('/api/webgis/admin/login', (req, res) => {
+    try {
+      res.json(loginWebgisAdminAccount(req.body?.username, req.body?.password));
+    } catch (error) {
+      res.status(error.status || 500).json({ error: error.message || 'Khong dang nhap duoc admin WebGIS.' });
+    }
+  });
+
+  app.put('/api/webgis/:id', requireWebgisAdmin, async (req, res) => {
     try {
       res.json(await saveWebgisState(req.params.id, req.body?.data));
     } catch (error) {
@@ -1389,11 +1452,24 @@ function createFallbackServer() {
         return;
       }
       if (webgisMatch && req.method === 'PUT') {
+        if (!isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization))) {
+          sendJson(res, 401, { error: 'Ban can dang nhap admin WebGIS de luu hoac quan tri du lieu.' });
+          return;
+        }
         const body = await readJsonBody(req);
         try {
           sendJson(res, 200, await saveWebgisState(webgisMatch[1], body.data));
         } catch (error) {
           sendJson(res, error.status || 500, { error: error.message || 'Khong luu duoc du lieu WebGIS.' });
+        }
+        return;
+      }
+      if (url.pathname === '/api/webgis/admin/login' && req.method === 'POST') {
+        const body = await readJsonBody(req);
+        try {
+          sendJson(res, 200, loginWebgisAdminAccount(body.username, body.password));
+        } catch (error) {
+          sendJson(res, error.status || 500, { error: error.message || 'Khong dang nhap duoc admin WebGIS.' });
         }
         return;
       }
