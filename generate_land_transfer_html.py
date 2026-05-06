@@ -101,17 +101,23 @@ WEBGIS_SAMPLE_DATA = {
 
 WEBGIS_CSS = r"""
 .webgis-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 48%, #f8fafc 100%);
 }
 .webgis-shell {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 104px);
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
   border-radius: 18px;
   overflow: hidden;
 }
 .webgis-topbar {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: minmax(280px, 1fr) minmax(260px, 500px) auto;
   gap: 12px;
@@ -269,28 +275,40 @@ WEBGIS_CSS = r"""
   display: grid;
   grid-template-columns: 304px minmax(520px, 1fr) 340px;
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
   min-height: 0;
-  flex: 1;
+  flex: 1 1 auto;
   padding: 12px;
+  overflow: hidden;
 }
 .webgis-sidebar,
 .webgis-info {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   min-width: 0;
-  max-height: clamp(420px, 56vh, 560px);
   overflow: auto;
 }
 .webgis-panel {
+  flex: 0 0 auto;
   border: 1px solid #d4e2ef;
   border-radius: 14px;
   background: rgba(255,255,255,0.96);
   box-shadow: 0 12px 30px rgba(15, 47, 87, 0.08);
   overflow: hidden;
 }
+.webgis-sidebar > .webgis-panel:first-child,
+.webgis-info > .webgis-panel:first-child {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .webgis-panel-head {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -305,7 +323,13 @@ WEBGIS_CSS = r"""
   font-size: 14px;
 }
 .webgis-panel-body {
+  min-height: 0;
   padding: 10px 12px;
+}
+.webgis-sidebar > .webgis-panel:first-child .webgis-panel-body,
+.webgis-info > .webgis-panel:first-child .webgis-panel-body {
+  flex: 1 1 auto;
+  overflow: auto;
 }
 .webgis-layer-list {
   display: flex;
@@ -359,8 +383,8 @@ WEBGIS_CSS = r"""
 }
 .webgis-map-panel {
   position: relative;
-  height: clamp(420px, 56vh, 560px);
-  min-height: 420px;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid #cbdcec;
   border-radius: 16px;
@@ -580,6 +604,8 @@ body.webgis-mode .leaflet-control-layers {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: auto;
+    max-height: 240px;
   }
 }
 @media (max-width: 820px) {
@@ -591,14 +617,10 @@ body.webgis-mode .leaflet-control-layers {
   }
   .webgis-sidebar,
   .webgis-info {
-    max-height: none;
+    max-height: 220px;
   }
   .webgis-info {
     display: flex;
-  }
-  .webgis-map-panel,
-  .webgis-map {
-    min-height: 520px;
   }
 }
 """
@@ -767,7 +789,8 @@ let webgisState = {
   attrSortDir: 1,
   measureMode: null,
   measurePoints: [],
-  measureLayer: null
+  measureLayer: null,
+  resizeObserver: null
 };
 
 const webgisStorageKey = 'webgis-state-v1';
@@ -777,6 +800,10 @@ let webgisSaveTimer = 0;
 
 function webgisEl(id) {
   return document.getElementById(id);
+}
+
+function webgisInvalidateSize(delay = 80) {
+  window.setTimeout(() => webgisState.map?.invalidateSize(), delay);
 }
 
 function webgisEscape(value) {
@@ -1398,16 +1425,22 @@ function webgisBindEvents() {
   webgisEl('webgisPrintBtn').addEventListener('click', () => window.print());
   webgisEl('webgisShotBtn').addEventListener('click', () => webgisTakeScreenshot());
   webgisEl('webgisFullscreenBtn').addEventListener('click', () => webgisEl('webgisPage').requestFullscreen?.());
+  window.addEventListener('resize', () => webgisInvalidateSize(90), { passive: true });
+  document.addEventListener('fullscreenchange', () => webgisInvalidateSize(120));
+  if (window.ResizeObserver && !webgisState.resizeObserver) {
+    webgisState.resizeObserver = new ResizeObserver(() => webgisInvalidateSize(40));
+    webgisState.resizeObserver.observe(webgisEl('webgisMap'));
+  }
 }
 
 async function initializeWebGIS() {
   if (webgisState.initialized) {
-    setTimeout(() => webgisState.map?.invalidateSize(), 80);
+    webgisInvalidateSize(80);
     return;
   }
   if (webgisState.initializing) {
     await webgisState.initializing;
-    setTimeout(() => webgisState.map?.invalidateSize(), 80);
+    webgisInvalidateSize(80);
     return;
   }
   if (!window.L) {
@@ -1448,6 +1481,8 @@ async function initializeWebGIS() {
     }
   })();
   await webgisState.initializing;
+  webgisInvalidateSize(80);
+  webgisInvalidateSize(260);
 }
 """
 
@@ -1848,10 +1883,18 @@ def main() -> None:
   --locked: #f7f9fc;
 }}
 * {{ box-sizing: border-box; }}
-html {{ min-height: 100%; }}
+html,
+body,
+#root {{
+  height: 100%;
+}}
+html {{
+  min-height: 100%;
+}}
 body {{
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 18% 12%, rgba(37, 99, 235, 0.14), transparent 28%),
     radial-gradient(circle at 84% 10%, rgba(14, 165, 233, 0.12), transparent 30%),
@@ -1859,6 +1902,10 @@ body {{
   background-attachment: fixed;
   color: var(--ink);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif;
+}}
+body.webgis-mode {{
+  height: 100vh;
+  overflow: hidden;
 }}
 .appbar {{
   position: sticky;
@@ -1941,6 +1988,12 @@ body:not(.home-mode) .module-label {{
 body:not(.home-mode) .appbar {{
   min-height: 62px;
   align-items: center;
+}}
+body.webgis-mode .appbar {{
+  height: 62px;
+  min-height: 62px;
+  overflow: hidden;
+  flex-wrap: nowrap;
 }}
 .app-sidebar {{
   position: fixed;
@@ -2204,12 +2257,14 @@ body.webgis-mode .docs-page {{
   overflow: hidden;
 }}
 .webgis-page {{
-  min-height: calc(100vh - 74px);
-  margin: 14px 14px 14px 110px;
+  height: calc(100vh - 82px);
+  min-height: 0;
+  margin: 10px 14px 10px 110px;
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 18px;
   background: #ffffff;
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.10);
+  overflow: hidden;
 }}
 {WEBGIS_CSS}
 .library-shell {{
@@ -3327,6 +3382,10 @@ td.search-hit {{
   .docs-page,
   .webgis-page {{
     margin: 10px 10px 96px;
+  }}
+  body.webgis-mode .webgis-page {{
+    height: calc(100vh - 168px);
+    min-height: 0;
   }}
   .table-toolbar {{
     margin: 10px 10px -2px;
