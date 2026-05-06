@@ -269,6 +269,7 @@ WEBGIS_CSS = r"""
   display: grid;
   grid-template-columns: 304px minmax(520px, 1fr) 340px;
   gap: 12px;
+  align-items: start;
   min-height: 0;
   flex: 1;
   padding: 12px;
@@ -279,6 +280,7 @@ WEBGIS_CSS = r"""
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  max-height: clamp(420px, 56vh, 560px);
   overflow: auto;
 }
 .webgis-panel {
@@ -357,7 +359,8 @@ WEBGIS_CSS = r"""
 }
 .webgis-map-panel {
   position: relative;
-  min-height: calc(100vh - 224px);
+  height: clamp(420px, 56vh, 560px);
+  min-height: 420px;
   overflow: hidden;
   border: 1px solid #cbdcec;
   border-radius: 16px;
@@ -367,7 +370,7 @@ WEBGIS_CSS = r"""
 .webgis-map {
   width: 100%;
   height: 100%;
-  min-height: calc(100vh - 224px);
+  min-height: 0;
 }
 .webgis-map-tools {
   position: absolute;
