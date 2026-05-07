@@ -1398,6 +1398,12 @@ function webgisSetSaveStatus(text, isError = false) {
   status.classList.toggle('connected', !isError && /kết nối|Supabase|dữ liệu đã lưu|nạp dữ liệu/i.test(text));
 }
 
+function webgisRestoreConnectedStatus() {
+  const status = webgisEl('webgisSaveStatus');
+  if (status?.classList.contains('error')) return;
+  webgisSetSaveStatus('Đã kết nối dữ liệu');
+}
+
 function webgisSetPanelCollapsed(panel, collapsed) {
   const page = webgisEl('webgisPage');
   if (!page) return;
@@ -1972,15 +1978,20 @@ async function webgisFitLayer(layerId) {
   if (!webgisState.loadedLayerIds.has(layerId)) {
     webgisSetSaveStatus(`Đang nạp layer ${def?.label || layerId}...`);
     await webgisEnsureLayerLoaded(layerId);
+    webgisRestoreConnectedStatus();
   }
   if (!wasVisible || !webgisState.overlayLayers.has(layerId)) webgisRebuildOverlays();
   const layer = webgisState.overlayLayers.get(layerId);
-  if (!layer) return;
+  if (!layer) {
+    webgisRestoreConnectedStatus();
+    return;
+  }
   const bounds = layer.getBounds?.();
   if (bounds?.isValid?.()) {
     webgisState.map.fitBounds(bounds.pad(0.14));
     webgisInvalidateSize(40);
   }
+  webgisRestoreConnectedStatus();
 }
 
 function webgisFitAll() {
@@ -2233,7 +2244,10 @@ function webgisBindEvents() {
         return;
       }
       if (def) def.visible = event.target.checked;
-      if (event.target.checked) await webgisEnsureLayerLoaded(toggleId);
+      if (event.target.checked) {
+        await webgisEnsureLayerLoaded(toggleId);
+        webgisRestoreConnectedStatus();
+      }
       webgisRebuildOverlays();
       webgisScheduleSave();
     }
@@ -2310,9 +2324,10 @@ function webgisBindEvents() {
   webgisEl('webgisAdminLayerList').addEventListener('click', async event => {
     const layerId = event.target?.dataset?.webgisLayerDelete;
     if (layerId) webgisDeleteLayer(layerId).catch(error => webgisSetSaveStatus(error.message || String(error), true));
-    const loadFieldsId = event.target?.dataset?.webgisLayerLoadFields;
+      const loadFieldsId = event.target?.dataset?.webgisLayerLoadFields;
     if (loadFieldsId) {
       await webgisEnsureLayerLoaded(loadFieldsId);
+      webgisRestoreConnectedStatus();
       webgisRenderAdminLayerList();
       webgisSetSaveStatus('Da nap danh sach thuoc tinh layer');
     }
