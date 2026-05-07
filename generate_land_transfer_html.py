@@ -487,17 +487,6 @@ WEBGIS_CSS = r"""
   color: #64748b;
   font-weight: 700;
 }
-.webgis-legend {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 7px;
-  font-size: 13px;
-}
-.webgis-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .webgis-admin-panel[hidden],
 .webgis-attr-panel[hidden] {
   display: none;
@@ -783,14 +772,6 @@ WEBGIS_HTML = r"""
           </div>
           <div class="webgis-panel-body">
             <div id="webgisLayerList" class="webgis-layer-list"></div>
-          </div>
-        </section>
-        <section class="webgis-panel">
-          <div class="webgis-panel-head">
-            <h3>Chú giải</h3>
-          </div>
-          <div class="webgis-panel-body">
-            <div id="webgisLegend" class="webgis-legend"></div>
           </div>
         </section>
         <section id="webgisAdminLoginPanel" class="webgis-panel webgis-admin-panel" hidden>
@@ -1625,7 +1606,6 @@ function webgisRebuildOverlays() {
   }
   webgisRenderLayerList();
   webgisRenderAdminLayerList();
-  webgisRenderLegend();
   webgisPopulateAttrLayerSelect();
   webgisUpdateStats();
   webgisInvalidateSize(60);
@@ -1772,19 +1752,6 @@ function webgisRefreshSelectedFeatureDisplay() {
     }
   }
   if (!webgisEl('webgisAttributePanel')?.hidden) webgisRenderAttributeTable();
-}
-
-function webgisRenderLegend() {
-  const legend = webgisEl('webgisLegend');
-  legend.innerHTML = [
-    ['#f4a3c1', 'Đất ở'],
-    ['#ffff00', 'Đất lúa / cây hàng năm'],
-    ['#f5a623', 'Đất cây lâu năm / giao thông'],
-    ['#2ca25f', 'Đất rừng / nông nghiệp khác'],
-    ['#1e88e5', 'Đất mặt nước / thủy hệ'],
-    ['#ff0000', 'Đất phi nông nghiệp'],
-    ['#ffffff', 'Đất chưa sử dụng / khác']
-  ].map(([color, label]) => `<div class="webgis-legend-item"><span class="webgis-symbol" style="background:${color}"></span>${label}</div>`).join('');
 }
 
 async function webgisFitLayer(layerId) {
