@@ -4116,6 +4116,127 @@ body.ai-webgis-assistant .ai-controls textarea {{
     width: auto;
   }}
 }}
+.startup-screen {{
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #e5f4ff;
+  background:
+    radial-gradient(circle at 72% 42%, rgba(124, 58, 237, 0.28), transparent 0 22%, transparent 42%),
+    radial-gradient(circle at 24% 78%, rgba(14, 165, 233, 0.2), transparent 0 24%, transparent 44%),
+    linear-gradient(135deg, #07111f 0%, #0a1630 48%, #111827 100%);
+  transition: opacity 0.36s ease, visibility 0.36s ease;
+}}
+.startup-screen[hidden] {{
+  display: none;
+}}
+.startup-screen.is-hidden {{
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}}
+.startup-grid {{
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+  background-size: 88px 88px;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 32%, #000 100%);
+  animation: startupGridDrift 12s linear infinite;
+}}
+.startup-card {{
+  position: relative;
+  z-index: 1;
+  width: min(560px, calc(100vw - 36px));
+  padding: 30px;
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  border-radius: 22px;
+  background: rgba(8, 18, 34, 0.82);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255,255,255,0.08);
+  backdrop-filter: blur(18px);
+}}
+.startup-brand {{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+  color: #93c5fd;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}}
+.startup-brand-mark {{
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.35);
+}}
+.startup-title {{
+  margin: 0;
+  color: #f8fafc;
+  font-size: clamp(26px, 4vw, 42px);
+  line-height: 1.1;
+  letter-spacing: 0;
+}}
+.startup-description {{
+  max-width: 460px;
+  margin: 14px 0 26px;
+  color: #bfdbfe;
+  font-size: 15px;
+  line-height: 1.65;
+}}
+.startup-loader {{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #c4b5fd;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}}
+.startup-spinner {{
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(147, 197, 253, 0.25);
+  border-top-color: #60a5fa;
+  border-right-color: #a78bfa;
+  border-radius: 999px;
+  animation: startupSpin 0.88s linear infinite;
+}}
+.startup-pulse {{
+  position: absolute;
+  right: -70px;
+  bottom: -70px;
+  width: 210px;
+  height: 210px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.18);
+  filter: blur(4px);
+  animation: startupPulse 2.8s ease-in-out infinite;
+}}
+body.startup-active {{
+  overflow: hidden;
+}}
+@keyframes startupSpin {{
+  to {{ transform: rotate(360deg); }}
+}}
+@keyframes startupPulse {{
+  0%, 100% {{ transform: scale(0.92); opacity: 0.48; }}
+  50% {{ transform: scale(1.08); opacity: 0.82; }}
+}}
+@keyframes startupGridDrift {{
+  from {{ transform: translate3d(0, 0, 0); }}
+  to {{ transform: translate3d(-88px, -88px, 0); }}
+}}
 @media print {{
   .appbar, .import-log {{ display: none; }}
   .table-wrap {{ height: auto; overflow: visible; }}
@@ -4203,6 +4324,19 @@ body.ai-webgis-assistant .ai-controls textarea {{
 </style>
 </head>
 <body class="home-mode">
+<section id="startupScreen" class="startup-screen" role="status" aria-live="polite" aria-label="Đang khởi động WebGIS">
+  <div class="startup-grid" aria-hidden="true"></div>
+  <div class="startup-card">
+    <div class="startup-pulse" aria-hidden="true"></div>
+    <div class="startup-brand"><span class="startup-brand-mark">DD</span> WebGIS</div>
+    <h1 class="startup-title">Đang khởi động WebGIS</h1>
+    <p class="startup-description">Máy chủ đang được đánh thức, vui lòng chờ trong giây lát...</p>
+    <div class="startup-loader">
+      <span class="startup-spinner" aria-hidden="true"></span>
+      <span id="startupStatus">Đang kiểm tra máy chủ</span>
+    </div>
+  </div>
+</section>
 <header class="appbar">
   <div class="brand">
     <img class="brand-logo" src="{logo_data_url}" alt="Logo Nguyễn Quang Huy">
@@ -4596,6 +4730,60 @@ let projectTitlesConfirmed = false;
 let gtpFileHandle = null;
 let gtpFileName = '';
 {WEBGIS_JS}
+const StartupScreen = (() => {{
+  const intervalMs = 3000;
+  let timer = 0;
+  let attempts = 0;
+  const canCheckBackend = ['http:', 'https:'].includes(window.location.protocol);
+  const screen = document.getElementById('startupScreen');
+  const status = document.getElementById('startupStatus');
+
+  function setStatus(text) {{
+    if (status) status.textContent = text;
+  }}
+
+  function hide() {{
+    if (!screen) return;
+    clearInterval(timer);
+    document.body.classList.remove('startup-active');
+    screen.classList.add('is-hidden');
+    window.setTimeout(() => {{
+      screen.hidden = true;
+    }}, 420);
+  }}
+
+  async function checkHealth() {{
+    attempts += 1;
+    try {{
+      const response = await fetch('/health', {{
+        cache: 'no-store',
+        headers: {{ Accept: 'application/json' }}
+      }});
+      if (response.status === 200) {{
+        setStatus('Máy chủ đã sẵn sàng');
+        hide();
+        return;
+      }}
+      setStatus(`Máy chủ đang khởi động (${{response.status}})`);
+    }} catch (error) {{
+      setStatus(attempts <= 1 ? 'Đang đánh thức máy chủ' : 'Máy chủ chưa sẵn sàng, thử lại sau 3 giây');
+    }}
+  }}
+
+  function start() {{
+    if (!screen) return;
+    if (!canCheckBackend) {{
+      hide();
+      return;
+    }}
+    document.body.classList.add('startup-active');
+    checkHealth();
+    timer = window.setInterval(checkHealth, intervalMs);
+  }}
+
+  return {{ start, hide, checkHealth }};
+}})();
+StartupScreen.start();
 let libraryDocuments = [];
 const librarySessionTokenKey = 'library-session-token';
 const librarySessionRoleKey = 'library-session-role';

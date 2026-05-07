@@ -85,8 +85,11 @@ GET /api/projects/default
 Kiem tra server:
 
 ```http
+GET /health
 GET /api/health
 ```
+
+Frontend co man hinh StartupScreen de danh thuc backend Render. Man hinh nay tu goi `/health` moi 3 giay va tu an khi server tra ve status 200.
 
 Kiem tra cau hinh AI:
 

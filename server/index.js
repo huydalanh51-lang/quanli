@@ -1329,6 +1329,19 @@ function runOpenAIChild(payload) {
   });
 }
 
+function healthPayload(mode) {
+  return {
+    ok: true,
+    mode,
+    database: path.relative(rootDir, dbPath),
+    storage: path.relative(rootDir, storageRootDir) || '.',
+    persistentStorage: !isSamePath(storageRootDir, rootDir),
+    libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local',
+    webgisStorage: libraryUsesSupabase() ? 'supabase' : 'sqlite',
+    ai: aiProviderConfig()
+  };
+}
+
 function createExpressServer() {
   const express = require('express');
   const app = express();
@@ -1338,17 +1351,8 @@ function createExpressServer() {
   app.use('/uploads', express.static(uploadsDir));
   app.use('/exports', express.static(exportsDir));
 
-  app.get('/api/health', (req, res) => {
-    res.json({
-      ok: true,
-      mode: 'express',
-      database: path.relative(rootDir, dbPath),
-      storage: path.relative(rootDir, storageRootDir) || '.',
-      persistentStorage: !isSamePath(storageRootDir, rootDir),
-      libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local',
-      webgisStorage: libraryUsesSupabase() ? 'supabase' : 'sqlite',
-      ai: aiProviderConfig()
-    });
+  app.get(['/health', '/api/health'], (req, res) => {
+    res.json(healthPayload('express'));
   });
 
   app.get('/api/ai/status', (req, res) => {
@@ -1682,17 +1686,8 @@ function createFallbackServer() {
     const libraryVisibilityMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)\/visibility$/);
 
     try {
-      if (url.pathname === '/api/health' && req.method === 'GET') {
-        sendJson(res, 200, {
-          ok: true,
-          mode: 'native-fallback',
-          database: path.relative(rootDir, dbPath),
-          storage: path.relative(rootDir, storageRootDir) || '.',
-          persistentStorage: !isSamePath(storageRootDir, rootDir),
-          libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local',
-          webgisStorage: libraryUsesSupabase() ? 'supabase' : 'sqlite',
-          ai: aiProviderConfig()
-        });
+      if ((url.pathname === '/health' || url.pathname === '/api/health') && req.method === 'GET') {
+        sendJson(res, 200, healthPayload('native-fallback'));
         return;
       }
       if (url.pathname === '/api/ai/status' && req.method === 'GET') {
