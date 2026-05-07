@@ -3950,6 +3950,7 @@ td.search-hit {{
   inset: 64px 18px auto auto;
   z-index: 70;
   width: min(520px, calc(100vw - 36px));
+  max-height: calc(100vh - 82px);
 }}
 .ai-card {{
   border: 1px solid rgba(100, 116, 139, 0.45);
@@ -3957,6 +3958,9 @@ td.search-hit {{
   background: #ffffff;
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.22);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 82px);
 }}
 .ai-head {{
   display: flex;
@@ -3972,6 +3976,7 @@ td.search-hit {{
   flex-direction: column;
   gap: 8px;
   max-height: 340px;
+  flex: 1 1 auto;
   overflow: auto;
   padding: 12px;
   background: #f8fafc;
@@ -4007,10 +4012,12 @@ td.search-hit {{
   gap: 8px;
   padding: 10px 12px;
   border-top: 1px solid var(--line);
+  background: #ffffff;
 }}
 .ai-controls textarea {{
   flex: 1 1 auto;
   min-height: 66px;
+  min-width: 0;
   resize: vertical;
   border: 1px solid rgba(100, 116, 139, 0.62);
   padding: 8px;
@@ -4019,7 +4026,30 @@ td.search-hit {{
 }}
 .ai-controls button {{
   height: 34px;
+  flex: 0 0 auto;
   align-self: flex-end;
+}}
+body.ai-webgis-assistant .ai-panel {{
+  inset: 86px 18px auto auto;
+  width: min(430px, calc(100vw - 118px));
+  max-height: calc(100vh - 108px);
+}}
+body.ai-webgis-assistant .ai-card {{
+  border-radius: 12px;
+  max-height: calc(100vh - 108px);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.2);
+}}
+body.ai-webgis-assistant .ai-messages {{
+  max-height: 210px;
+}}
+body.ai-webgis-assistant .ai-controls textarea {{
+  min-height: 54px;
+}}
+@media (max-width: 900px) {{
+  body.ai-webgis-assistant .ai-panel {{
+    inset: 86px 12px auto 88px;
+    width: auto;
+  }}
 }}
 @media print {{
   .appbar, .import-log {{ display: none; }}
@@ -6434,6 +6464,7 @@ function showHomePage() {{
   document.body.classList.remove('module-mode');
   document.body.classList.remove('docs-mode');
   document.body.classList.remove('webgis-mode');
+  document.body.classList.remove('ai-webgis-assistant');
   $('#reportPanel').hidden = true;
   $('#aiPanel').hidden = true;
   $('#libraryAccessPanel').hidden = true;
@@ -6447,6 +6478,7 @@ function showLandTransferPage() {{
   document.body.classList.remove('home-mode');
   document.body.classList.remove('docs-mode');
   document.body.classList.remove('webgis-mode');
+  document.body.classList.remove('ai-webgis-assistant');
   $('#libraryAccessPanel').hidden = true;
   closeMainMenu();
   recalc();
@@ -6462,6 +6494,7 @@ function showDocumentLibraryPage() {{
   document.body.classList.remove('home-mode');
   document.body.classList.remove('module-mode');
   document.body.classList.remove('webgis-mode');
+  document.body.classList.remove('ai-webgis-assistant');
   $('#reportPanel').hidden = true;
   $('#aiPanel').hidden = true;
   $('#importLog').hidden = true;
@@ -6476,6 +6509,7 @@ function showWebGisPage() {{
   document.body.classList.remove('home-mode');
   document.body.classList.remove('module-mode');
   document.body.classList.remove('docs-mode');
+  document.body.classList.remove('ai-webgis-assistant');
   $('#reportPanel').hidden = true;
   $('#aiPanel').hidden = true;
   $('#libraryAccessPanel').hidden = true;
@@ -6724,7 +6758,7 @@ async function refreshAiStatus() {{
       status.textContent = 'AI đã sẵn sàng: ' + providerLabel + ' - ' + payload.model + '.';
     }} else {{
       status.classList.add('error');
-      status.textContent = 'AI chưa được cấu hình. Hãy thêm OPENAI_API_KEY hoặc GEMINI_API_KEY trong .env hoặc Render Environment.';
+      status.textContent = 'AI chưa được cấu hình trên server hiện tại. Nếu chạy local, tạo/cập nhật file .env cùng cấp package.json rồi npm start lại. Nếu chạy Render, thêm OPENAI_API_KEY hoặc GEMINI_API_KEY trong Environment rồi Save, rebuild, and deploy.';
     }}
   }} catch (error) {{
     status.classList.add('error');
@@ -6734,6 +6768,7 @@ async function refreshAiStatus() {{
 
 function openAiAssistant(mode = 'land-transfer') {{
   const isWebgis = mode === 'webgis';
+  document.body.classList.toggle('ai-webgis-assistant', isWebgis);
   $('#aiPanelTitle').textContent = isWebgis ? 'Trợ lý AI WebGIS' : 'Trợ lý AI';
   $('#aiIntroMessage').textContent = isWebgis
     ? 'Anh có thể hỏi: “Layer nào đang bật?”, “Tóm tắt đối tượng đang chọn”, “Thuộc tính nào đang được phép hiển thị?”, hoặc “Nhận xét nhanh dữ liệu hiện trạng/quy hoạch trên bản đồ”.'
@@ -6832,7 +6867,10 @@ $('#reportCloseBtn').addEventListener('click', () => $('#reportPanel').hidden = 
 $('#aiBtn').addEventListener('click', () => {{
   openAiAssistant('land-transfer');
 }});
-$('#aiCloseBtn').addEventListener('click', () => $('#aiPanel').hidden = true);
+$('#aiCloseBtn').addEventListener('click', () => {{
+  $('#aiPanel').hidden = true;
+  document.body.classList.remove('ai-webgis-assistant');
+}});
 $('#aiSendBtn').addEventListener('click', sendAiQuestion);
 $('#aiQuestion').addEventListener('keydown', event => {{
   if (event.key === 'Enter' && !event.shiftKey) {{
