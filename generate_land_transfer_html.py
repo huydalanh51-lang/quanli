@@ -359,6 +359,25 @@ WEBGIS_CSS = r"""
   text-orientation: mixed;
   white-space: nowrap;
 }
+.webgis-page.layers-collapsed .webgis-sidebar .webgis-panel-head,
+.webgis-page.info-collapsed .webgis-info .webgis-panel-head {
+  min-height: 136px;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 8px 6px;
+}
+.webgis-page.layers-collapsed .webgis-sidebar .webgis-panel-actions {
+  flex-direction: column;
+}
+.webgis-page.layers-collapsed #webgisFitAllBtn {
+  display: none;
+}
+.webgis-page.layers-collapsed #webgisToggleSidebarBtn,
+.webgis-page.info-collapsed #webgisToggleInfoBtn {
+  display: inline-grid !important;
+  width: 30px;
+  min-width: 30px;
+}
 .webgis-collapse-btn {
   width: 28px;
   height: 28px !important;
@@ -890,7 +909,6 @@ WEBGIS_HTML = r"""
         <span id="webgisSaveStatus" class="webgis-save-status">Chưa nạp dữ liệu</span>
         <button id="webgisAiBtn" type="button">Trợ lý AI</button>
         <button id="webgisOpenTableBtn" type="button">Bảng thuộc tính</button>
-        <button id="webgisHomeBtn" type="button">Màn chính</button>
         <button id="webgisAdminBtn" class="admin-action" type="button">Quản trị dữ liệu</button>
       </div>
     </header>
@@ -1805,7 +1823,6 @@ function webgisRenderLayerList() {
       </div>
       <div class="webgis-layer-actions">
         <button class="webgis-icon-btn" type="button" data-webgis-layer-zoom="${webgisEscape(def.id)}" title="Phóng tới layer" aria-label="Phóng tới layer">&#8981;</button>
-        <button class="webgis-icon-btn" type="button" data-webgis-layer-settings="${webgisEscape(def.id)}" title="Cài đặt layer" aria-label="Cài đặt layer">&#9881;</button>
       </div>
       <div class="webgis-layer-tools">
         <span>Độ mờ</span>
@@ -1941,14 +1958,30 @@ function webgisRefreshSelectedFeatureDisplay() {
 }
 
 async function webgisFitLayer(layerId) {
-  await webgisEnsureLayerLoaded(layerId);
+  const existingLayer = webgisState.overlayLayers.get(layerId);
+  if (existingLayer) {
+    const existingBounds = existingLayer.getBounds?.();
+    if (existingBounds?.isValid?.()) {
+      webgisState.map.fitBounds(existingBounds.pad(0.14));
+      webgisInvalidateSize(40);
+      return;
+    }
+  }
   const def = webgisState.layerDefs.find(layer => layer.id === layerId);
-  if (def && def.visible !== true) def.visible = true;
-  webgisRebuildOverlays();
+  const wasVisible = def?.visible === true;
+  if (def && !wasVisible) def.visible = true;
+  if (!webgisState.loadedLayerIds.has(layerId)) {
+    webgisSetSaveStatus(`Đang nạp layer ${def?.label || layerId}...`);
+    await webgisEnsureLayerLoaded(layerId);
+  }
+  if (!wasVisible || !webgisState.overlayLayers.has(layerId)) webgisRebuildOverlays();
   const layer = webgisState.overlayLayers.get(layerId);
   if (!layer) return;
   const bounds = layer.getBounds?.();
-  if (bounds?.isValid?.()) webgisState.map.fitBounds(bounds.pad(0.14));
+  if (bounds?.isValid?.()) {
+    webgisState.map.fitBounds(bounds.pad(0.14));
+    webgisInvalidateSize(40);
+  }
 }
 
 function webgisFitAll() {
@@ -2223,15 +2256,6 @@ function webgisBindEvents() {
   webgisEl('webgisLayerList').addEventListener('click', event => {
     const layerId = event.target?.dataset?.webgisLayerZoom;
     if (layerId) webgisFitLayer(layerId).catch(error => webgisSetSaveStatus(error.message || String(error), true));
-    const settingsLayerId = event.target?.dataset?.webgisLayerSettings;
-    if (settingsLayerId) {
-      if (!webgisRequireAdmin()) return;
-      webgisEl('webgisAdminPanel').hidden = false;
-      webgisEl('webgisAdminLoginPanel').hidden = true;
-      webgisRenderAdminLayerList();
-      webgisEl('webgisAdminPanel')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      webgisInvalidateSize(80);
-    }
   });
   webgisEl('webgisSearchBtn').addEventListener('click', webgisSearch);
   webgisEl('webgisSearchInput').addEventListener('keydown', event => {
@@ -2256,7 +2280,7 @@ function webgisBindEvents() {
     if (event.target?.dataset?.webgisDetailZoom) webgisZoomToFeature(webgisState.selectedFeatureId);
     if (event.target?.dataset?.webgisDetailExport) webgisExportSelectedFeatureInfo();
   });
-  webgisEl('webgisHomeBtn').addEventListener('click', showHomePage);
+  webgisEl('webgisHomeBtn')?.addEventListener('click', showHomePage);
   webgisEl('webgisAiBtn').addEventListener('click', () => openAiAssistant('webgis'));
   webgisEl('webgisOpenTableBtn').addEventListener('click', () => {
     webgisEl('webgisAttributePanel').hidden = false;
