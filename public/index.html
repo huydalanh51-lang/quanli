@@ -2085,6 +2085,21 @@ td.search-hit {
   border-color: rgba(15, 118, 110, 0.28);
   background: #f0fdfa;
 }
+.ai-status {
+  border-top: 1px solid var(--line);
+  padding: 8px 12px;
+  color: #475569;
+  background: #ffffff;
+  font-size: 12px;
+}
+.ai-status.ready {
+  color: #047857;
+  background: #ecfdf5;
+}
+.ai-status.error {
+  color: #b91c1c;
+  background: #fff1f2;
+}
 .ai-controls {
   display: flex;
   gap: 8px;
@@ -2675,8 +2690,9 @@ td.search-hit {
       <button id="aiCloseBtn" type="button">Đóng</button>
     </div>
     <div id="aiMessages" class="ai-messages">
-      <div class="ai-message">Anh có thể hỏi: “Kiểm tra giúp tôi bảng này có lệch tổng không?”, “LUC tăng giảm thế nào?”, hoặc “Viết nhận xét ngắn về biến động đất”.</div>
+      <div class="ai-message">Anh có thể hỏi: “Kiểm tra giúp tôi bảng này có lệch tổng không?”, “LUC tăng giảm thế nào?”, “Nhận xét lớp WebGIS đang bật”, hoặc “Viết nhận xét ngắn về biến động đất”.</div>
     </div>
+    <div id="aiStatus" class="ai-status">Đang kiểm tra cấu hình AI...</div>
     <div class="ai-controls">
       <textarea id="aiQuestion" placeholder="Nhập câu hỏi cho AI"></textarea>
       <button id="aiSendBtn" class="primary" type="button">Gửi</button>
@@ -6123,6 +6139,38 @@ function landName(code) {
   return cell ? cell.textContent.trim() : code;
 }
 
+function buildWebgisAiContext() {
+  if (typeof webgisState === 'undefined') return null;
+  const visibleLayers = (webgisState.layerDefs || [])
+    .filter(layer => webgisState.visibleLayerIds && webgisState.visibleLayerIds.has(layer.id))
+    .map(layer => ({
+      id: layer.id,
+      label: layer.label,
+      category: layer.category,
+      opacity: layer.opacity
+    }));
+  let selectedFeature = null;
+  if (webgisState.selectedFeatureId) {
+    const feature = (webgisState.features || []).find(item => item?.properties?.__id === webgisState.selectedFeatureId);
+    if (feature) {
+      const entries = typeof webgisVisiblePropertyEntries === 'function'
+        ? webgisVisiblePropertyEntries(feature)
+        : Object.entries(feature.properties || {}).filter(([key]) => !['__id', 'layer'].includes(key));
+      selectedFeature = {
+        layer: feature.properties?.layer || '',
+        properties: Object.fromEntries(entries.slice(0, 30))
+      };
+    }
+  }
+  return {
+    module: document.body.classList.contains('webgis-mode') ? 'webgis' : document.body.classList.contains('docs-mode') ? 'library' : document.body.classList.contains('module-mode') ? 'land-transfer' : 'home',
+    layerCount: (webgisState.layerDefs || []).length,
+    featureCount: (webgisState.features || []).length,
+    visibleLayers,
+    selectedFeature
+  };
+}
+
 function buildAiContext() {
   normalizeAllInputs();
   recalc();
@@ -6177,6 +6225,8 @@ function buildAiContext() {
       planning: roundNumber(totalPlanning),
       difference: roundNumber(totalPlanning - totalCurrent)
     },
+    project: typeof readProjectSettings === 'function' ? readProjectSettings() : {},
+    webgis: buildWebgisAiContext(),
     landTypes,
     topTransfers: transfers.slice(0, 40)
   };
@@ -6189,6 +6239,29 @@ function appendAiMessage(type, text) {
   $('#aiMessages').appendChild(el);
   $('#aiMessages').scrollTop = $('#aiMessages').scrollHeight;
   return el;
+}
+
+async function refreshAiStatus() {
+  const status = $('#aiStatus');
+  if (!status) return;
+  status.className = 'ai-status';
+  status.textContent = 'Đang kiểm tra cấu hình AI...';
+  try {
+    const response = await fetch('/api/ai/status');
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Không kiểm tra được cấu hình AI.');
+    if (payload.enabled) {
+      const providerLabel = payload.provider === 'gemini' ? 'Gemini' : 'OpenAI';
+      status.classList.add('ready');
+      status.textContent = 'AI đã sẵn sàng: ' + providerLabel + ' - ' + payload.model + '.';
+    } else {
+      status.classList.add('error');
+      status.textContent = 'AI chưa được cấu hình. Hãy thêm OPENAI_API_KEY hoặc GEMINI_API_KEY trong .env hoặc Render Environment.';
+    }
+  } catch (error) {
+    status.classList.add('error');
+    status.textContent = error.message || 'Không kiểm tra được trạng thái AI.';
+  }
 }
 
 async function sendAiQuestion() {
@@ -6276,6 +6349,7 @@ $('#reportBtn').addEventListener('click', () => {
 $('#reportCloseBtn').addEventListener('click', () => $('#reportPanel').hidden = true);
 $('#aiBtn').addEventListener('click', () => {
   $('#aiPanel').hidden = false;
+  refreshAiStatus();
   $('#aiQuestion').focus();
 });
 $('#aiCloseBtn').addEventListener('click', () => $('#aiPanel').hidden = true);

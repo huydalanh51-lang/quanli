@@ -106,6 +106,37 @@ const supabaseBucket = String(process.env.SUPABASE_BUCKET || 'library-documents'
 const supabaseLibraryIndexKey = '_metadata/library_documents.json';
 const supabaseWebgisPrefix = '_webgis';
 
+function hasConfiguredSecret(value, placeholder) {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  const normalized = text.toLowerCase();
+  return normalized !== String(placeholder || '').toLowerCase() &&
+    !normalized.startsWith('your_') &&
+    !normalized.includes('change-this');
+}
+
+function aiProviderConfig() {
+  const hasGemini = hasConfiguredSecret(process.env.GEMINI_API_KEY, 'your_gemini_api_key_here');
+  const hasOpenAI = hasConfiguredSecret(process.env.OPENAI_API_KEY, 'your_openai_api_key_here');
+  const provider = hasGemini ? 'gemini' : hasOpenAI ? 'openai' : '';
+  return {
+    enabled: Boolean(provider),
+    provider,
+    model: provider === 'gemini' ? geminiModel : provider === 'openai' ? openaiModel : '',
+    fallbackModel: provider === 'gemini' ? geminiFallbackModel : ''
+  };
+}
+
+function ensureAiConfigured() {
+  const config = aiProviderConfig();
+  if (!config.enabled) {
+    const error = new Error('Chưa cấu hình OPENAI_API_KEY hoặc GEMINI_API_KEY trên server. Hãy thêm biến môi trường rồi chạy lại npm start.');
+    error.status = 503;
+    throw error;
+  }
+  return config;
+}
+
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
   const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
@@ -1162,11 +1193,12 @@ function buildAiInput(question, context) {
         {
           type: 'input_text',
           text: [
-            'Bạn là trợ lý AI cho phần mềm chu chuyển đất đai.',
-            'Trả lời bằng tiếng Việt, ngắn gọn, đúng số liệu được cung cấp.',
+            'Bạn là trợ lý AI cho phần mềm quản lý đất đai gồm: biểu chu chuyển đất đai, thư viện tài liệu PDF và WebGIS hiện trạng/quy hoạch.',
+            'Trả lời bằng tiếng Việt, ngắn gọn, đúng số liệu được cung cấp trong context.',
             'Nếu dữ liệu chưa đủ, hãy nói rõ cần import hoặc nhập thêm dữ liệu nào.',
-            'Ưu tiên kiểm tra: tổng hiện trạng, tổng quy hoạch, cộng tăng, cộng giảm, biến động, mã đất bất thường.',
-            'Không bịa số liệu ngoài dữ liệu context.'
+            'Với bảng chu chuyển, ưu tiên kiểm tra: tổng hiện trạng, tổng quy hoạch, cộng tăng, cộng giảm, biến động, mã đất bất thường.',
+            'Với WebGIS, chỉ nhận xét theo layer, thuộc tính và đối tượng được gửi trong context.',
+            'Không bịa số liệu hoặc kết luận ngoài dữ liệu context.'
           ].join('\n')
         }
       ]
@@ -1224,23 +1256,18 @@ function postJson(url, headers, payload) {
 }
 
 async function askOpenAI(question, context) {
-  const provider = process.env.GEMINI_API_KEY ? 'gemini' : 'openai';
-  if (provider === 'openai' && !process.env.OPENAI_API_KEY) {
-    const error = new Error('Chưa cấu hình OPENAI_API_KEY hoặc GEMINI_API_KEY trên server.');
-    error.status = 503;
-    throw error;
-  }
+  const config = ensureAiConfigured();
   const request = {
-    provider,
-    model: provider === 'gemini' ? geminiModel : openaiModel,
+    provider: config.provider,
+    model: config.model,
     input: buildAiInput(question, context),
     max_output_tokens: 900
   };
   try {
     return await runOpenAIChild(request);
   } catch (error) {
-    if (provider === 'gemini' && shouldRetryGemini(error) && geminiFallbackModel && geminiFallbackModel !== geminiModel) {
-      return runOpenAIChild({ ...request, model: geminiFallbackModel });
+    if (config.provider === 'gemini' && shouldRetryGemini(error) && config.fallbackModel && config.fallbackModel !== config.model) {
+      return runOpenAIChild({ ...request, model: config.fallbackModel });
     }
     throw error;
   }
@@ -1319,8 +1346,13 @@ function createExpressServer() {
       storage: path.relative(rootDir, storageRootDir) || '.',
       persistentStorage: !isSamePath(storageRootDir, rootDir),
       libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local',
-      webgisStorage: libraryUsesSupabase() ? 'supabase' : 'sqlite'
+      webgisStorage: libraryUsesSupabase() ? 'supabase' : 'sqlite',
+      ai: aiProviderConfig()
     });
+  });
+
+  app.get('/api/ai/status', (req, res) => {
+    res.json(aiProviderConfig());
   });
 
   app.get('/api/projects/:id', (req, res) => {
@@ -1561,10 +1593,6 @@ function createExpressServer() {
       res.status(400).json({ error: 'Thiếu câu hỏi AI.' });
       return;
     }
-    if (!process.env.OPENAI_API_KEY) {
-      res.status(503).json({ error: 'Chưa cấu hình OPENAI_API_KEY trên server. Hãy tạo file .env rồi chạy lại npm start.' });
-      return;
-    }
     try {
       res.json(await askOpenAI(question, req.body?.context || {}));
     } catch (error) {
@@ -1662,8 +1690,13 @@ function createFallbackServer() {
           storage: path.relative(rootDir, storageRootDir) || '.',
           persistentStorage: !isSamePath(storageRootDir, rootDir),
           libraryStorage: libraryUsesSupabase() ? 'supabase' : 'local',
-          webgisStorage: libraryUsesSupabase() ? 'supabase' : 'sqlite'
+          webgisStorage: libraryUsesSupabase() ? 'supabase' : 'sqlite',
+          ai: aiProviderConfig()
         });
+        return;
+      }
+      if (url.pathname === '/api/ai/status' && req.method === 'GET') {
+        sendJson(res, 200, aiProviderConfig());
         return;
       }
       if (projectMatch && req.method === 'GET') {
@@ -1922,11 +1955,11 @@ function createFallbackServer() {
           sendJson(res, 400, { error: 'Thiếu câu hỏi AI.' });
           return;
         }
-        if (!process.env.OPENAI_API_KEY) {
-          sendJson(res, 503, { error: 'Chưa cấu hình OPENAI_API_KEY trên server. Hãy tạo file .env rồi chạy lại npm start.' });
-          return;
+        try {
+          sendJson(res, 200, await askOpenAI(question, body.context || {}));
+        } catch (error) {
+          sendJson(res, error.status || 500, { error: error.message || 'Không gọi được AI.' });
         }
-        sendJson(res, 200, await askOpenAI(question, body.context || {}));
         return;
       }
       if (url.pathname.startsWith('/uploads/')) {

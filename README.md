@@ -23,10 +23,10 @@ Tao file `.env` tu mau:
 copy .env.example .env
 ```
 
-Mo `.env` va dien API key moi:
+Mo `.env` va dien API key AI. Chi can dien mot trong hai: `OPENAI_API_KEY` hoac `GEMINI_API_KEY`; khong nhung key vao file frontend.
 
 ```text
-OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4.1-mini
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-2.5-flash
@@ -48,7 +48,7 @@ SUPABASE_BUCKET=library-documents
 PORT=3000
 ```
 
-Neu dung Gemini thay OpenAI, dien `GEMINI_API_KEY`. Khi co `GEMINI_API_KEY`, server se uu tien Gemini.
+Neu dien ca hai key, server se uu tien Gemini. Co the kiem tra trang thai cau hinh tai `GET /api/ai/status`.
 
 ```bash
 npm install
@@ -86,6 +86,12 @@ Kiem tra server:
 
 ```http
 GET /api/health
+```
+
+Kiem tra cau hinh AI:
+
+```http
+GET /api/ai/status
 ```
 
 Hoi tro ly AI:
