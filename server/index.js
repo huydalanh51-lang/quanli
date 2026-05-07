@@ -187,6 +187,150 @@ function validateProjectData(data) {
   return data && typeof data === 'object' && !Array.isArray(data);
 }
 
+function normalizeWebgisBoolean(value, defaultValue) {
+  if (value === undefined || value === null) return defaultValue;
+  if (typeof value === 'string') return !['false', '0', 'no', 'off'].includes(value.trim().toLowerCase());
+  return Boolean(value);
+}
+
+function normalizeWebgisOpacity(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 1;
+  const normalized = numeric > 1 ? numeric / 100 : numeric;
+  return Math.max(0, Math.min(1, normalized));
+}
+
+function normalizeWebgisLayerDef(rawDef, index = 0) {
+  const id = String(rawDef?.id || rawDef?.layer || `layer-${index + 1}`).trim() || `layer-${index + 1}`;
+  const hasDefaultVisible = rawDef && Object.prototype.hasOwnProperty.call(rawDef, 'default_visible');
+  const legacyVisible = rawDef && Object.prototype.hasOwnProperty.call(rawDef, 'visible') ? rawDef.visible !== false : false;
+  const defaultVisible = hasDefaultVisible ? normalizeWebgisBoolean(rawDef.default_visible, false) : legacyVisible;
+  return {
+    ...rawDef,
+    id,
+    label: String(rawDef?.label || rawDef?.name || id),
+    color: String(rawDef?.color || '#2563eb'),
+    is_public: normalizeWebgisBoolean(rawDef?.is_public, true),
+    default_visible: defaultVisible,
+    allow_user_toggle: normalizeWebgisBoolean(rawDef?.allow_user_toggle, true),
+    opacity: normalizeWebgisOpacity(rawDef?.opacity),
+    sort_order: Number.isFinite(Number(rawDef?.sort_order)) ? Number(rawDef.sort_order) : index + 1,
+    category: String(rawDef?.category || 'Chung'),
+    custom: Boolean(rawDef?.custom)
+  };
+}
+
+function normalizeWebgisFeature(feature, index = 0, fallbackLayer = '') {
+  if (!feature || !feature.geometry) return null;
+  const props = { ...(feature.properties || {}) };
+  props.layer = String(props.layer || fallbackLayer || 'imported');
+  props.__id = props.__id || `${props.layer}-${index}-${crypto.createHash('sha1').update(JSON.stringify(feature.geometry).slice(0, 400)).digest('hex').slice(0, 8)}`;
+  return { ...feature, properties: props };
+}
+
+function normalizeWebgisData(data) {
+  const rawFeatures = Array.isArray(data?.features) ? data.features : [];
+  const features = rawFeatures
+    .map((feature, index) => normalizeWebgisFeature(feature, index))
+    .filter(Boolean);
+  const rawDefs = Array.isArray(data?.layerDefs) ? data.layerDefs : [];
+  const layerIdsFromFeatures = Array.from(new Set(features.map(feature => String(feature.properties?.layer || 'imported'))));
+  const defsById = new Map(rawDefs.map((def, index) => [String(def?.id || def?.layer || `layer-${index + 1}`), normalizeWebgisLayerDef(def, index)]));
+  layerIdsFromFeatures.forEach((layerId, index) => {
+    if (!defsById.has(layerId)) {
+      defsById.set(layerId, normalizeWebgisLayerDef({ id: layerId, label: layerId, custom: true }, rawDefs.length + index));
+    }
+  });
+  const layerDefs = Array.from(defsById.values()).sort((a, b) =>
+    Number(a.sort_order || 0) - Number(b.sort_order || 0) || String(a.label).localeCompare(String(b.label), 'vi')
+  );
+  return {
+    version: Number(data?.version || 2),
+    savedAt: data?.savedAt || data?.saved_at || null,
+    layerDefs,
+    features
+  };
+}
+
+function webgisLayerFeatureCounts(features) {
+  const counts = new Map();
+  for (const feature of features || []) {
+    const layerId = String(feature.properties?.layer || 'imported');
+    counts.set(layerId, (counts.get(layerId) || 0) + 1);
+  }
+  return counts;
+}
+
+function webgisMetadataResponse(state, includePrivate = false) {
+  if (!state) return null;
+  const data = normalizeWebgisData(state.data || {});
+  const counts = webgisLayerFeatureCounts(data.features);
+  const layerDefs = data.layerDefs
+    .filter(def => includePrivate || def.is_public !== false)
+    .map(def => ({ ...def, feature_count: counts.get(def.id) || 0 }));
+  return {
+    ...state,
+    data: {
+      version: data.version,
+      savedAt: data.savedAt,
+      layerDefs,
+      features: []
+    }
+  };
+}
+
+function webgisLayerFeaturesResponse(state, layerId, includePrivate = false) {
+  if (!state) return null;
+  const normalizedLayerId = String(layerId || '');
+  const data = normalizeWebgisData(state.data || {});
+  const layer = data.layerDefs.find(def => def.id === normalizedLayerId);
+  if (!layer || (layer.is_public === false && !includePrivate)) return null;
+  return {
+    id: state.id,
+    storage: state.storage,
+    layer,
+    features: data.features.filter(feature => String(feature.properties?.layer || '') === normalizedLayerId)
+  };
+}
+
+function mergeWebgisIncomingData(existingData, incomingData) {
+  const existing = normalizeWebgisData(existingData || {});
+  const incoming = normalizeWebgisData(incomingData || {});
+  const incomingFeatureLayerIds = new Set(incoming.features.map(feature => String(feature.properties?.layer || '')));
+  const preservedFeatures = existing.features.filter(feature => !incomingFeatureLayerIds.has(String(feature.properties?.layer || '')));
+  const layerDefsById = new Map(existing.layerDefs.map(def => [def.id, def]));
+  incoming.layerDefs.forEach(def => layerDefsById.set(def.id, def));
+  return {
+    version: Math.max(existing.version || 2, incoming.version || 2, 2),
+    savedAt: incomingData?.savedAt || new Date().toISOString(),
+    layerDefs: Array.from(layerDefsById.values()),
+    features: [...preservedFeatures, ...incoming.features]
+  };
+}
+
+async function updateWebgisLayerMetadata(id, layerId, patch) {
+  const projectId = normalizeProjectId(id);
+  const existingState = await loadWebgisState(projectId);
+  const data = normalizeWebgisData(existingState?.data || {});
+  const normalizedLayerId = String(layerId || '').trim();
+  let layer = data.layerDefs.find(def => def.id === normalizedLayerId);
+  if (!layer) {
+    layer = normalizeWebgisLayerDef({ id: normalizedLayerId, label: normalizedLayerId, custom: true }, data.layerDefs.length);
+    data.layerDefs.push(layer);
+  }
+  const allowed = ['label', 'color', 'is_public', 'default_visible', 'allow_user_toggle', 'opacity', 'sort_order', 'category'];
+  for (const key of allowed) {
+    if (!Object.prototype.hasOwnProperty.call(patch || {}, key)) continue;
+    if (key === 'opacity') layer.opacity = normalizeWebgisOpacity(patch[key]);
+    else if (['is_public', 'default_visible', 'allow_user_toggle'].includes(key)) layer[key] = normalizeWebgisBoolean(patch[key], key !== 'default_visible');
+    else if (key === 'sort_order') layer.sort_order = Number.isFinite(Number(patch[key])) ? Number(patch[key]) : layer.sort_order;
+    else layer[key] = String(patch[key] ?? '').trim();
+  }
+  data.savedAt = new Date().toISOString();
+  await saveWebgisState(projectId, data, { preserveExistingFeatures: false });
+  return { ok: true, id: projectId, layer };
+}
+
 function webgisObjectKey(id) {
   return `${supabaseWebgisPrefix}/${normalizeProjectId(id)}.json`;
 }
@@ -208,7 +352,7 @@ async function loadWebgisState(id) {
     }
     const sqliteProject = loadProject(projectId);
     if (sqliteProject) {
-      await saveWebgisState(projectId, sqliteProject.data);
+      await saveWebgisState(projectId, sqliteProject.data, { preserveExistingFeatures: false });
       return { id: projectId, data: sqliteProject.data, storage: 'supabase-migrated' };
     }
     return null;
@@ -217,19 +361,25 @@ async function loadWebgisState(id) {
   return project ? { ...project, storage: 'sqlite' } : null;
 }
 
-async function saveWebgisState(id, data) {
+async function saveWebgisState(id, data, options = {}) {
   const projectId = normalizeProjectId(id);
   if (!validateProjectData(data)) {
     const error = new Error('Request body must include an object field named data');
     error.status = 400;
     throw error;
   }
+  let normalizedData = normalizeWebgisData(data);
+  if (options.preserveExistingFeatures !== false) {
+    const existingState = await loadWebgisState(projectId);
+    if (existingState?.data) normalizedData = mergeWebgisIncomingData(existingState.data, normalizedData);
+  }
+  normalizedData.savedAt = data.savedAt || new Date().toISOString();
   if (libraryUsesSupabase()) {
-    const body = Buffer.from(JSON.stringify(data, null, 2), 'utf8');
+    const body = Buffer.from(JSON.stringify(normalizedData, null, 2), 'utf8');
     await supabaseUploadObject(webgisObjectKey(projectId), body, 'application/json; charset=utf-8');
     return { ok: true, id: projectId, storage: 'supabase' };
   }
-  return { ...saveProject(projectId, data), storage: 'sqlite' };
+  return { ...saveProject(projectId, normalizedData), storage: 'sqlite' };
 }
 
 function safeText(value, max = 500) {
@@ -1143,11 +1293,39 @@ function createExpressServer() {
     res.status(201).json(saveProject(req.body.id || 'default', req.body.data));
   });
 
+  app.get('/api/webgis/:id/layers/:layerId/features', async (req, res) => {
+    try {
+      const state = await loadWebgisState(req.params.id);
+      const includePrivate = isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization));
+      const layerState = webgisLayerFeaturesResponse(state, req.params.layerId, includePrivate);
+      if (!layerState) {
+        res.status(404).json({ error: 'Layer data not found' });
+        return;
+      }
+      res.json(layerState);
+    } catch (error) {
+      res.status(error.status || 500).json({ error: error.message || 'Khong doc duoc du lieu layer WebGIS.' });
+    }
+  });
+
+  app.patch('/api/webgis/:id/layers/:layerId', requireWebgisAdmin, async (req, res) => {
+    try {
+      res.json(await updateWebgisLayerMetadata(req.params.id, req.params.layerId, req.body || {}));
+    } catch (error) {
+      res.status(error.status || 500).json({ error: error.message || 'Khong cap nhat duoc layer WebGIS.' });
+    }
+  });
+
   app.get('/api/webgis/:id', async (req, res) => {
     try {
       const state = await loadWebgisState(req.params.id);
       if (!state) {
         res.status(404).json({ error: 'WebGIS data not found' });
+        return;
+      }
+      if (req.query.metadata === '1') {
+        const includePrivate = isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization));
+        res.json(webgisMetadataResponse(state, includePrivate));
         return;
       }
       res.json(state);
@@ -1403,6 +1581,8 @@ function createFallbackServer() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
     const projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)$/);
+    const webgisLayerFeaturesMatch = url.pathname.match(/^\/api\/webgis\/([^/]+)\/layers\/([^/]+)\/features$/);
+    const webgisLayerMatch = url.pathname.match(/^\/api\/webgis\/([^/]+)\/layers\/([^/]+)$/);
     const webgisMatch = url.pathname.match(/^\/api\/webgis\/([^/]+)$/);
     const libraryDocMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)$/);
     const libraryViewTokenMatch = url.pathname.match(/^\/api\/library\/documents\/(\d+)\/view-token$/);
@@ -1446,8 +1626,32 @@ function createFallbackServer() {
         sendJson(res, 201, saveProject(body.id || 'default', body.data));
         return;
       }
+      if (webgisLayerFeaturesMatch && req.method === 'GET') {
+        const state = await loadWebgisState(webgisLayerFeaturesMatch[1]);
+        const includePrivate = isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization));
+        const layerState = webgisLayerFeaturesResponse(state, decodeURIComponent(webgisLayerFeaturesMatch[2]), includePrivate);
+        sendJson(res, layerState ? 200 : 404, layerState || { error: 'Layer data not found' });
+        return;
+      }
+      if (webgisLayerMatch && req.method === 'PATCH') {
+        if (!isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization))) {
+          sendJson(res, 401, { error: 'Ban can dang nhap admin WebGIS de luu hoac quan tri du lieu.' });
+          return;
+        }
+        try {
+          sendJson(res, 200, await updateWebgisLayerMetadata(webgisLayerMatch[1], decodeURIComponent(webgisLayerMatch[2]), await readJsonBody(req)));
+        } catch (error) {
+          sendJson(res, error.status || 500, { error: error.message || 'Khong cap nhat duoc layer WebGIS.' });
+        }
+        return;
+      }
       if (webgisMatch && req.method === 'GET') {
         const state = await loadWebgisState(webgisMatch[1]);
+        if (state && url.searchParams.get('metadata') === '1') {
+          const includePrivate = isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization));
+          sendJson(res, 200, webgisMetadataResponse(state, includePrivate));
+          return;
+        }
         sendJson(res, state ? 200 : 404, state || { error: 'WebGIS data not found' });
         return;
       }
