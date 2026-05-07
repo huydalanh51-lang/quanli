@@ -1613,12 +1613,9 @@ async function webgisLoadSavedData() {
 
 async function webgisSaveNow() {
   if (!webgisState.initialized) return;
+  if (!webgisAdminToken) return;
   const data = webgisStatePayload();
   const savedLocal = webgisSaveLocal(data);
-  if (!webgisAdminToken) {
-    webgisSetSaveStatus(savedLocal ? 'Chưa đăng nhập admin WebGIS, dữ liệu chỉ lưu tạm trên trình duyệt' : 'Không lưu được dữ liệu tạm', !savedLocal);
-    return;
-  }
   webgisSetSaveStatus('Đang tự lưu...');
   try {
     const response = await fetch(`${webgisApiBase}/${encodeURIComponent(webgisProjectId)}`, {
@@ -1628,7 +1625,8 @@ async function webgisSaveNow() {
     });
     if (response.status === 401) {
       webgisClearAdminSession();
-      webgisShowAdminLogin('Phiên admin WebGIS đã hết hạn. Vui lòng đăng nhập lại.');
+      webgisSetSaveStatus('Phiên admin WebGIS đã hết hạn. Bấm Đăng nhập admin khi cần quản trị.', true);
+      return;
     }
     if (!response.ok) throw new Error(await response.text());
     const result = await response.json().catch(() => ({}));
@@ -1641,6 +1639,7 @@ async function webgisSaveNow() {
 
 function webgisScheduleSave() {
   if (!webgisState.initialized) return;
+  if (!webgisAdminToken) return;
   clearTimeout(webgisSaveTimer);
   webgisSaveTimer = setTimeout(() => webgisSaveNow(), 600);
 }
