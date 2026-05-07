@@ -200,6 +200,15 @@ function normalizeWebgisOpacity(value) {
   return Math.max(0, Math.min(1, normalized));
 }
 
+function normalizeWebgisFieldList(value) {
+  if (value === undefined || value === null) return null;
+  const values = Array.isArray(value) ? value : String(value).split(',');
+  return Array.from(new Set(values
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+  ));
+}
+
 function normalizeWebgisLayerDef(rawDef, index = 0) {
   const id = String(rawDef?.id || rawDef?.layer || `layer-${index + 1}`).trim() || `layer-${index + 1}`;
   const hasDefaultVisible = rawDef && Object.prototype.hasOwnProperty.call(rawDef, 'default_visible');
@@ -216,6 +225,7 @@ function normalizeWebgisLayerDef(rawDef, index = 0) {
     opacity: normalizeWebgisOpacity(rawDef?.opacity),
     sort_order: Number.isFinite(Number(rawDef?.sort_order)) ? Number(rawDef.sort_order) : index + 1,
     category: String(rawDef?.category || 'Chung'),
+    visible_fields: normalizeWebgisFieldList(rawDef?.visible_fields),
     custom: Boolean(rawDef?.custom)
   };
 }
@@ -292,11 +302,24 @@ function webgisLayerFeaturesResponse(state, layerId, includePrivate = false) {
   const data = normalizeWebgisData(state.data || {});
   const layer = data.layerDefs.find(def => def.id === normalizedLayerId);
   if (!layer || (layer.is_public === false && !includePrivate)) return null;
+  const visibleFields = Array.isArray(layer.visible_fields) ? new Set(layer.visible_fields) : null;
+  const features = data.features
+    .filter(feature => String(feature.properties?.layer || '') === normalizedLayerId)
+    .map(feature => {
+      if (includePrivate || !visibleFields) return feature;
+      const props = {};
+      for (const key of visibleFields) {
+        if (Object.prototype.hasOwnProperty.call(feature.properties || {}, key)) props[key] = feature.properties[key];
+      }
+      props.layer = feature.properties?.layer;
+      props.__id = feature.properties?.__id;
+      return { ...feature, properties: props };
+    });
   return {
     id: state.id,
     storage: state.storage,
     layer,
-    features: data.features.filter(feature => String(feature.properties?.layer || '') === normalizedLayerId)
+    features
   };
 }
 
@@ -331,10 +354,11 @@ async function updateWebgisLayerMetadata(id, layerId, patch) {
     layer = normalizeWebgisLayerDef({ id: normalizedLayerId, label: normalizedLayerId, custom: true }, data.layerDefs.length);
     data.layerDefs.push(layer);
   }
-  const allowed = ['label', 'color', 'is_public', 'default_visible', 'allow_user_toggle', 'opacity', 'sort_order', 'category'];
+  const allowed = ['label', 'color', 'is_public', 'default_visible', 'allow_user_toggle', 'opacity', 'sort_order', 'category', 'visible_fields'];
   for (const key of allowed) {
     if (!Object.prototype.hasOwnProperty.call(patch || {}, key)) continue;
     if (key === 'opacity') layer.opacity = normalizeWebgisOpacity(patch[key]);
+    else if (key === 'visible_fields') layer.visible_fields = normalizeWebgisFieldList(patch[key]);
     else if (['is_public', 'default_visible', 'allow_user_toggle'].includes(key)) layer[key] = normalizeWebgisBoolean(patch[key], key !== 'default_visible');
     else if (key === 'sort_order') layer.sort_order = Number.isFinite(Number(patch[key])) ? Number(patch[key]) : layer.sort_order;
     else layer[key] = String(patch[key] ?? '').trim();

@@ -605,6 +605,43 @@ WEBGIS_CSS = r"""
 .webgis-admin-layer-grid input[type="text"] {
   width: 100%;
 }
+.webgis-field-config,
+.webgis-field-config-empty {
+  display: grid;
+  gap: 7px;
+  border-top: 1px dashed #cbdcec;
+  padding-top: 8px;
+}
+.webgis-field-config-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #0f2f57;
+  font-size: 12px;
+  font-weight: 800;
+}
+.webgis-field-config-head button,
+.webgis-field-config-empty button {
+  height: 28px;
+  padding: 0 9px;
+}
+.webgis-field-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 8px;
+  max-height: 132px;
+  overflow: auto;
+}
+.webgis-field-list label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+}
 .webgis-attr-panel {
   margin: 0 10px 10px;
   border: 1px solid #cbdcec;
@@ -940,7 +977,13 @@ function webgisEscape(value) {
 
 function webgisFeatureTitle(feature) {
   const props = feature.properties || {};
-  return props.ma_thua || props.ma_khoanh || props.ten || props.ma_dv || `Đối tượng ${props.__id || ''}`;
+  const rows = webgisVisiblePropertyEntries(feature);
+  for (const key of ['ma_thua', 'ma_khoanh', 'ten', 'ma_dv', 'OBJECTID', 'objectid', 'Loaidat', 'loai_dat']) {
+    const row = rows.find(([field, value]) => field === key && value !== '');
+    if (row) return `${row[0]}: ${row[1]}`;
+  }
+  const first = rows[0];
+  return first ? `${first[0]}: ${first[1]}` : webgisLayerLabel(props.layer) || 'Doi tuong ban do';
 }
 
 function webgisLayerLabel(id) {
@@ -963,6 +1006,14 @@ function webgisNormalizeBoolean(value, defaultValue) {
   if (value === undefined || value === null) return defaultValue;
   if (typeof value === 'string') return !['false', '0', 'no', 'off'].includes(value.trim().toLowerCase());
   return Boolean(value);
+}
+
+const webgisInternalFields = new Set(['__id', 'layer']);
+
+function webgisNormalizeFieldList(value) {
+  if (value === undefined || value === null) return null;
+  const values = Array.isArray(value) ? value : String(value).split(',');
+  return Array.from(new Set(values.map(item => String(item || '').trim()).filter(Boolean)));
 }
 
 function webgisLayerSort(a, b) {
@@ -1044,6 +1095,7 @@ function webgisNormalizeLayerDefs(savedDefs = [], deletedLayerIds = []) {
       opacity: webgisNormalizeOpacity(saved.opacity ?? 1),
       sort_order: Number.isFinite(Number(saved.sort_order)) ? Number(saved.sort_order) : webgisLayerDefs.findIndex(item => item.id === def.id) + 1,
       category: String(saved.category || def.category || 'Chung'),
+      visible_fields: webgisNormalizeFieldList(saved.visible_fields),
       visible: defaultVisible,
       feature_count: Number(saved.feature_count || 0)
     };
@@ -1061,6 +1113,7 @@ function webgisNormalizeLayerDefs(savedDefs = [], deletedLayerIds = []) {
       opacity: webgisNormalizeOpacity(def.opacity ?? 1),
       sort_order: Number.isFinite(Number(def.sort_order)) ? Number(def.sort_order) : defaults.length + 1,
       category: String(def.category || 'Chung'),
+      visible_fields: webgisNormalizeFieldList(def.visible_fields),
       feature_count: Number(def.feature_count || 0),
       custom: true
     }));
@@ -1091,6 +1144,7 @@ function webgisStatePayload() {
       opacity: webgisNormalizeOpacity(def.opacity),
       sort_order: Number(def.sort_order || 0),
       category: def.category || 'Chung',
+      visible_fields: webgisNormalizeFieldList(def.visible_fields),
       visible: def.visible === true,
       custom: Boolean(def.custom)
     })),
@@ -1189,6 +1243,13 @@ async function webgisLoginAdmin() {
     return;
   }
   webgisSetAdminSession(payload);
+  const loadedLayerIds = Array.from(webgisState.loadedLayerIds);
+  loadedLayerIds.forEach(layerId => {
+    webgisState.loadedLayerIds.delete(layerId);
+    webgisState.featureCache.delete(layerId);
+  });
+  await Promise.all(loadedLayerIds.map(layerId => webgisEnsureLayerLoaded(layerId)));
+  webgisRebuildOverlays();
   webgisEl('webgisAdminPassword').value = '';
   webgisEl('webgisAdminPanel').hidden = false;
   webgisSetAdminStatus('Đã đăng nhập admin WebGIS thành công.');
@@ -1333,19 +1394,68 @@ function webgisStyle(feature) {
   };
 }
 
+function webgisLayerDefById(layerId) {
+  return webgisState.layerDefs.find(def => def.id === layerId);
+}
+
+function webgisIsVisibleValue(value) {
+  return value !== undefined && value !== null && String(value).trim() !== '';
+}
+
+function webgisLayerPropertyKeys(layerId) {
+  const keys = new Set();
+  const def = webgisLayerDefById(layerId);
+  webgisNormalizeFieldList(def?.visible_fields)?.forEach(key => keys.add(key));
+  (webgisState.featureCache.get(layerId) || []).forEach(feature => {
+    Object.keys(feature.properties || {}).forEach(key => {
+      if (!webgisInternalFields.has(key)) keys.add(key);
+    });
+  });
+  return Array.from(keys);
+}
+
+function webgisVisiblePropertyEntries(feature, forceAll = false) {
+  const props = feature?.properties || {};
+  const def = webgisLayerDefById(props.layer);
+  const visibleFields = forceAll ? null : webgisNormalizeFieldList(def?.visible_fields);
+  return Object.entries(props)
+    .filter(([key, value]) => !webgisInternalFields.has(key) && webgisIsVisibleValue(value))
+    .filter(([key]) => !Array.isArray(visibleFields) || visibleFields.includes(key));
+}
+
+function webgisRenderAdminFieldList(def) {
+  const keys = webgisLayerPropertyKeys(def.id);
+  const configured = Array.isArray(def.visible_fields);
+  const selected = new Set(webgisNormalizeFieldList(def.visible_fields) || keys);
+  if (!keys.length) {
+    return `
+      <div class="webgis-field-config-empty">
+        <span>Chua nap danh sach thuoc tinh cua layer nay.</span>
+        <button type="button" data-webgis-layer-load-fields="${webgisEscape(def.id)}">Nap thuoc tinh</button>
+      </div>
+    `;
+  }
+  return `
+    <div class="webgis-field-config">
+      <div class="webgis-field-config-head">
+        <span>Thuoc tinh hien thi</span>
+        <button type="button" data-webgis-layer-fields-all="${webgisEscape(def.id)}">Tat ca</button>
+      </div>
+      <div class="webgis-field-list">
+        ${keys.map(key => `
+          <label><input type="checkbox" data-webgis-field-toggle="${webgisEscape(def.id)}" value="${webgisEscape(key)}" ${(!configured || selected.has(key)) ? 'checked' : ''}> ${webgisEscape(key)}</label>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function webgisPopupHtml(feature) {
-  const props = feature.properties || {};
-  const rows = [
-    ['Mã thửa/khoanh', props.ma_thua || props.ma_khoanh || props.ma_dv || ''],
-    ['Loại đất', props.loai_dat || ''],
-    ['Diện tích', props.dien_tich ? `${props.dien_tich} ha/m2` : ''],
-    ['Chủ sử dụng', props.chu_su_dung || ''],
-    ['Hiện trạng', props.muc_dich || ''],
-    ['Quy hoạch', props.quy_hoach || props.loai_quy_hoach || ''],
-    ['Ghi chú', props.ghi_chu || '']
-  ].filter(([, value]) => value !== '');
+  const rows = webgisVisiblePropertyEntries(feature);
   return `<div class="webgis-popup"><strong>${webgisEscape(webgisFeatureTitle(feature))}</strong>${
-    rows.map(([key, value]) => `<div><b>${webgisEscape(key)}:</b> ${webgisEscape(value)}</div>`).join('')
+    rows.length
+      ? rows.map(([key, value]) => `<div><b>${webgisEscape(key)}:</b> ${webgisEscape(value)}</div>`).join('')
+      : '<div>Chua co thuoc tinh duoc phep hien thi.</div>'
   }</div>`;
 }
 
@@ -1357,11 +1467,14 @@ function webgisRenderFeatureDetail(feature) {
     return;
   }
   const props = feature.properties || {};
-  const rows = Object.entries(props).filter(([key]) => key !== '__id');
-  detail.innerHTML = `<table class="webgis-detail-table"><tbody>${
-    rows.map(([key, value]) => `<tr><th>${webgisEscape(key)}</th><td>${webgisEscape(value)}</td></tr>`).join('')
-  }</tbody></table>`;
-  webgisEl('webgisFeatureEditor').value = JSON.stringify(Object.fromEntries(rows), null, 2);
+  const rows = webgisVisiblePropertyEntries(feature);
+  detail.innerHTML = rows.length
+    ? `<table class="webgis-detail-table"><tbody>${
+      rows.map(([key, value]) => `<tr><th>${webgisEscape(key)}</th><td>${webgisEscape(value)}</td></tr>`).join('')
+    }</tbody></table>`
+    : '<div class="webgis-detail-empty">Chua co thuoc tinh duoc phep hien thi.</div>';
+  const editableRows = Object.entries(props).filter(([key]) => key !== '__id');
+  webgisEl('webgisFeatureEditor').value = JSON.stringify(Object.fromEntries(editableRows), null, 2);
 }
 
 function webgisSelectFeature(feature, vectorLayer, openPopup = true) {
@@ -1471,6 +1584,7 @@ function webgisRenderAdminLayerList() {
           <input type="text" value="${webgisEscape(def.category || 'Chung')}" data-webgis-admin-field="category" data-layer="${webgisEscape(def.id)}">
         </label>
       </div>
+      ${webgisRenderAdminFieldList(def)}
     </div>
   `).join('');
 }
@@ -1482,7 +1596,8 @@ function webgisLayerMetadataPayload(def) {
     allow_user_toggle: def.allow_user_toggle !== false,
     opacity: webgisNormalizeOpacity(def.opacity),
     sort_order: Number(def.sort_order || 0),
-    category: def.category || 'Chung'
+    category: def.category || 'Chung',
+    visible_fields: webgisNormalizeFieldList(def.visible_fields)
   };
 }
 
@@ -1552,6 +1667,20 @@ async function webgisDeleteLayer(layerId) {
   webgisRemoveLayerLocally(layerId);
   webgisSaveLocal(webgisStatePayload());
   webgisSetSaveStatus(`Da xoa layer ${def.label}`);
+}
+
+function webgisRefreshSelectedFeatureDisplay() {
+  if (!webgisState.selectedFeatureId) return;
+  const feature = webgisAllCachedFeatures().find(item => item.properties.__id === webgisState.selectedFeatureId);
+  if (!feature) return;
+  webgisRenderFeatureDetail(feature);
+  if (webgisState.selectedVector?.bindPopup) {
+    webgisState.selectedVector.bindPopup(webgisPopupHtml(feature));
+    if (webgisState.selectedVector.isPopupOpen?.()) {
+      webgisState.selectedVector.setPopupContent(webgisPopupHtml(feature));
+    }
+  }
+  if (!webgisEl('webgisAttributePanel')?.hidden) webgisRenderAttributeTable();
 }
 
 function webgisRenderLegend() {
@@ -1633,10 +1762,15 @@ function webgisZoomToFeature(featureId) {
   webgisSelectFeature(feature, vector);
 }
 
-function webgisAllPropertyKeys(features) {
+function webgisAllPropertyKeys(features, layerId = '') {
+  const def = webgisLayerDefById(layerId);
+  const visibleFields = webgisAdminToken ? null : webgisNormalizeFieldList(def?.visible_fields);
+  if (Array.isArray(visibleFields)) return visibleFields;
   const keys = new Set(['ma_thua', 'ma_khoanh', 'ten', 'loai_dat', 'dien_tich', 'chu_su_dung', 'muc_dich', 'quy_hoach', 'ghi_chu']);
-  features.forEach(feature => Object.keys(feature.properties || {}).forEach(key => key !== '__id' && keys.add(key)));
-  return Array.from(keys);
+  features.forEach(feature => Object.keys(feature.properties || {}).forEach(key => {
+    if (!webgisInternalFields.has(key)) keys.add(key);
+  }));
+  return Array.from(keys).filter(key => features.some(feature => webgisIsVisibleValue(feature.properties?.[key])));
 }
 
 function webgisPopulateAttrLayerSelect() {
@@ -1655,7 +1789,7 @@ function webgisRenderAttributeTable() {
     const key = webgisState.attrSortKey;
     features = features.slice().sort((a, b) => String(a.properties[key] ?? '').localeCompare(String(b.properties[key] ?? ''), 'vi') * webgisState.attrSortDir);
   }
-  const keys = webgisAllPropertyKeys(features);
+  const keys = webgisAllPropertyKeys(features, layerId);
   const table = webgisEl('webgisAttrTable');
   table.innerHTML = `
     <thead><tr>${keys.map(key => `<th data-webgis-sort="${webgisEscape(key)}">${webgisEscape(key)}</th>`).join('')}</tr></thead>
@@ -1883,11 +2017,39 @@ function webgisBindEvents() {
     webgisInvalidateSize(80);
   });
   webgisEl('webgisCloseAdminBtn').addEventListener('click', () => webgisEl('webgisAdminPanel').hidden = true);
-  webgisEl('webgisAdminLayerList').addEventListener('click', event => {
+  webgisEl('webgisAdminLayerList').addEventListener('click', async event => {
     const layerId = event.target?.dataset?.webgisLayerDelete;
     if (layerId) webgisDeleteLayer(layerId).catch(error => webgisSetSaveStatus(error.message || String(error), true));
+    const loadFieldsId = event.target?.dataset?.webgisLayerLoadFields;
+    if (loadFieldsId) {
+      await webgisEnsureLayerLoaded(loadFieldsId);
+      webgisRenderAdminLayerList();
+      webgisSetSaveStatus('Da nap danh sach thuoc tinh layer');
+    }
+    const allFieldsId = event.target?.dataset?.webgisLayerFieldsAll;
+    if (allFieldsId) {
+      const def = webgisState.layerDefs.find(layer => layer.id === allFieldsId);
+      if (!def) return;
+      def.visible_fields = null;
+      webgisRenderAdminLayerList();
+      webgisRefreshSelectedFeatureDisplay();
+      webgisScheduleLayerMetadataPatch(allFieldsId, 50);
+    }
   });
   webgisEl('webgisAdminLayerList').addEventListener('change', async event => {
+    const fieldLayerId = event.target?.dataset?.webgisFieldToggle;
+    if (fieldLayerId) {
+      const def = webgisState.layerDefs.find(layer => layer.id === fieldLayerId);
+      if (!def) return;
+      const card = event.target.closest('[data-admin-layer]');
+      const checked = Array.from(card?.querySelectorAll('[data-webgis-field-toggle]') || [])
+        .filter(input => input.checked)
+        .map(input => input.value);
+      def.visible_fields = checked;
+      webgisRefreshSelectedFeatureDisplay();
+      webgisScheduleLayerMetadataPatch(fieldLayerId, 120);
+      return;
+    }
     const layerId = event.target?.dataset?.layer;
     const field = event.target?.dataset?.webgisAdminField;
     if (!layerId || !field) return;

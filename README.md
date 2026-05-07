@@ -169,6 +169,7 @@ Luu y bao mat: tren moi truong web khong the chong tai xuong/copy/chup man hinh 
 - Khi upload GeoJSON hoac sua thuoc tinh doi tuong, nguoi dung phai dang nhap admin WebGIS. Cac thao tac quan tri se tu dong luu qua API `/api/webgis/webgis-default`; neu da cau hinh `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET` thi du lieu duoc luu vao Supabase Storage tai `_webgis/webgis-default.json`. Neu chua cau hinh Supabase thi fallback ve SQLite, va van co ban luu tam trong trinh duyet.
 - Moi layer WebGIS co metadata quan ly hien thi gom `is_public`, `default_visible`, `allow_user_toggle`, `opacity`, `sort_order` va `category`. Admin co the chinh cac truong nay trong khung `Quan tri du lieu`; thay doi duoc cap nhat truc tiep qua API `PATCH /api/webgis/:id/layers/:layerId`.
 - Admin co the xoa layer bang API `DELETE /api/webgis/:id/layers/:layerId`. Khi xoa layer mac dinh cua phan mem, id layer duoc luu vao `deletedLayerIds` de layer khong tu hien lai sau khi tai lai trang.
+- Admin co the chon `visible_fields` cho tung layer de quyet dinh thuoc tinh nao duoc hien trong popup, panel thong tin va bang thuoc tinh cua nguoi xem.
 - Trang WebGIS chi hien layer `is_public=true`. Layer chi duoc tai GeoJSON khi duoc bat hoac khi admin dat `default_visible=true`, sau do frontend cache lai de bat/tat nhanh hon.
 - Nguoi xem khong dang nhap van duoc xem/tra cuu ban do. Neu ho doi bat/tat layer hoac do trong suot, thay doi chi luu tam tren trinh duyet va khong ghi de du lieu server.
 
