@@ -18,6 +18,7 @@ const storageRootDir = resolveStorageDir(
 );
 const publicDir = path.join(rootDir, 'public');
 const dataDir = path.join(storageRootDir, 'data');
+const webgisDataDir = path.join(dataDir, 'webgis_layers');
 const uploadsDir = path.join(storageRootDir, 'uploads');
 const exportsDir = path.join(storageRootDir, 'exports');
 const protectedUploadsDir = path.join(storageRootDir, 'protected_uploads');
@@ -36,7 +37,7 @@ process.on('unhandledRejection', error => {
   console.error('UNHANDLED_REJECTION', error && error.stack ? error.stack : error);
 });
 
-for (const dir of [publicDir, dataDir, uploadsDir, exportsDir, protectedUploadsDir, libraryPdfDir, libraryCoverDir]) {
+for (const dir of [publicDir, dataDir, webgisDataDir, uploadsDir, exportsDir, protectedUploadsDir, libraryPdfDir, libraryCoverDir]) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
@@ -314,7 +315,7 @@ function webgisMetadataResponse(state, includePrivate = false) {
   const counts = webgisLayerFeatureCounts(data.features);
   const layerDefs = data.layerDefs
     .filter(def => includePrivate || def.is_public !== false)
-    .map(def => ({ ...def, feature_count: counts.get(def.id) || 0 }));
+    .map(def => ({ ...def, feature_count: counts.get(def.id) ?? Number(def.feature_count || 0) }));
   return {
     ...state,
     data: {
@@ -327,15 +328,16 @@ function webgisMetadataResponse(state, includePrivate = false) {
   };
 }
 
-function webgisLayerFeaturesResponse(state, layerId, includePrivate = false) {
+async function webgisLayerFeaturesResponse(state, layerId, includePrivate = false) {
   if (!state) return null;
   const normalizedLayerId = String(layerId || '');
   const data = normalizeWebgisData(state.data || {});
   const layer = data.layerDefs.find(def => def.id === normalizedLayerId);
   if (!layer || (layer.is_public === false && !includePrivate)) return null;
   const visibleFields = Array.isArray(layer.visible_fields) ? new Set(layer.visible_fields) : null;
-  const features = data.features
-    .filter(feature => String(feature.properties?.layer || '') === normalizedLayerId)
+  const splitFeatures = await loadWebgisLayerFeatures(state.id, normalizedLayerId);
+  const sourceFeatures = splitFeatures || data.features.filter(feature => String(feature.properties?.layer || '') === normalizedLayerId);
+  const features = sourceFeatures
     .map(feature => {
       if (includePrivate || !visibleFields) return feature;
       const props = {};
@@ -413,6 +415,7 @@ async function deleteWebgisLayer(id, layerId) {
   data.layerDefs = data.layerDefs.filter(def => def.id !== normalizedLayerId);
   data.features = data.features.filter(feature => String(feature.properties?.layer || '') !== normalizedLayerId);
   data.savedAt = new Date().toISOString();
+  await deleteWebgisLayerFeatures(projectId, normalizedLayerId);
   await saveWebgisState(projectId, data, { preserveExistingFeatures: false });
   return { ok: true, id: projectId, deletedLayerId: normalizedLayerId };
 }
@@ -421,15 +424,142 @@ function webgisObjectKey(id) {
   return `${supabaseWebgisPrefix}/${normalizeProjectId(id)}.json`;
 }
 
+function safeWebgisLayerFileName(layerId) {
+  return String(layerId || 'layer')
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'layer';
+}
+
+function webgisLayerObjectKey(id, layerId) {
+  return `${supabaseWebgisPrefix}/${normalizeProjectId(id)}/layers/${safeWebgisLayerFileName(layerId)}.json`;
+}
+
+function webgisLocalLayerPath(projectId, layerId) {
+  return path.join(webgisDataDir, normalizeProjectId(projectId), `${safeWebgisLayerFileName(layerId)}.json`);
+}
+
+async function loadWebgisLayerFeatures(projectId, layerId) {
+  const normalizedProjectId = normalizeProjectId(projectId);
+  const normalizedLayerId = String(layerId || '').trim();
+  if (!normalizedLayerId) return null;
+  let parsed = null;
+  if (libraryUsesSupabase()) {
+    const object = await supabaseDownloadObject(webgisLayerObjectKey(normalizedProjectId, normalizedLayerId));
+    if (!object) return null;
+    parsed = JSON.parse(object.buffer.toString('utf8'));
+  } else {
+    const filePath = webgisLocalLayerPath(normalizedProjectId, normalizedLayerId);
+    if (!fs.existsSync(filePath)) return null;
+    parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  }
+  const features = Array.isArray(parsed?.features) ? parsed.features : Array.isArray(parsed) ? parsed : [];
+  return features
+    .map((feature, index) => normalizeWebgisFeature(feature, index, normalizedLayerId))
+    .filter(Boolean);
+}
+
+async function writeWebgisLayerFeatures(projectId, layerId, features) {
+  const normalizedProjectId = normalizeProjectId(projectId);
+  const normalizedLayerId = String(layerId || '').trim();
+  if (!normalizedLayerId) {
+    const error = new Error('Layer id khong hop le.');
+    error.status = 400;
+    throw error;
+  }
+  const normalizedFeatures = (Array.isArray(features) ? features : [])
+    .map((feature, index) => normalizeWebgisFeature(feature, index, normalizedLayerId))
+    .filter(Boolean)
+    .map(feature => ({ ...feature, properties: { ...(feature.properties || {}), layer: normalizedLayerId } }));
+  const payload = {
+    type: 'FeatureCollection',
+    layerId: normalizedLayerId,
+    savedAt: new Date().toISOString(),
+    features: normalizedFeatures
+  };
+  const body = Buffer.from(JSON.stringify(payload), 'utf8');
+  if (libraryUsesSupabase()) {
+    await supabaseUploadObject(webgisLayerObjectKey(normalizedProjectId, normalizedLayerId), body, 'application/json; charset=utf-8');
+  } else {
+    const filePath = webgisLocalLayerPath(normalizedProjectId, normalizedLayerId);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, body);
+  }
+  return { ok: true, id: normalizedProjectId, layerId: normalizedLayerId, feature_count: normalizedFeatures.length };
+}
+
+async function deleteWebgisLayerFeatures(projectId, layerId) {
+  const normalizedProjectId = normalizeProjectId(projectId);
+  const normalizedLayerId = String(layerId || '').trim();
+  if (!normalizedLayerId) return;
+  if (libraryUsesSupabase()) {
+    await supabaseDeleteObjects([webgisLayerObjectKey(normalizedProjectId, normalizedLayerId)]);
+  } else {
+    const filePath = webgisLocalLayerPath(normalizedProjectId, normalizedLayerId);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+}
+
+async function persistWebgisLayerFeatures(projectId, layerId, features, existingData = null) {
+  const result = await writeWebgisLayerFeatures(projectId, layerId, features);
+  const state = existingData ? { data: existingData } : await loadWebgisState(projectId);
+  const data = normalizeWebgisData(state?.data || {});
+  let layer = data.layerDefs.find(def => def.id === result.layerId);
+  if (!layer) {
+    layer = normalizeWebgisLayerDef({
+      id: result.layerId,
+      label: result.layerId,
+      custom: true,
+      feature_count: result.feature_count
+    }, data.layerDefs.length);
+    data.layerDefs.push(layer);
+  }
+  layer.feature_count = result.feature_count;
+  data.features = [];
+  data.savedAt = new Date().toISOString();
+  if (!existingData) await saveWebgisState(projectId, data, { preserveExistingFeatures: false });
+  return { ...result, storage: libraryUsesSupabase() ? 'supabase-layer' : 'local-layer' };
+}
+
+async function splitAndStoreWebgisFeatures(projectId, data) {
+  const grouped = new Map();
+  for (const feature of data.features || []) {
+    const layerId = String(feature.properties?.layer || 'imported');
+    if (!grouped.has(layerId)) grouped.set(layerId, []);
+    grouped.get(layerId).push(feature);
+  }
+  for (const [layerId, features] of grouped) {
+    const result = await writeWebgisLayerFeatures(projectId, layerId, features);
+    let layer = data.layerDefs.find(def => def.id === result.layerId);
+    if (!layer) {
+      layer = normalizeWebgisLayerDef({
+        id: result.layerId,
+        label: result.layerId,
+        custom: true
+      }, data.layerDefs.length);
+      data.layerDefs.push(layer);
+    }
+    layer.feature_count = result.feature_count;
+  }
+  data.features = [];
+}
+
 async function loadWebgisState(id) {
   const projectId = normalizeProjectId(id);
   if (libraryUsesSupabase()) {
     const object = await supabaseDownloadObject(webgisObjectKey(projectId));
     if (object) {
       try {
+        const parsed = JSON.parse(object.buffer.toString('utf8'));
+        const normalized = normalizeWebgisData(parsed);
+        if (normalized.features.length) {
+          await saveWebgisState(projectId, normalized, { preserveExistingFeatures: false });
+          normalized.features = [];
+        }
         return {
           id: projectId,
-          data: JSON.parse(object.buffer.toString('utf8')),
+          data: normalized,
           storage: 'supabase'
         };
       } catch (error) {
@@ -444,7 +574,15 @@ async function loadWebgisState(id) {
     return null;
   }
   const project = loadProject(projectId);
-  return project ? { ...project, storage: 'sqlite' } : null;
+  if (project?.data) {
+    const normalized = normalizeWebgisData(project.data);
+    if (normalized.features.length) {
+      await saveWebgisState(projectId, normalized, { preserveExistingFeatures: false });
+      normalized.features = [];
+    }
+    return { ...project, data: normalized, storage: 'sqlite' };
+  }
+  return null;
 }
 
 async function saveWebgisState(id, data, options = {}) {
@@ -459,6 +597,7 @@ async function saveWebgisState(id, data, options = {}) {
     const existingState = await loadWebgisState(projectId);
     if (existingState?.data) normalizedData = mergeWebgisIncomingData(existingState.data, normalizedData);
   }
+  if (normalizedData.features.length) await splitAndStoreWebgisFeatures(projectId, normalizedData);
   normalizedData.savedAt = data.savedAt || new Date().toISOString();
   if (libraryUsesSupabase()) {
     const body = Buffer.from(JSON.stringify(normalizedData, null, 2), 'utf8');
@@ -1388,7 +1527,7 @@ function createExpressServer() {
     try {
       const state = await loadWebgisState(req.params.id);
       const includePrivate = isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization));
-      const layerState = webgisLayerFeaturesResponse(state, req.params.layerId, includePrivate);
+      const layerState = await webgisLayerFeaturesResponse(state, req.params.layerId, includePrivate);
       if (!layerState) {
         res.status(404).json({ error: 'Layer data not found' });
         return;
@@ -1396,6 +1535,15 @@ function createExpressServer() {
       res.json(layerState);
     } catch (error) {
       res.status(error.status || 500).json({ error: error.message || 'Khong doc duoc du lieu layer WebGIS.' });
+    }
+  });
+
+  app.put('/api/webgis/:id/layers/:layerId/features', requireWebgisAdmin, async (req, res) => {
+    try {
+      const features = Array.isArray(req.body?.features) ? req.body.features : Array.isArray(req.body?.data?.features) ? req.body.data.features : [];
+      res.json(await persistWebgisLayerFeatures(req.params.id, req.params.layerId, features));
+    } catch (error) {
+      res.status(error.status || 500).json({ error: error.message || 'Khong luu duoc du lieu layer WebGIS.' });
     }
   });
 
@@ -1720,8 +1868,22 @@ function createFallbackServer() {
       if (webgisLayerFeaturesMatch && req.method === 'GET') {
         const state = await loadWebgisState(webgisLayerFeaturesMatch[1]);
         const includePrivate = isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization));
-        const layerState = webgisLayerFeaturesResponse(state, decodeURIComponent(webgisLayerFeaturesMatch[2]), includePrivate);
+        const layerState = await webgisLayerFeaturesResponse(state, decodeURIComponent(webgisLayerFeaturesMatch[2]), includePrivate);
         sendJson(res, layerState ? 200 : 404, layerState || { error: 'Layer data not found' });
+        return;
+      }
+      if (webgisLayerFeaturesMatch && req.method === 'PUT') {
+        if (!isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization))) {
+          sendJson(res, 401, { error: 'Ban can dang nhap admin WebGIS de luu hoac quan tri du lieu.' });
+          return;
+        }
+        try {
+          const body = await readJsonBody(req);
+          const features = Array.isArray(body.features) ? body.features : Array.isArray(body.data?.features) ? body.data.features : [];
+          sendJson(res, 200, await persistWebgisLayerFeatures(webgisLayerFeaturesMatch[1], decodeURIComponent(webgisLayerFeaturesMatch[2]), features));
+        } catch (error) {
+          sendJson(res, error.status || 500, { error: error.message || 'Khong luu duoc du lieu layer WebGIS.' });
+        }
         return;
       }
       if (webgisLayerMatch && req.method === 'PATCH') {

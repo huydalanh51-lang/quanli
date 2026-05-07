@@ -1379,10 +1379,12 @@ function webgisStatePayload() {
       sort_order: Number(def.sort_order || 0),
       category: def.category || 'Chung',
       visible_fields: webgisNormalizeFieldList(def.visible_fields),
+      feature_count: webgisLayerFeatureCount(def.id),
       visible: def.visible === true,
       custom: Boolean(def.custom)
     })),
-    features: webgisAllCachedFeatures()
+    // Du lieu hinh hoc GeoJSON duoc luu rieng theo tung layer de tranh qua tai bo nho backend.
+    features: []
   };
 }
 
@@ -1615,6 +1617,30 @@ async function webgisLoadSavedData() {
   if (localData) return localData;
   webgisSetSaveStatus('Đang dùng dữ liệu mẫu');
   return null;
+}
+
+async function webgisSaveLayerFeatures(layerId) {
+  if (!webgisAdminToken) return null;
+  const normalizedLayerId = String(layerId || '');
+  if (!normalizedLayerId) return null;
+  const cached = webgisState.featureCache.get(normalizedLayerId);
+  const features = cached || webgisAllCachedFeatures().filter(feature => String(feature.properties?.layer || '') === normalizedLayerId);
+  const response = await fetch(`${webgisApiBase}/${encodeURIComponent(webgisProjectId)}/layers/${encodeURIComponent(normalizedLayerId)}/features`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...webgisAdminHeaders() },
+    body: JSON.stringify({ features })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    webgisClearAdminSession();
+    webgisSetSaveStatus('Phien admin WebGIS da het han. Dang nhap admin de luu layer.', true);
+    return null;
+  }
+  if (!response.ok) throw new Error(payload.error || 'Khong luu duoc du lieu layer WebGIS.');
+  const def = webgisState.layerDefs.find(layer => layer.id === normalizedLayerId);
+  if (def) def.feature_count = Number(payload.feature_count ?? features.length);
+  webgisSetSaveStatus('Da luu du lieu layer');
+  return payload;
 }
 
 async function webgisSaveNow() {
@@ -2202,6 +2228,7 @@ async function webgisImportGeoJson() {
   webgisSetLayerFeatureCache(layerId, features);
   webgisRebuildOverlays();
   await webgisFitLayer(layerId);
+  await webgisSaveLayerFeatures(layerId);
   webgisScheduleSave();
   alert(`Đã thêm ${features.length} đối tượng vào layer "${name}".`);
 }
@@ -2230,6 +2257,7 @@ function webgisSaveSelectedFeatureProps() {
   webgisRebuildOverlays();
   webgisZoomToFeature(id);
   webgisRenderAttributeTable();
+  webgisSaveLayerFeatures(feature.properties.layer).catch(error => webgisSetSaveStatus(error.message || String(error), true));
   webgisScheduleSave();
 }
 
