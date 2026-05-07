@@ -2818,19 +2818,81 @@ const webgisLayerDefs = [
   { id: 'public', label: 'Công trình công cộng', color: '#8b5cf6', visible: true }
 ];
 
+// Bang mau duoc trich tu bo ky hieu TT08: Chucnangsudungdat.style.
 const webgisLandColors = {
-  ONT: '#fca5a5',
-  ODT: '#fb7185',
-  LUC: '#86efac',
-  LUA: '#4ade80',
-  HNK: '#bbf7d0',
-  CLN: '#65a30d',
-  DGT: '#9ca3af',
-  DTL: '#38bdf8',
-  TSC: '#c084fc',
-  DGD: '#fde68a',
-  DKV: '#facc15'
+  LUC: '#ffff00',
+  LUK: '#ffff00',
+  HNK: '#f5a623',
+  CLN: '#f5a623',
+  RDD: '#2ca25f',
+  RPH: '#2ca25f',
+  RSX: '#2ca25f',
+  NTS: '#1e88e5',
+  CNT: '#ffff00',
+  LMU: '#ffffff',
+  NKH: '#2ca25f',
+  ONT: '#f4a3c1',
+  ODT: '#f4a3c1',
+  TSC: '#ff0000',
+  CQP: '#ff0000',
+  CAN: '#ff0000',
+  DVH: '#ff0000',
+  DXH: '#ff0000',
+  DYT: '#ff0000',
+  DGD: '#ff0000',
+  DTT: '#ff0000',
+  DKH: '#ff0000',
+  DMT: '#ff0000',
+  DKT: '#ff0000',
+  DNG: '#ff0000',
+  DSK: '#ff0000',
+  SCC: '#ff0000',
+  SKK: '#ff0000',
+  SKN: '#ff0000',
+  SCT: '#ff0000',
+  TMD: '#ff0000',
+  SKC: '#ff0000',
+  SKS: '#ff66b3',
+  DGT: '#f5a623',
+  DTL: '#1e88e5',
+  DPC: '#ff0000',
+  DDD: '#ff0000',
+  DRA: '#ffffff',
+  DNL: '#ff0000',
+  DBV: '#ff0000',
+  DCH: '#ff0000',
+  DKV: '#ff0000',
+  TON: '#ff0000',
+  TIN: '#ff0000',
+  NTD: '#9ca3af',
+  MNC: '#1e88e5',
+  SON: '#1e88e5',
+  PNK: '#ff0000',
+  CGT: '#ffffff',
+  BCS: '#ffffff',
+  DCS: '#ffffff',
+  NCS: '#ffff00',
+  MCS: '#1e88e5'
 };
+
+const webgisLandCodeFields = [
+  'loai_dat',
+  'loaidat',
+  'loaiDat',
+  'LOAIDAT',
+  'ma_loai_dat',
+  'maloaidat',
+  'MaLoaiDat',
+  'ma_dat',
+  'madat',
+  'MaDat',
+  'ky_hieu',
+  'kyhieu',
+  'KyHieu',
+  'muc_dich_sd',
+  'MDSD',
+  'mdsd'
+];
 
 let webgisState = {
   initialized: false,
@@ -2896,8 +2958,36 @@ function webgisLayerLabel(id) {
   return webgisState.layerDefs.find(layer => layer.id === id)?.label || id || 'Khác';
 }
 
+function webgisNormalizeLandCode(value) {
+  const text = String(value ?? '').trim().toUpperCase();
+  if (!text) return '';
+  const compact = text.replace(/\s+/g, '');
+  if (webgisLandColors[compact]) return compact;
+  const match = text.match(/\b[A-Z]{2,4}\b/);
+  return match && webgisLandColors[match[0]] ? match[0] : '';
+}
+
+function webgisFeatureLandCode(feature) {
+  const props = feature?.properties || {};
+  for (const key of webgisLandCodeFields) {
+    const code = webgisNormalizeLandCode(props[key]);
+    if (code) return code;
+  }
+  const lowerEntries = Object.entries(props).map(([key, value]) => [String(key).toLowerCase().replace(/[_\s-]/g, ''), value]);
+  for (const [key, value] of lowerEntries) {
+    if (!/(loaidat|maloaidat|madat|kyhieu|mdsd)/.test(key)) continue;
+    const code = webgisNormalizeLandCode(value);
+    if (code) return code;
+  }
+  for (const value of Object.values(props)) {
+    const code = webgisNormalizeLandCode(value);
+    if (code) return code;
+  }
+  return '';
+}
+
 function webgisLayerColor(id, feature) {
-  const code = String(feature?.properties?.loai_dat || '').toUpperCase();
+  const code = webgisFeatureLandCode(feature);
   return webgisLandColors[code] || webgisState.layerDefs.find(layer => layer.id === id)?.color || '#2563eb';
 }
 
@@ -3592,12 +3682,13 @@ function webgisRefreshSelectedFeatureDisplay() {
 function webgisRenderLegend() {
   const legend = webgisEl('webgisLegend');
   legend.innerHTML = [
-    ['#fca5a5', 'Đất ở'],
-    ['#86efac', 'Đất nông nghiệp'],
-    ['#9ca3af', 'Đất giao thông'],
-    ['#38bdf8', 'Đất thủy lợi, sông suối'],
-    ['#c084fc', 'Đất công cộng'],
-    ['#facc15', 'Đất quy hoạch/hạ tầng']
+    ['#f4a3c1', 'Đất ở'],
+    ['#ffff00', 'Đất lúa / cây hàng năm'],
+    ['#f5a623', 'Đất cây lâu năm / giao thông'],
+    ['#2ca25f', 'Đất rừng / nông nghiệp khác'],
+    ['#1e88e5', 'Đất mặt nước / thủy hệ'],
+    ['#ff0000', 'Đất phi nông nghiệp'],
+    ['#ffffff', 'Đất chưa sử dụng / khác']
   ].map(([color, label]) => `<div class="webgis-legend-item"><span class="webgis-symbol" style="background:${color}"></span>${label}</div>`).join('');
 }
 
@@ -3628,7 +3719,7 @@ function webgisUpdateLayerStyle(layerId) {
 
 function webgisTextForFeature(feature) {
   const props = feature.properties || {};
-  return [props.ma_thua, props.ma_khoanh, props.ma_dv, props.ten, props.chu_su_dung, props.loai_dat, props.muc_dich, props.quy_hoach, props.loai_quy_hoach, props.dia_danh, props.ghi_chu, webgisLayerLabel(props.layer)].join(' ').toLowerCase();
+  return [props.ma_thua, props.ma_khoanh, props.ma_dv, props.ten, props.chu_su_dung, webgisFeatureLandCode(feature), props.loai_dat, props.Loaidat, props.muc_dich, props.quy_hoach, props.loai_quy_hoach, props.dia_danh, props.ghi_chu, webgisLayerLabel(props.layer)].join(' ').toLowerCase();
 }
 
 function webgisSearch() {
@@ -3648,7 +3739,7 @@ function webgisSearch() {
   box.innerHTML = results.map(feature => `
     <button type="button" class="webgis-result-item" data-feature-id="${webgisEscape(feature.properties.__id)}">
       <strong>${webgisEscape(webgisFeatureTitle(feature))}</strong>
-      <span>${webgisEscape(webgisLayerLabel(feature.properties.layer))} - ${webgisEscape(feature.properties.loai_dat || feature.properties.quy_hoach || '')}</span>
+      <span>${webgisEscape(webgisLayerLabel(feature.properties.layer))} - ${webgisEscape(webgisFeatureLandCode(feature) || feature.properties.loai_dat || feature.properties.Loaidat || feature.properties.quy_hoach || '')}</span>
     </button>
   `).join('');
   box.hidden = false;
@@ -3672,7 +3763,7 @@ function webgisAllPropertyKeys(features, layerId = '') {
   const def = webgisLayerDefById(layerId);
   const visibleFields = webgisAdminToken ? null : webgisNormalizeFieldList(def?.visible_fields);
   if (Array.isArray(visibleFields)) return visibleFields;
-  const keys = new Set(['ma_thua', 'ma_khoanh', 'ten', 'loai_dat', 'dien_tich', 'chu_su_dung', 'muc_dich', 'quy_hoach', 'ghi_chu']);
+  const keys = new Set(['ma_thua', 'ma_khoanh', 'ten', 'loai_dat', 'Loaidat', 'dien_tich', 'chu_su_dung', 'muc_dich', 'quy_hoach', 'ghi_chu']);
   features.forEach(feature => Object.keys(feature.properties || {}).forEach(key => {
     if (!webgisInternalFields.has(key)) keys.add(key);
   }));

@@ -108,6 +108,8 @@ Content-Type: application/json
 
 Trong giao dien, nut `Tro ly AI` co trong ca module Chu chuyen dat dai va WebGIS. Khi dung o WebGIS, AI se nhan them danh sach layer dang bat, so doi tuong da nap va thuoc tinh cua doi tuong dang chon theo cau hinh hien thi cua admin.
 
+WebGIS da tich hop bang mau ky hieu hien trang su dung dat trich tu `Chucnangsudungdat.style` theo TT08. Khi import GeoJSON/shapefile da chuyen doi, phan mem tu nhan dien ma dat tu cac truong nhu `Loaidat`, `loai_dat`, `ma_dat`, `MaLoaiDat`, `ky_hieu`, `MDSD` va to mau doi tuong theo ma dat.
+
 Database duoc tao tu dong tai `data/projects.sqlite`.
 
 ## Luu du lieu ben vung tren Render
