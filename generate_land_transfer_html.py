@@ -3948,11 +3948,14 @@ td.search-hit {{
 .ai-panel {{
   position: fixed;
   inset: 64px 18px auto auto;
-  z-index: 70;
+  z-index: 6000;
   width: min(520px, calc(100vw - 36px));
   max-height: calc(100vh - 82px);
+  isolation: isolate;
 }}
 .ai-card {{
+  position: relative;
+  z-index: 1;
   border: 1px solid rgba(100, 116, 139, 0.45);
   border-radius: 8px;
   background: #ffffff;
@@ -4031,11 +4034,13 @@ td.search-hit {{
 }}
 body.ai-webgis-assistant .ai-panel {{
   inset: 86px 18px auto auto;
+  z-index: 6000;
   width: min(430px, calc(100vw - 118px));
   max-height: calc(100vh - 108px);
 }}
 body.ai-webgis-assistant .ai-card {{
   border-radius: 12px;
+  background: #ffffff;
   max-height: calc(100vh - 108px);
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.2);
 }}
