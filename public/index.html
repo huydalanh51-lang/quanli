@@ -879,6 +879,18 @@ body.webgis-mode .docs-page {
   font-size: 13px;
   font-weight: 800;
 }
+.webgis-admin-layer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.webgis-admin-layer-actions button {
+  height: 28px;
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+}
 .webgis-admin-layer-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2749,6 +2761,7 @@ let webgisState = {
   measurePoints: [],
   measureLayer: null,
   resizeObserver: null,
+  deletedLayerIds: new Set(),
   layerPatchTimers: new Map()
 };
 
@@ -2859,14 +2872,16 @@ function webgisNormalizeFeatures(collection, defaultLayer = '') {
     });
 }
 
-function webgisNormalizeLayerDefs(savedDefs = []) {
+function webgisNormalizeLayerDefs(savedDefs = [], deletedLayerIds = []) {
+  const deletedSet = new Set((Array.isArray(deletedLayerIds) ? deletedLayerIds : []).map(id => String(id || '').trim()).filter(Boolean));
+  webgisState.deletedLayerIds = new Set(deletedSet);
   const savedById = new Map(
     (Array.isArray(savedDefs) ? savedDefs : [])
-      .filter(def => def && def.id)
+      .filter(def => def && def.id && !deletedSet.has(String(def.id)))
       .map(def => [String(def.id), def])
   );
   const defaultIds = new Set(webgisLayerDefs.map(def => def.id));
-  const defaults = webgisLayerDefs.map(def => {
+  const defaults = webgisLayerDefs.filter(def => !deletedSet.has(def.id)).map(def => {
     const saved = savedById.get(def.id) || {};
     const hasDefaultVisible = Object.prototype.hasOwnProperty.call(saved, 'default_visible');
     const hasLegacyVisible = Object.prototype.hasOwnProperty.call(saved, 'visible');
@@ -2912,13 +2927,14 @@ function webgisAllCachedFeatures() {
   webgisState.featureCache.forEach(features => {
     features.forEach(feature => byId.set(feature.properties?.__id || JSON.stringify(feature.geometry), feature));
   });
-  return Array.from(byId.values());
+  return Array.from(byId.values()).filter(feature => !webgisState.deletedLayerIds.has(String(feature.properties?.layer || '')));
 }
 
 function webgisStatePayload() {
   return {
     version: 2,
     savedAt: new Date().toISOString(),
+    deletedLayerIds: Array.from(webgisState.deletedLayerIds),
     layerDefs: webgisState.layerDefs.map(def => ({
       id: def.id,
       label: def.label,
@@ -3056,6 +3072,7 @@ function webgisLoadLocal() {
 
 function webgisSetLayerFeatureCache(layerId, features) {
   const normalizedLayerId = String(layerId || '');
+  if (webgisState.deletedLayerIds.has(normalizedLayerId)) return [];
   const normalized = webgisNormalizeFeatures({ type: 'FeatureCollection', features }, normalizedLayerId)
     .map(feature => ({ ...feature, properties: { ...feature.properties, layer: normalizedLayerId } }));
   webgisState.featureCache.set(normalizedLayerId, normalized);
@@ -3071,6 +3088,7 @@ function webgisPrimeFeatureCache(features) {
   const grouped = new Map();
   webgisNormalizeFeatures({ type: 'FeatureCollection', features: features || [] }).forEach(feature => {
     const layerId = String(feature.properties?.layer || 'imported');
+    if (webgisState.deletedLayerIds.has(layerId)) return;
     if (!grouped.has(layerId)) grouped.set(layerId, []);
     grouped.get(layerId).push(feature);
   });
@@ -3288,7 +3306,10 @@ function webgisRenderAdminLayerList() {
     <div class="webgis-admin-layer-card" data-admin-layer="${webgisEscape(def.id)}">
       <div class="webgis-admin-layer-title">
         <span><span class="webgis-symbol" style="background:${webgisEscape(def.color)}"></span> ${webgisEscape(def.label)}</span>
-        <span>${webgisLayerFeatureCount(def.id)} doi tuong</span>
+        <span class="webgis-admin-layer-actions">
+          <span>${webgisLayerFeatureCount(def.id)} doi tuong</span>
+          <button type="button" data-webgis-layer-delete="${webgisEscape(def.id)}">Xoa</button>
+        </span>
       </div>
       <div class="webgis-admin-layer-grid">
         <label class="switch-line"><input type="checkbox" data-webgis-admin-field="is_public" data-layer="${webgisEscape(def.id)}" ${def.is_public !== false ? 'checked' : ''}> Hien thi cho nguoi dung</label>
@@ -3343,6 +3364,48 @@ async function webgisPatchLayerMetadata(layerId) {
   }
   if (!response.ok) throw new Error(payload.error || 'Khong cap nhat duoc layer WebGIS.');
   webgisSetSaveStatus('Da cap nhat hien thi layer');
+}
+
+function webgisRemoveLayerLocally(layerId) {
+  const normalizedLayerId = String(layerId || '');
+  webgisState.deletedLayerIds.add(normalizedLayerId);
+  clearTimeout(webgisState.layerPatchTimers.get(normalizedLayerId));
+  webgisState.layerPatchTimers.delete(normalizedLayerId);
+  const layer = webgisState.overlayLayers.get(normalizedLayerId);
+  if (layer && webgisState.map) webgisState.map.removeLayer(layer);
+  webgisState.overlayLayers.delete(normalizedLayerId);
+  webgisState.featureCache.delete(normalizedLayerId);
+  webgisState.loadedLayerIds.delete(normalizedLayerId);
+  webgisState.features = webgisState.features.filter(feature => String(feature.properties?.layer || '') !== normalizedLayerId);
+  webgisState.layerDefs = webgisState.layerDefs.filter(def => def.id !== normalizedLayerId);
+  if (webgisState.selectedFeatureId && !webgisAllCachedFeatures().some(feature => feature.properties.__id === webgisState.selectedFeatureId)) {
+    webgisState.selectedFeatureId = null;
+    webgisState.selectedVector = null;
+    webgisRenderFeatureDetail(null);
+  }
+  webgisRebuildOverlays();
+  if (!webgisEl('webgisAttributePanel')?.hidden) webgisRenderAttributeTable();
+}
+
+async function webgisDeleteLayer(layerId) {
+  if (!webgisRequireAdmin()) return;
+  const def = webgisState.layerDefs.find(layer => layer.id === layerId);
+  if (!def) return;
+  const count = webgisLayerFeatureCount(layerId);
+  if (!confirm(`Xoa layer "${def.label}" va ${count} doi tuong cua layer nay?`)) return;
+  const response = await fetch(`${webgisApiBase}/${encodeURIComponent(webgisProjectId)}/layers/${encodeURIComponent(layerId)}`, {
+    method: 'DELETE',
+    headers: webgisAdminHeaders()
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    webgisClearAdminSession();
+    webgisShowAdminLogin('Phien admin WebGIS da het han. Vui long dang nhap lai.');
+  }
+  if (!response.ok) throw new Error(payload.error || 'Khong xoa duoc layer WebGIS.');
+  webgisRemoveLayerLocally(layerId);
+  webgisSaveLocal(webgisStatePayload());
+  webgisSetSaveStatus(`Da xoa layer ${def.label}`);
 }
 
 function webgisRenderLegend() {
@@ -3674,6 +3737,10 @@ function webgisBindEvents() {
     webgisInvalidateSize(80);
   });
   webgisEl('webgisCloseAdminBtn').addEventListener('click', () => webgisEl('webgisAdminPanel').hidden = true);
+  webgisEl('webgisAdminLayerList').addEventListener('click', event => {
+    const layerId = event.target?.dataset?.webgisLayerDelete;
+    if (layerId) webgisDeleteLayer(layerId).catch(error => webgisSetSaveStatus(error.message || String(error), true));
+  });
   webgisEl('webgisAdminLayerList').addEventListener('change', async event => {
     const layerId = event.target?.dataset?.layer;
     const field = event.target?.dataset?.webgisAdminField;
@@ -3760,7 +3827,7 @@ async function initializeWebGIS() {
     try {
       const sample = JSON.parse(document.getElementById('webgisSampleData').textContent);
       const savedData = await webgisLoadSavedData();
-      webgisState.layerDefs = webgisNormalizeLayerDefs(savedData?.layerDefs);
+      webgisState.layerDefs = webgisNormalizeLayerDefs(savedData?.layerDefs, savedData?.deletedLayerIds);
       webgisState.features = [];
       webgisState.featureCache.clear();
       webgisState.loadedLayerIds.clear();

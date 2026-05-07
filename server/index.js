@@ -229,11 +229,16 @@ function normalizeWebgisFeature(feature, index = 0, fallbackLayer = '') {
 }
 
 function normalizeWebgisData(data) {
+  const deletedLayerIds = Array.from(new Set((Array.isArray(data?.deletedLayerIds) ? data.deletedLayerIds : [])
+    .map(id => String(id || '').trim())
+    .filter(Boolean)));
+  const deletedSet = new Set(deletedLayerIds);
   const rawFeatures = Array.isArray(data?.features) ? data.features : [];
   const features = rawFeatures
     .map((feature, index) => normalizeWebgisFeature(feature, index))
+    .filter(feature => feature && !deletedSet.has(String(feature.properties?.layer || '')))
     .filter(Boolean);
-  const rawDefs = Array.isArray(data?.layerDefs) ? data.layerDefs : [];
+  const rawDefs = Array.isArray(data?.layerDefs) ? data.layerDefs.filter(def => !deletedSet.has(String(def?.id || def?.layer || ''))) : [];
   const layerIdsFromFeatures = Array.from(new Set(features.map(feature => String(feature.properties?.layer || 'imported'))));
   const defsById = new Map(rawDefs.map((def, index) => [String(def?.id || def?.layer || `layer-${index + 1}`), normalizeWebgisLayerDef(def, index)]));
   layerIdsFromFeatures.forEach((layerId, index) => {
@@ -247,6 +252,7 @@ function normalizeWebgisData(data) {
   return {
     version: Number(data?.version || 2),
     savedAt: data?.savedAt || data?.saved_at || null,
+    deletedLayerIds,
     layerDefs,
     features
   };
@@ -273,6 +279,7 @@ function webgisMetadataResponse(state, includePrivate = false) {
     data: {
       version: data.version,
       savedAt: data.savedAt,
+      deletedLayerIds: data.deletedLayerIds,
       layerDefs,
       features: []
     }
@@ -296,13 +303,19 @@ function webgisLayerFeaturesResponse(state, layerId, includePrivate = false) {
 function mergeWebgisIncomingData(existingData, incomingData) {
   const existing = normalizeWebgisData(existingData || {});
   const incoming = normalizeWebgisData(incomingData || {});
+  const deletedLayerIds = Array.from(new Set([...(existing.deletedLayerIds || []), ...(incoming.deletedLayerIds || [])]));
+  const deletedSet = new Set(deletedLayerIds);
   const incomingFeatureLayerIds = new Set(incoming.features.map(feature => String(feature.properties?.layer || '')));
-  const preservedFeatures = existing.features.filter(feature => !incomingFeatureLayerIds.has(String(feature.properties?.layer || '')));
-  const layerDefsById = new Map(existing.layerDefs.map(def => [def.id, def]));
-  incoming.layerDefs.forEach(def => layerDefsById.set(def.id, def));
+  const preservedFeatures = existing.features.filter(feature => {
+    const layerId = String(feature.properties?.layer || '');
+    return !incomingFeatureLayerIds.has(layerId) && !deletedSet.has(layerId);
+  });
+  const layerDefsById = new Map(existing.layerDefs.filter(def => !deletedSet.has(def.id)).map(def => [def.id, def]));
+  incoming.layerDefs.filter(def => !deletedSet.has(def.id)).forEach(def => layerDefsById.set(def.id, def));
   return {
     version: Math.max(existing.version || 2, incoming.version || 2, 2),
     savedAt: incomingData?.savedAt || new Date().toISOString(),
+    deletedLayerIds,
     layerDefs: Array.from(layerDefsById.values()),
     features: [...preservedFeatures, ...incoming.features]
   };
@@ -329,6 +342,24 @@ async function updateWebgisLayerMetadata(id, layerId, patch) {
   data.savedAt = new Date().toISOString();
   await saveWebgisState(projectId, data, { preserveExistingFeatures: false });
   return { ok: true, id: projectId, layer };
+}
+
+async function deleteWebgisLayer(id, layerId) {
+  const projectId = normalizeProjectId(id);
+  const normalizedLayerId = String(layerId || '').trim();
+  if (!normalizedLayerId) {
+    const error = new Error('Layer id khong hop le.');
+    error.status = 400;
+    throw error;
+  }
+  const existingState = await loadWebgisState(projectId);
+  const data = normalizeWebgisData(existingState?.data || {});
+  data.deletedLayerIds = Array.from(new Set([...(data.deletedLayerIds || []), normalizedLayerId]));
+  data.layerDefs = data.layerDefs.filter(def => def.id !== normalizedLayerId);
+  data.features = data.features.filter(feature => String(feature.properties?.layer || '') !== normalizedLayerId);
+  data.savedAt = new Date().toISOString();
+  await saveWebgisState(projectId, data, { preserveExistingFeatures: false });
+  return { ok: true, id: projectId, deletedLayerId: normalizedLayerId };
 }
 
 function webgisObjectKey(id) {
@@ -1316,6 +1347,14 @@ function createExpressServer() {
     }
   });
 
+  app.delete('/api/webgis/:id/layers/:layerId', requireWebgisAdmin, async (req, res) => {
+    try {
+      res.json(await deleteWebgisLayer(req.params.id, req.params.layerId));
+    } catch (error) {
+      res.status(error.status || 500).json({ error: error.message || 'Khong xoa duoc layer WebGIS.' });
+    }
+  });
+
   app.get('/api/webgis/:id', async (req, res) => {
     try {
       const state = await loadWebgisState(req.params.id);
@@ -1642,6 +1681,18 @@ function createFallbackServer() {
           sendJson(res, 200, await updateWebgisLayerMetadata(webgisLayerMatch[1], decodeURIComponent(webgisLayerMatch[2]), await readJsonBody(req)));
         } catch (error) {
           sendJson(res, error.status || 500, { error: error.message || 'Khong cap nhat duoc layer WebGIS.' });
+        }
+        return;
+      }
+      if (webgisLayerMatch && req.method === 'DELETE') {
+        if (!isWebgisAdminToken(adminTokenFromAuthorization(req.headers.authorization))) {
+          sendJson(res, 401, { error: 'Ban can dang nhap admin WebGIS de luu hoac quan tri du lieu.' });
+          return;
+        }
+        try {
+          sendJson(res, 200, await deleteWebgisLayer(webgisLayerMatch[1], decodeURIComponent(webgisLayerMatch[2])));
+        } catch (error) {
+          sendJson(res, error.status || 500, { error: error.message || 'Khong xoa duoc layer WebGIS.' });
         }
         return;
       }
