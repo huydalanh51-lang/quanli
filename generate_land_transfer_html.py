@@ -768,6 +768,7 @@ WEBGIS_HTML = r"""
       </div>
       <div class="webgis-actions">
         <span id="webgisSaveStatus" class="webgis-save-status">Chưa nạp dữ liệu</span>
+        <button id="webgisAiBtn" type="button">Trợ lý AI</button>
         <button id="webgisOpenTableBtn" type="button">Bảng thuộc tính</button>
         <button id="webgisAdminBtn" class="primary" type="button">Quản trị dữ liệu</button>
         <button id="webgisHomeBtn" type="button">Màn chính</button>
@@ -1991,6 +1992,7 @@ function webgisBindEvents() {
   });
   webgisEl('webgisFitAllBtn').addEventListener('click', webgisFitAll);
   webgisEl('webgisHomeBtn').addEventListener('click', showHomePage);
+  webgisEl('webgisAiBtn').addEventListener('click', () => openAiAssistant('webgis'));
   webgisEl('webgisOpenTableBtn').addEventListener('click', () => {
     webgisEl('webgisAttributePanel').hidden = false;
     webgisRenderAttributeTable();
@@ -4425,11 +4427,11 @@ td.search-hit {{
 <section id="aiPanel" class="ai-panel" hidden>
   <div class="ai-card">
     <div class="ai-head">
-      <strong>Trợ lý AI</strong>
+      <strong id="aiPanelTitle">Trợ lý AI</strong>
       <button id="aiCloseBtn" type="button">Đóng</button>
     </div>
     <div id="aiMessages" class="ai-messages">
-      <div class="ai-message">Anh có thể hỏi: “Kiểm tra giúp tôi bảng này có lệch tổng không?”, “LUC tăng giảm thế nào?”, “Nhận xét lớp WebGIS đang bật”, hoặc “Viết nhận xét ngắn về biến động đất”.</div>
+      <div id="aiIntroMessage" class="ai-message">Anh có thể hỏi: “Kiểm tra giúp tôi bảng này có lệch tổng không?”, “LUC tăng giảm thế nào?”, “Nhận xét lớp WebGIS đang bật”, hoặc “Viết nhận xét ngắn về biến động đất”.</div>
     </div>
     <div id="aiStatus" class="ai-status">Đang kiểm tra cấu hình AI...</div>
     <div class="ai-controls">
@@ -6598,13 +6600,15 @@ function landName(code) {{
 
 function buildWebgisAiContext() {{
   if (typeof webgisState === 'undefined') return null;
-  const visibleLayers = (webgisState.layerDefs || [])
-    .filter(layer => webgisState.visibleLayerIds && webgisState.visibleLayerIds.has(layer.id))
+  const layers = (webgisState.layerDefs || []);
+  const visibleLayers = layers
+    .filter(layer => layer.visible === true || (webgisState.overlayLayers && webgisState.overlayLayers.has(layer.id)))
     .map(layer => ({{
       id: layer.id,
       label: layer.label,
       category: layer.category,
-      opacity: layer.opacity
+      opacity: layer.opacity,
+      featureCount: typeof webgisLayerFeatureCount === 'function' ? webgisLayerFeatureCount(layer.id) : 0
     }}));
   let selectedFeature = null;
   if (webgisState.selectedFeatureId) {{
@@ -6615,14 +6619,19 @@ function buildWebgisAiContext() {{
         : Object.entries(feature.properties || {{}}).filter(([key]) => !['__id', 'layer'].includes(key));
       selectedFeature = {{
         layer: feature.properties?.layer || '',
+        layerLabel: typeof webgisLayerLabel === 'function' ? webgisLayerLabel(feature.properties?.layer) : feature.properties?.layer || '',
+        title: typeof webgisFeatureTitle === 'function' ? webgisFeatureTitle(feature) : '',
+        geometryType: feature.geometry?.type || '',
         properties: Object.fromEntries(entries.slice(0, 30))
       }};
     }}
   }}
   return {{
     module: document.body.classList.contains('webgis-mode') ? 'webgis' : document.body.classList.contains('docs-mode') ? 'library' : document.body.classList.contains('module-mode') ? 'land-transfer' : 'home',
-    layerCount: (webgisState.layerDefs || []).length,
+    layerCount: layers.length,
     featureCount: (webgisState.features || []).length,
+    loadedFeatureCount: typeof webgisAllCachedFeatures === 'function' ? webgisAllCachedFeatures().length : (webgisState.features || []).length,
+    publicLayerCount: layers.filter(layer => layer.is_public !== false).length,
     visibleLayers,
     selectedFeature
   }};
@@ -6673,7 +6682,9 @@ function buildAiContext() {{
 
   const totalCurrent = calc.currentArea('DTTN');
   const totalPlanning = calc.matrixValue('DTTN', 'DTTN');
+  const activeModule = document.body.classList.contains('webgis-mode') ? 'webgis' : document.body.classList.contains('docs-mode') ? 'library' : document.body.classList.contains('module-mode') ? 'land-transfer' : 'home';
   return {{
+    activeModule,
     unit: 'ha',
     decimals: displayDecimals,
     tolerance: meta.tolerance,
@@ -6719,6 +6730,20 @@ async function refreshAiStatus() {{
     status.classList.add('error');
     status.textContent = error.message || 'Không kiểm tra được trạng thái AI.';
   }}
+}}
+
+function openAiAssistant(mode = 'land-transfer') {{
+  const isWebgis = mode === 'webgis';
+  $('#aiPanelTitle').textContent = isWebgis ? 'Trợ lý AI WebGIS' : 'Trợ lý AI';
+  $('#aiIntroMessage').textContent = isWebgis
+    ? 'Anh có thể hỏi: “Layer nào đang bật?”, “Tóm tắt đối tượng đang chọn”, “Thuộc tính nào đang được phép hiển thị?”, hoặc “Nhận xét nhanh dữ liệu hiện trạng/quy hoạch trên bản đồ”.'
+    : 'Anh có thể hỏi: “Kiểm tra giúp tôi bảng này có lệch tổng không?”, “LUC tăng giảm thế nào?”, hoặc “Viết nhận xét ngắn về biến động đất”.';
+  $('#aiQuestion').placeholder = isWebgis
+    ? 'Nhập câu hỏi về WebGIS, layer, thuộc tính hoặc đối tượng đang chọn'
+    : 'Nhập câu hỏi cho AI';
+  $('#aiPanel').hidden = false;
+  refreshAiStatus();
+  $('#aiQuestion').focus();
 }}
 
 async function sendAiQuestion() {{
@@ -6805,9 +6830,7 @@ $('#reportBtn').addEventListener('click', () => {{
 }});
 $('#reportCloseBtn').addEventListener('click', () => $('#reportPanel').hidden = true);
 $('#aiBtn').addEventListener('click', () => {{
-  $('#aiPanel').hidden = false;
-  refreshAiStatus();
-  $('#aiQuestion').focus();
+  openAiAssistant('land-transfer');
 }});
 $('#aiCloseBtn').addEventListener('click', () => $('#aiPanel').hidden = true);
 $('#aiSendBtn').addEventListener('click', sendAiQuestion);
