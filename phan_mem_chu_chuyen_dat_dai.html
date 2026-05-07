@@ -186,6 +186,14 @@ body.webgis-mode .appbar {
   cursor: pointer;
   box-shadow: none;
 }
+.side-nav button span:last-child {
+  display: block;
+  max-width: 52px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  text-align: center;
+}
 .side-icon {
   font-size: 19px;
   line-height: 1;
@@ -426,10 +434,10 @@ body.webgis-mode .docs-page {
 .webgis-topbar {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(260px, 500px) auto;
+  grid-template-columns: minmax(260px, 0.92fr) minmax(320px, 560px) auto;
   gap: 12px;
   align-items: center;
-  padding: 14px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid #dbe7f3;
   background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(237,248,255,0.96));
 }
@@ -460,11 +468,11 @@ body.webgis-mode .docs-page {
 .webgis-panel textarea,
 .webgis-attr-tools input,
 .webgis-attr-tools select {
-  height: 34px;
+  height: 36px;
   min-width: 0;
-  border: 1px solid #bdd0e3;
-  border-radius: 7px;
-  padding: 6px 9px;
+  border: 1px solid #c9d8e8;
+  border-radius: 10px;
+  padding: 7px 10px;
   background: #fff;
   color: #102033;
   font-size: 13px;
@@ -480,22 +488,48 @@ body.webgis-mode .docs-page {
   flex-wrap: wrap;
   gap: 8px;
 }
+.webgis-actions {
+  justify-content: flex-end;
+}
 .webgis-save-status {
   min-height: 26px;
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   border: 1px solid #bfdbfe;
   border-radius: 999px;
-  padding: 3px 9px;
-  background: #eff6ff;
+  padding: 4px 9px;
+  background: rgba(239, 246, 255, 0.82);
   color: #1d4ed8;
   font-size: 12px;
   font-weight: 700;
+  box-shadow: none;
+}
+.webgis-save-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
+}
+.webgis-save-status.connected {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+.webgis-save-status.connected::before {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16);
 }
 .webgis-save-status.error {
   border-color: #fecaca;
   background: #fff1f2;
   color: #991b1b;
+}
+.webgis-save-status.error::before {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 .webgis-stats {
   display: flex;
@@ -520,16 +554,19 @@ body.webgis-mode .docs-page {
 .webgis-search button,
 .webgis-panel button,
 .webgis-attr-tools button {
-  height: 34px;
-  border: 1px solid #b7c8da;
-  border-radius: 7px;
-  padding: 0 11px;
+  height: 36px;
+  border: 1px solid #c1d3e6;
+  border-radius: 10px;
+  padding: 0 12px;
   background: #fff;
-  color: #102033;
+  color: #143452;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(15, 47, 87, 0.08);
+  box-shadow: 0 6px 16px rgba(15, 47, 87, 0.08);
+}
+.webgis-actions button {
+  background: #f8fbff;
 }
 .webgis-actions .primary,
 .webgis-search .primary,
@@ -537,6 +574,12 @@ body.webgis-mode .docs-page {
   border-color: #0f766e;
   background: #0f766e;
   color: #fff;
+}
+.webgis-actions .admin-action {
+  border-color: #0f766e;
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(15, 118, 110, 0.18);
 }
 .webgis-search-results {
   position: absolute;
@@ -587,6 +630,16 @@ body.webgis-mode .docs-page {
   flex: 1 1 auto;
   padding: 12px;
   overflow: hidden;
+  transition: grid-template-columns 0.24s ease;
+}
+.webgis-page.layers-collapsed .webgis-workspace {
+  grid-template-columns: 46px minmax(520px, 1fr) 340px;
+}
+.webgis-page.info-collapsed .webgis-workspace {
+  grid-template-columns: 304px minmax(520px, 1fr) 46px;
+}
+.webgis-page.layers-collapsed.info-collapsed .webgis-workspace {
+  grid-template-columns: 46px minmax(520px, 1fr) 46px;
 }
 .webgis-sidebar,
 .webgis-info {
@@ -598,6 +651,37 @@ body.webgis-mode .docs-page {
   min-height: 0;
   min-width: 0;
   overflow: auto;
+  transition: width 0.24s ease;
+}
+.webgis-page.layers-collapsed .webgis-sidebar,
+.webgis-page.info-collapsed .webgis-info {
+  overflow: hidden;
+}
+.webgis-page.layers-collapsed .webgis-sidebar .webgis-panel-body,
+.webgis-page.layers-collapsed .webgis-sidebar .webgis-admin-panel,
+.webgis-page.info-collapsed .webgis-info .webgis-panel-body,
+.webgis-page.info-collapsed .webgis-info .webgis-panel:not(:first-child) {
+  display: none;
+}
+.webgis-page.layers-collapsed .webgis-sidebar .webgis-panel,
+.webgis-page.info-collapsed .webgis-info .webgis-panel {
+  min-height: 0;
+  flex: 0 0 auto;
+}
+.webgis-page.layers-collapsed .webgis-sidebar h2,
+.webgis-page.info-collapsed .webgis-info h2 {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+}
+.webgis-collapse-btn {
+  width: 28px;
+  height: 28px !important;
+  padding: 0 !important;
+  border-radius: 9px !important;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
 }
 .webgis-panel {
   flex: 0 0 auto;
@@ -623,6 +707,11 @@ body.webgis-mode .docs-page {
   padding: 10px 12px;
   border-bottom: 1px solid #e4edf6;
 }
+.webgis-panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .webgis-panel-head h2,
 .webgis-panel-head h3 {
   margin: 0;
@@ -641,17 +730,18 @@ body.webgis-mode .docs-page {
 .webgis-layer-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 .webgis-layer-item {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 8px;
+  gap: 7px;
   align-items: center;
-  padding: 9px;
+  padding: 8px;
   border: 1px solid #e3edf6;
-  border-radius: 8px;
-  background: #f8fbff;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ffffff, #f8fbff);
+  box-shadow: 0 8px 18px rgba(15, 47, 87, 0.05);
 }
 .webgis-layer-main {
   min-width: 0;
@@ -661,8 +751,9 @@ body.webgis-mode .docs-page {
   align-items: center;
   gap: 7px;
   color: #102033;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
 }
 .webgis-layer-count {
   display: inline-flex;
@@ -672,18 +763,37 @@ body.webgis-mode .docs-page {
   font-weight: 700;
 }
 .webgis-layer-tools {
-  grid-column: 2 / 4;
+  grid-column: 1 / 4;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
 }
 .webgis-layer-tools input[type="range"] {
   flex: 1;
   accent-color: #2563eb;
 }
+.webgis-layer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.webgis-icon-btn {
+  width: 30px;
+  height: 30px !important;
+  min-width: 30px;
+  padding: 0 !important;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 9px !important;
+  font-size: 14px !important;
+  line-height: 1;
+}
 .webgis-symbol {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   border: 1px solid rgba(15,47,87,0.20);
   border-radius: 5px;
   flex: 0 0 auto;
@@ -711,15 +821,28 @@ body.webgis-mode .docs-page {
   transform: translateX(-50%);
   max-width: calc(100% - 24px);
   justify-content: center;
-  padding: 8px;
+  padding: 8px 10px;
   border: 1px solid rgba(183, 200, 218, 0.72);
-  border-radius: 999px;
+  border-radius: 20px;
   background: rgba(255,255,255,0.94);
   box-shadow: 0 14px 30px rgba(15,47,87,0.14);
   backdrop-filter: blur(8px);
 }
+.webgis-tool-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.webgis-tool-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(148, 163, 184, 0.42);
+}
 .webgis-map-tools button {
+  height: 32px;
   border-radius: 999px;
+  padding: 0 11px;
+  box-shadow: none;
 }
 .webgis-coordinate-bar,
 .webgis-measure-badge {
@@ -751,11 +874,11 @@ body.webgis-mode .docs-page {
 .webgis-empty-card {
   display: grid;
   gap: 10px;
-  min-height: 180px;
-  padding: 14px;
+  min-height: 190px;
+  padding: 16px;
   border: 1px dashed #cbdcec;
   border-radius: 12px;
-  background: linear-gradient(135deg, #f8fbff, #eff6ff);
+  background: linear-gradient(135deg, #f8fbff, #eef6ff);
 }
 .webgis-empty-icon {
   width: 44px;
@@ -781,6 +904,9 @@ body.webgis-mode .docs-page {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  overflow: hidden;
+  border: 1px solid #e4edf6;
+  border-radius: 12px;
 }
 .webgis-detail-table th,
 .webgis-detail-table td {
@@ -793,6 +919,19 @@ body.webgis-mode .docs-page {
   width: 112px;
   color: #64748b;
   font-weight: 700;
+  background: #f8fbff;
+}
+.webgis-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.webgis-detail-title {
+  margin: 0 0 10px;
+  color: #0f2f57;
+  font-size: 15px;
+  font-weight: 900;
 }
 .webgis-admin-panel[hidden],
 .webgis-attr-panel[hidden] {
@@ -2587,8 +2726,8 @@ body.startup-active {
         <span id="webgisSaveStatus" class="webgis-save-status">Chưa nạp dữ liệu</span>
         <button id="webgisAiBtn" type="button">Trợ lý AI</button>
         <button id="webgisOpenTableBtn" type="button">Bảng thuộc tính</button>
-        <button id="webgisAdminBtn" class="primary" type="button">Quản trị dữ liệu</button>
         <button id="webgisHomeBtn" type="button">Màn chính</button>
+        <button id="webgisAdminBtn" class="admin-action" type="button">Quản trị dữ liệu</button>
       </div>
     </header>
     <div class="webgis-workspace">
@@ -2596,7 +2735,10 @@ body.startup-active {
         <section class="webgis-panel">
           <div class="webgis-panel-head">
             <h2>Lớp bản đồ</h2>
-            <button id="webgisFitAllBtn" type="button">Toàn bộ</button>
+            <div class="webgis-panel-actions">
+              <button id="webgisFitAllBtn" type="button">Toàn bộ</button>
+              <button id="webgisToggleSidebarBtn" class="webgis-collapse-btn" type="button" title="Thu gọn cột lớp bản đồ" aria-label="Thu gọn cột lớp bản đồ">&lsaquo;</button>
+            </div>
           </div>
           <div class="webgis-panel-body">
             <div id="webgisLayerList" class="webgis-layer-list"></div>
@@ -2657,13 +2799,20 @@ body.startup-active {
       <section class="webgis-map-panel">
         <div id="webgisMap" class="webgis-map" role="application" aria-label="Bản đồ WebGIS"></div>
         <div class="webgis-map-tools" aria-label="Công cụ bản đồ">
-          <button id="webgisLocateBtn" type="button">Vị trí</button>
-          <button id="webgisMeasureDistanceBtn" type="button">Đo dài</button>
-          <button id="webgisMeasureAreaBtn" type="button">Đo diện tích</button>
-          <button id="webgisClearMeasureBtn" type="button">Xóa đo</button>
-          <button id="webgisPrintBtn" type="button">In</button>
-          <button id="webgisShotBtn" type="button">Chụp ảnh</button>
-          <button id="webgisFullscreenBtn" type="button">Toàn màn hình</button>
+          <span class="webgis-tool-group"><button id="webgisLocateBtn" type="button">Vị trí</button></span>
+          <span class="webgis-tool-divider" aria-hidden="true"></span>
+          <span class="webgis-tool-group">
+            <button id="webgisMeasureDistanceBtn" type="button">Đo dài</button>
+            <button id="webgisMeasureAreaBtn" type="button">Đo diện tích</button>
+            <button id="webgisClearMeasureBtn" type="button">Xóa đo</button>
+          </span>
+          <span class="webgis-tool-divider" aria-hidden="true"></span>
+          <span class="webgis-tool-group">
+            <button id="webgisPrintBtn" type="button">In</button>
+            <button id="webgisShotBtn" type="button">Chụp ảnh</button>
+          </span>
+          <span class="webgis-tool-divider" aria-hidden="true"></span>
+          <span class="webgis-tool-group"><button id="webgisFullscreenBtn" type="button">Toàn màn hình</button></span>
         </div>
         <div id="webgisMeasureBadge" class="webgis-measure-badge">Sẵn sàng tra cứu bản đồ</div>
         <div id="webgisCoordinateBar" class="webgis-coordinate-bar">Tọa độ: --</div>
@@ -2672,6 +2821,7 @@ body.startup-active {
         <section class="webgis-panel">
           <div class="webgis-panel-head">
             <h2>Thông tin đối tượng</h2>
+            <button id="webgisToggleInfoBtn" class="webgis-collapse-btn" type="button" title="Thu gọn cột thông tin" aria-label="Thu gọn cột thông tin">&rsaquo;</button>
           </div>
           <div id="webgisFeatureDetail" class="webgis-panel-body">
             <div class="webgis-detail-empty">
@@ -3274,6 +3424,39 @@ function webgisSetSaveStatus(text, isError = false) {
   if (!status) return;
   status.textContent = text;
   status.classList.toggle('error', Boolean(isError));
+  status.classList.toggle('connected', !isError && /kết nối|Supabase|dữ liệu đã lưu|nạp dữ liệu/i.test(text));
+}
+
+function webgisSetPanelCollapsed(panel, collapsed) {
+  const page = webgisEl('webgisPage');
+  if (!page) return;
+  const className = panel === 'layers' ? 'layers-collapsed' : 'info-collapsed';
+  page.classList.toggle(className, Boolean(collapsed));
+  const button = panel === 'layers' ? webgisEl('webgisToggleSidebarBtn') : webgisEl('webgisToggleInfoBtn');
+  if (button) {
+    const isCollapsed = page.classList.contains(className);
+    button.innerHTML = panel === 'layers' ? (isCollapsed ? '&rsaquo;' : '&lsaquo;') : (isCollapsed ? '&lsaquo;' : '&rsaquo;');
+    button.setAttribute('aria-expanded', String(!isCollapsed));
+  }
+  webgisInvalidateSize(120);
+}
+
+function webgisExportSelectedFeatureInfo() {
+  const feature = webgisAllCachedFeatures().find(item => item.properties.__id === webgisState.selectedFeatureId);
+  if (!feature) return;
+  const rows = webgisVisiblePropertyEntries(feature);
+  const title = webgisFeatureTitle(feature);
+  const text = [
+    title,
+    '',
+    ...rows.map(([key, value]) => `${key}: ${value}`)
+  ].join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${String(title || 'webgis-thong-tin').replace(/[^\w\-]+/g, '_')}.txt`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 function webgisAdminHeaders() {
@@ -3444,7 +3627,7 @@ async function webgisLoadSavedData() {
       const payload = await response.json();
       if (webgisValidPayload(payload.data)) {
         if (Array.isArray(payload.data.features) && payload.data.features.length) webgisSaveLocal(payload.data);
-        webgisSetSaveStatus(payload.storage === 'supabase' || payload.storage === 'supabase-migrated' ? 'Đã nạp từ Supabase' : 'Đã nạp dữ liệu đã lưu');
+        webgisSetSaveStatus(payload.storage === 'supabase' || payload.storage === 'supabase-migrated' ? 'Đã kết nối dữ liệu' : 'Đã nạp dữ liệu đã lưu');
         return payload.data;
       }
     }
@@ -3582,7 +3765,13 @@ function webgisRenderFeatureDetail(feature) {
   const props = feature.properties || {};
   const rows = webgisVisiblePropertyEntries(feature);
   detail.innerHTML = rows.length
-    ? `<table class="webgis-detail-table"><tbody>${
+    ? `
+      <h3 class="webgis-detail-title">${webgisEscape(webgisFeatureTitle(feature))}</h3>
+      <div class="webgis-detail-actions">
+        <button type="button" data-webgis-detail-zoom="1">Phóng tới thửa</button>
+        <button type="button" data-webgis-detail-export="1">Xuất thông tin</button>
+      </div>
+      <table class="webgis-detail-table"><tbody>${
       rows.map(([key, value]) => `<tr><th>${webgisEscape(key)}</th><td>${webgisEscape(value)}</td></tr>`).join('')
     }</tbody></table>`
     : '<div class="webgis-detail-empty">Chua co thuoc tinh duoc phep hien thi.</div>';
@@ -3661,9 +3850,12 @@ function webgisRenderLayerList() {
         <label><input type="checkbox" data-webgis-layer-toggle="${webgisEscape(def.id)}" ${def.visible === true ? 'checked' : ''} ${def.allow_user_toggle === false ? 'disabled' : ''}> ${webgisEscape(def.label)}</label>
         <span class="webgis-layer-count">${webgisLayerFeatureCount(def.id)} đối tượng</span>
       </div>
-      <button type="button" data-webgis-layer-zoom="${webgisEscape(def.id)}">Zoom</button>
+      <div class="webgis-layer-actions">
+        <button class="webgis-icon-btn" type="button" data-webgis-layer-zoom="${webgisEscape(def.id)}" title="Phóng tới layer" aria-label="Phóng tới layer">&#8981;</button>
+        <button class="webgis-icon-btn" type="button" data-webgis-layer-settings="${webgisEscape(def.id)}" title="Cài đặt layer" aria-label="Cài đặt layer">&#9881;</button>
+      </div>
       <div class="webgis-layer-tools">
-        <span>Trong suốt</span>
+        <span>Độ mờ</span>
         <input id="webgisOpacity_${webgisEscape(def.id)}" type="range" min="0" max="1" step="0.05" value="${webgisNormalizeOpacity(def.opacity)}" data-webgis-layer-opacity="${webgisEscape(def.id)}">
       </div>
     </div>
@@ -4078,6 +4270,15 @@ function webgisBindEvents() {
   webgisEl('webgisLayerList').addEventListener('click', event => {
     const layerId = event.target?.dataset?.webgisLayerZoom;
     if (layerId) webgisFitLayer(layerId).catch(error => webgisSetSaveStatus(error.message || String(error), true));
+    const settingsLayerId = event.target?.dataset?.webgisLayerSettings;
+    if (settingsLayerId) {
+      if (!webgisRequireAdmin()) return;
+      webgisEl('webgisAdminPanel').hidden = false;
+      webgisEl('webgisAdminLoginPanel').hidden = true;
+      webgisRenderAdminLayerList();
+      webgisEl('webgisAdminPanel')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      webgisInvalidateSize(80);
+    }
   });
   webgisEl('webgisSearchBtn').addEventListener('click', webgisSearch);
   webgisEl('webgisSearchInput').addEventListener('keydown', event => {
@@ -4090,6 +4291,18 @@ function webgisBindEvents() {
     webgisEl('webgisSearchResults').hidden = true;
   });
   webgisEl('webgisFitAllBtn').addEventListener('click', webgisFitAll);
+  webgisEl('webgisToggleSidebarBtn').addEventListener('click', () => {
+    const page = webgisEl('webgisPage');
+    webgisSetPanelCollapsed('layers', !page.classList.contains('layers-collapsed'));
+  });
+  webgisEl('webgisToggleInfoBtn').addEventListener('click', () => {
+    const page = webgisEl('webgisPage');
+    webgisSetPanelCollapsed('info', !page.classList.contains('info-collapsed'));
+  });
+  webgisEl('webgisFeatureDetail').addEventListener('click', event => {
+    if (event.target?.dataset?.webgisDetailZoom) webgisZoomToFeature(webgisState.selectedFeatureId);
+    if (event.target?.dataset?.webgisDetailExport) webgisExportSelectedFeatureInfo();
+  });
   webgisEl('webgisHomeBtn').addEventListener('click', showHomePage);
   webgisEl('webgisAiBtn').addEventListener('click', () => openAiAssistant('webgis'));
   webgisEl('webgisOpenTableBtn').addEventListener('click', () => {
