@@ -1914,6 +1914,13 @@ function webgisScheduleLayerMetadataPatch(layerId, delay = 350) {
   }, delay));
 }
 
+function webgisApplyLayerOpacity(layerId, rawValue, persistDelay = 0) {
+  const def = webgisState.layerDefs.find(layer => layer.id === layerId);
+  if (def) def.opacity = Number(rawValue);
+  webgisUpdateLayerStyle(layerId);
+  if (webgisAdminToken && persistDelay >= 0) webgisScheduleLayerMetadataPatch(layerId, persistDelay);
+}
+
 async function webgisPatchLayerMetadata(layerId) {
   if (!webgisRequireAdmin()) return;
   const def = webgisState.layerDefs.find(layer => layer.id === layerId);
@@ -2280,19 +2287,13 @@ function webgisBindEvents() {
       webgisScheduleSave();
     }
     if (opacityId) {
-      const def = webgisState.layerDefs.find(layer => layer.id === opacityId);
-      if (def) def.opacity = Number(event.target.value);
-      webgisUpdateLayerStyle(opacityId);
-      webgisScheduleSave();
+      webgisApplyLayerOpacity(opacityId, event.target.value, 250);
     }
   });
   webgisEl('webgisLayerList').addEventListener('input', event => {
     const opacityId = event.target?.dataset?.webgisLayerOpacity;
     if (!opacityId) return;
-    const def = webgisState.layerDefs.find(layer => layer.id === opacityId);
-    if (def) def.opacity = Number(event.target.value);
-    webgisUpdateLayerStyle(opacityId);
-    webgisScheduleSave();
+    webgisApplyLayerOpacity(opacityId, event.target.value, 900);
   });
   webgisEl('webgisLayerList').addEventListener('click', event => {
     const layerId = event.target?.dataset?.webgisLayerZoom;
