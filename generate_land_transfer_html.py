@@ -4748,6 +4748,329 @@ body.startup-active {{
     padding: 22px;
   }}
 }}
+@media (max-width: 700px) {{
+  html,
+  body {{
+    width: 100%;
+    overflow-x: hidden;
+  }}
+  body:not(.webgis-mode) {{
+    overflow-y: auto;
+  }}
+  .appbar {{
+    min-height: 64px;
+    padding: 8px 10px;
+    gap: 8px;
+  }}
+  body:not(.home-mode) .appbar,
+  body.webgis-mode .appbar {{
+    height: auto;
+    min-height: 56px;
+    overflow: visible;
+  }}
+  .brand {{
+    flex: 1 1 auto;
+    min-width: 0;
+  }}
+  .brand-logo {{
+    width: 34px;
+    height: 34px;
+  }}
+  .title {{
+    font-size: 13px;
+    line-height: 1.12;
+  }}
+  .subtitle,
+  .designer {{
+    font-size: 10px;
+  }}
+  .module-label {{
+    max-width: calc(100vw - 66px);
+    font-size: 11px;
+    padding: 3px 8px;
+  }}
+  .app-sidebar {{
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    height: 64px;
+    padding: 7px;
+    border-radius: 16px;
+  }}
+  body.webgis-mode .app-sidebar {{
+    right: auto;
+    width: 64px;
+  }}
+  .side-nav button {{
+    width: 64px;
+    min-height: 50px;
+    font-size: 10px;
+  }}
+  .home-page,
+  .docs-page,
+  .webgis-page {{
+    margin: 8px 8px 80px;
+    border-radius: 14px;
+  }}
+  .dashboard {{
+    min-height: calc(100dvh - 152px);
+    padding: 18px;
+    gap: 18px;
+  }}
+  .dashboard h1 {{
+    font-size: 30px;
+  }}
+  .dashboard-subtitle {{
+    font-size: 14px;
+  }}
+  .dashboard-metrics {{
+    gap: 6px;
+  }}
+  .dashboard-metric {{
+    min-height: 32px;
+    font-size: 11px;
+  }}
+  .module-grid {{
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }}
+  .module-card {{
+    min-height: 188px;
+    padding: 16px;
+  }}
+  .module-card h2 {{
+    font-size: 18px;
+  }}
+  .module-card p {{
+    font-size: 13px;
+  }}
+  .actions {{
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }}
+  .tool-group {{
+    flex: 0 0 auto;
+  }}
+  .tool-items {{
+    position: fixed;
+    left: 8px !important;
+    right: 8px !important;
+    top: 66px;
+    max-height: calc(100dvh - 154px);
+    overflow: auto;
+    min-width: 0;
+    max-width: none;
+  }}
+  .status {{
+    flex: 1 1 100%;
+    min-width: 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }}
+  .quick-save {{
+    margin-left: 0;
+  }}
+  .table-toolbar {{
+    margin: 8px 8px 6px;
+    align-items: stretch;
+  }}
+  .legend {{
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }}
+  .view-options {{
+    width: 100%;
+    justify-content: space-between;
+  }}
+  .table-wrap {{
+    height: calc(100dvh - 214px);
+    min-height: 320px;
+    margin: 8px 8px 80px;
+    border-radius: 10px;
+  }}
+  .table-wrap td {{
+    font-size: 11px !important;
+  }}
+  .docs-page {{
+    min-height: calc(100dvh - 152px);
+  }}
+  .library-shell {{
+    padding: 10px;
+  }}
+  .library-head {{
+    align-items: stretch;
+    gap: 10px;
+  }}
+  .library-head h1 {{
+    font-size: 20px;
+  }}
+  .library-head-actions {{
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }}
+  .library-controls {{
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }}
+  .library-grid {{
+    grid-template-columns: 1fr;
+  }}
+  .library-card {{
+    min-height: 0;
+  }}
+  .library-admin,
+  .library-access,
+  .pdf-reader {{
+    inset: 64px 8px 78px;
+  }}
+  .library-admin-toolbar,
+  .reader-toolbar {{
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }}
+  .library-admin-table {{
+    min-width: 760px;
+  }}
+  body.webgis-mode {{
+    height: 100dvh;
+    overflow: hidden;
+  }}
+  body.webgis-mode .webgis-page {{
+    height: calc(100dvh - 138px);
+    min-height: 0;
+  }}
+  .webgis-shell {{
+    height: 100%;
+  }}
+  .webgis-topbar {{
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 9px 10px;
+    max-height: 190px;
+    overflow: auto;
+  }}
+  .webgis-title strong {{
+    font-size: 15px;
+  }}
+  .webgis-title span {{
+    font-size: 11px;
+  }}
+  .webgis-stats {{
+    margin-top: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }}
+  .webgis-stat {{
+    flex: 0 0 auto;
+  }}
+  .webgis-search {{
+    gap: 6px;
+  }}
+  .webgis-search input {{
+    min-width: 0;
+  }}
+  .webgis-search button {{
+    flex: 0 0 auto;
+  }}
+  .webgis-actions {{
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }}
+  .webgis-actions button {{
+    flex: 0 0 auto;
+  }}
+  .webgis-workspace,
+  .webgis-page.layers-collapsed .webgis-workspace,
+  .webgis-page.info-collapsed .webgis-workspace,
+  .webgis-page.layers-collapsed.info-collapsed .webgis-workspace {{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    overflow: auto;
+  }}
+  .webgis-sidebar,
+  .webgis-info {{
+    display: block;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }}
+  .webgis-page.layers-collapsed .webgis-sidebar .webgis-panel-body,
+  .webgis-page.layers-collapsed .webgis-sidebar .webgis-admin-panel,
+  .webgis-page.info-collapsed .webgis-info .webgis-panel-body,
+  .webgis-page.info-collapsed .webgis-info .webgis-panel:not(:first-child) {{
+    display: block;
+  }}
+  .webgis-page.layers-collapsed .webgis-sidebar h2,
+  .webgis-page.info-collapsed .webgis-info h2 {{
+    writing-mode: horizontal-tb;
+  }}
+  .webgis-map-panel {{
+    order: 1;
+    flex: 0 0 auto;
+    height: min(58dvh, 430px);
+    min-height: 330px;
+  }}
+  .webgis-map {{
+    height: 100%;
+    min-height: 330px;
+  }}
+  .webgis-sidebar {{
+    order: 2;
+  }}
+  .webgis-info {{
+    order: 3;
+  }}
+  .webgis-sidebar > .webgis-panel:first-child .webgis-panel-body,
+  .webgis-info > .webgis-panel:first-child .webgis-panel-body {{
+    max-height: 210px;
+  }}
+  .webgis-map-tools {{
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    transform: none;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 8px;
+  }}
+  .webgis-map-tools button {{
+    flex: 0 0 auto;
+  }}
+  .webgis-attr-panel {{
+    position: fixed;
+    z-index: 760;
+    inset: 64px 8px 78px;
+    margin: 0;
+  }}
+  .webgis-attr-tools {{
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }}
+  .webgis-attr-wrap {{
+    max-height: calc(100dvh - 176px);
+  }}
+  body.ai-webgis-assistant .ai-panel,
+  .ai-panel {{
+    inset: 70px 8px auto 8px;
+    width: auto;
+    max-height: calc(100dvh - 154px);
+  }}
+}}
 </style>
 </head>
 <body class="home-mode">
