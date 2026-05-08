@@ -3391,11 +3391,10 @@ body.startup-active {
         </section>
         <section id="webgisAdminLoginPanel" class="webgis-panel webgis-admin-panel" hidden>
           <div class="webgis-panel-head">
-            <h3>&#272;&#259;ng nh&#7853;p admin WebGIS</h3>
+            <h3>&#272;&#259;ng nh&#7853;p</h3>
             <button id="webgisCloseAdminLoginBtn" type="button">&#272;&#243;ng</button>
           </div>
           <div class="webgis-panel-body webgis-admin-grid">
-            <p class="webgis-admin-note">T&#224;i kho&#7843;n n&#224;y ch&#7881; d&#224;nh cho qu&#7843;n tr&#7883; WebGIS: upload GeoJSON, s&#7917;a thu&#7897;c t&#237;nh v&#224; l&#432;u d&#7919; li&#7879;u b&#7843;n &#273;&#7891;.</p>
             <label>T&#224;i kho&#7843;n
               <input id="webgisAdminUsername" type="text" autocomplete="username">
             </label>
@@ -4146,7 +4145,7 @@ function webgisShowAdminLogin(message = '') {
   window.setTimeout(() => webgisEl('webgisAdminUsername')?.focus(), 60);
 }
 
-function webgisRequireAdmin(message = 'Vui lòng đăng nhập admin WebGIS để quản trị dữ liệu.') {
+function webgisRequireAdmin(message = 'Vui lòng đăng nhập để tiếp tục.') {
   if (webgisAdminToken) return true;
   webgisShowAdminLogin(message);
   return false;
@@ -4174,7 +4173,7 @@ async function webgisLoginAdmin() {
   const username = webgisEl('webgisAdminUsername').value.trim();
   const password = webgisEl('webgisAdminPassword').value;
   if (!username || !password) {
-    webgisSetAdminStatus('Vui lòng nhập tài khoản và mật khẩu admin WebGIS.', true);
+    webgisSetAdminStatus('Vui lòng nhập tài khoản và mật khẩu.', true);
     return;
   }
   webgisSetAdminStatus('Đang đăng nhập...');
@@ -4185,7 +4184,7 @@ async function webgisLoginAdmin() {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    webgisSetAdminStatus(payload.error || 'Không đăng nhập được admin WebGIS.', true);
+    webgisSetAdminStatus(payload.error || 'Không đăng nhập được.', true);
     return;
   }
   webgisSetAdminSession(payload);
@@ -4198,8 +4197,8 @@ async function webgisLoginAdmin() {
   webgisRebuildOverlays();
   webgisEl('webgisAdminPassword').value = '';
   webgisEl('webgisAdminPanel').hidden = false;
-  webgisSetAdminStatus('Đã đăng nhập admin WebGIS thành công.');
-  webgisSetSaveStatus('Admin WebGIS đã đăng nhập');
+  webgisSetAdminStatus('Đã đăng nhập thành công.');
+  webgisSetSaveStatus('Đã đăng nhập');
   webgisInvalidateSize(80);
 }
 
@@ -4305,7 +4304,7 @@ async function webgisSaveLayerFeatures(layerId) {
   const payload = await response.json().catch(() => ({}));
   if (response.status === 401) {
     webgisClearAdminSession();
-    webgisSetSaveStatus('Phien admin WebGIS da het han. Dang nhap admin de luu layer.', true);
+    webgisSetSaveStatus('Phiên đăng nhập đã hết hạn. Đăng nhập lại để lưu layer.', true);
     return null;
   }
   if (!response.ok) throw new Error(payload.error || 'Khong luu duoc du lieu layer WebGIS.');
@@ -4329,7 +4328,7 @@ async function webgisSaveNow() {
     });
     if (response.status === 401) {
       webgisClearAdminSession();
-      webgisSetSaveStatus('Phiên admin WebGIS đã hết hạn. Bấm Đăng nhập admin khi cần quản trị.', true);
+      webgisSetSaveStatus('Phiên đăng nhập đã hết hạn. Bấm Đăng nhập khi cần quản trị.', true);
       return;
     }
     if (!response.ok) throw new Error(await response.text());
@@ -4679,7 +4678,7 @@ async function webgisPatchLayerMetadata(layerId) {
   const payload = await response.json().catch(() => ({}));
   if (response.status === 401) {
     webgisClearAdminSession();
-    webgisShowAdminLogin('Phien admin WebGIS da het han. Vui long dang nhap lai.');
+    webgisShowAdminLogin('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
   }
   if (!response.ok) throw new Error(payload.error || 'Khong cap nhat duoc layer WebGIS.');
   webgisSetSaveStatus('Da cap nhat hien thi layer');
@@ -4719,7 +4718,7 @@ async function webgisDeleteLayer(layerId) {
   const payload = await response.json().catch(() => ({}));
   if (response.status === 401) {
     webgisClearAdminSession();
-    webgisShowAdminLogin('Phien admin WebGIS da het han. Vui long dang nhap lai.');
+    webgisShowAdminLogin('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
   }
   if (!response.ok) throw new Error(payload.error || 'Khong xoa duoc layer WebGIS.');
   webgisRemoveLayerLocally(layerId);
@@ -5206,8 +5205,8 @@ function webgisBindEvents() {
   });
   webgisEl('webgisAdminLogoutBtn').addEventListener('click', () => {
     webgisClearAdminSession();
-    webgisSetSaveStatus('Đã đăng xuất admin WebGIS');
-    webgisShowAdminLogin('Đã đăng xuất admin WebGIS.');
+    webgisSetSaveStatus('Đã đăng xuất');
+    webgisShowAdminLogin('Đã đăng xuất.');
   });
   webgisEl('webgisImportBtn').addEventListener('click', () => webgisImportGeoJson().catch(error => alert(error.message || String(error))));
   webgisEl('webgisSaveFeatureBtn').addEventListener('click', webgisSaveSelectedFeatureProps);
