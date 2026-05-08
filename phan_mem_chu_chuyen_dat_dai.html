@@ -214,18 +214,60 @@ body.webgis-mode .appbar {
   filter: none;
 }
 body.home-mode #sideHomeBtn,
-body.module-mode #sideLandTransferBtn,
-body.docs-mode #sideLibraryBtn,
+body.module-mode #sideUtilitiesBtn,
+body.docs-mode #sideUtilitiesBtn,
 body.webgis-mode #sideWebGisBtn {
   border-color: #bfdbfe;
   background: linear-gradient(135deg, #eff6ff, #dbeafe);
   color: #1d4ed8;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.72);
 }
-body.webgis-mode #sideLandTransferBtn,
-body.webgis-mode #sideLibraryBtn,
+body.webgis-mode #sideUtilitiesBtn,
 body.webgis-mode #sideWebGisBtn {
   display: none;
+}
+.side-utility-menu,
+.home-utility-menu {
+  display: grid;
+  gap: 8px;
+}
+.side-utility-menu[hidden],
+.home-utility-menu[hidden] {
+  display: none;
+}
+.side-utility-menu {
+  position: fixed;
+  left: 92px;
+  top: 126px;
+  z-index: 130;
+  min-width: 196px;
+  padding: 10px;
+  border: 1px solid #cbdcec;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.97);
+  box-shadow: 0 18px 38px rgba(15, 47, 87, 0.16);
+  backdrop-filter: blur(12px);
+}
+.side-utility-menu button,
+.home-utility-menu button {
+  height: 38px;
+  border: 1px solid #c1d3e6;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #143452;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.side-utility-menu button:hover,
+.home-utility-menu button:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.home-utility-menu {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 8px;
 }
 .status {
   display: flex;
@@ -2657,6 +2699,17 @@ body.startup-active {
   .module-card p {
     font-size: 13px;
   }
+  .home-utility-menu {
+    grid-template-columns: 1fr;
+  }
+  .side-utility-menu {
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: 80px;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .actions {
     width: 100%;
     flex-wrap: nowrap;
@@ -3230,10 +3283,13 @@ body.startup-active {
   <div class="side-logo" aria-hidden="true">ĐĐ</div>
   <nav class="side-nav">
     <button id="sideHomeBtn" type="button" title="Trang chủ"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg></span><span>Trang chủ</span></button>
-    <button id="sideLandTransferBtn" type="button" title="Chu chuyển đất đai"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"></path><path d="M4 12h16"></path><path d="M4 19h16"></path><path d="M8 5v14"></path><path d="M16 5v14"></path></svg></span><span>Chu chuyển</span></button>
-    <button id="sideLibraryBtn" type="button" title="Thư viện tài liệu PDF"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"></path><path d="M14 3v4h4"></path><path d="M8.5 12h7"></path><path d="M8.5 16h5"></path></svg></span><span>Thư viện</span></button>
+    <button id="sideUtilitiesBtn" type="button" title="Tiện ích"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"></path><path d="M4 12h16"></path><path d="M4 19h16"></path><path d="M8 5v14"></path><path d="M16 5v14"></path></svg></span><span>Tiện ích</span></button>
     <button id="sideWebGisBtn" type="button" title="WebGIS quản lý dữ liệu đất đai"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18 3 20V6l6-2 6 2 6-2v14l-6 2z"></path><path d="M9 4v14"></path><path d="M15 6v14"></path></svg></span><span>WebGIS</span></button>
   </nav>
+  <div id="sideUtilitiesMenu" class="side-utility-menu" hidden>
+    <button id="sideUtilityLandBtn" type="button">Chu chuyển đất đai</button>
+    <button id="sideUtilityLibraryBtn" type="button">Thư viện PDF</button>
+  </div>
 </aside>
 <main id="homePage" class="home-page" aria-label="Trang chính">
   <section class="dashboard">
@@ -3250,17 +3306,14 @@ body.startup-active {
     <div class="module-grid" aria-label="Danh sách module">
       <article class="module-card">
         <div class="module-card-icon" aria-hidden="true">▦</div>
-        <span class="module-card-tag">Ma trận chu chuyển</span>
-        <h2>Chu chuyển đất đai</h2>
-        <p>Nhập hiện trạng, import bảng chồng xếp GIS, kiểm tra ma trận, xuất CSV/XLSX/Word và quản lý dữ liệu dự án.</p>
-        <button id="homeLandTransferBtn" class="primary" type="button">Mở biểu chu chuyển</button>
-      </article>
-      <article class="module-card">
-        <div class="module-card-icon" aria-hidden="true">□</div>
-        <span class="module-card-tag">Tài liệu PDF</span>
-        <h2>Thư viện tài liệu PDF</h2>
-        <p>Quản lý, phân loại và đọc tài liệu PDF trực tuyến theo quyền khách hoặc admin trong không gian gọn gàng.</p>
-        <button id="homeLibraryBtn" class="primary" type="button">Mở thư viện</button>
+        <span class="module-card-tag">Công cụ nghiệp vụ</span>
+        <h2>Tiện ích</h2>
+        <p>Truy cập nhanh biểu chu chuyển đất đai và thư viện tài liệu PDF trong cùng một nhóm tiện ích gọn gàng.</p>
+        <button id="homeUtilitiesBtn" class="primary" type="button">Mở tiện ích</button>
+        <div id="homeUtilitiesMenu" class="home-utility-menu" hidden>
+          <button id="homeLandTransferBtn" type="button">Chu chuyển đất đai</button>
+          <button id="homeLibraryBtn" type="button">Thư viện PDF</button>
+        </div>
       </article>
       <article class="module-card">
         <div class="module-card-icon" aria-hidden="true">◎</div>
@@ -4195,7 +4248,7 @@ function webgisPrimeFeatureCache(features) {
   grouped.forEach((items, layerId) => webgisSetLayerFeatureCache(layerId, items));
 }
 
-async function webgisEnsureLayerLoaded(layerId) {
+async function webgisEnsureLayerLoaded(layerId, options = {}) {
   const normalizedLayerId = String(layerId || '');
   if (webgisState.loadedLayerIds.has(normalizedLayerId)) return webgisState.featureCache.get(normalizedLayerId) || [];
   try {
@@ -4207,6 +4260,7 @@ async function webgisEnsureLayerLoaded(layerId) {
     const payload = await response.json();
     return webgisSetLayerFeatureCache(normalizedLayerId, payload.features || []);
   } catch (error) {
+    if (options.strict) throw error;
     webgisSetLayerFeatureCache(normalizedLayerId, []);
     webgisSetSaveStatus(`Khong nap duoc du lieu layer ${normalizedLayerId}`, true);
     return [];
@@ -5172,7 +5226,7 @@ function webgisBindEvents() {
   }
 }
 
-async function initializeWebGIS() {
+async function initializeWebGIS(options = {}) {
   if (webgisState.initialized) {
     webgisInvalidateSize(80);
     return;
@@ -5203,7 +5257,14 @@ async function initializeWebGIS() {
       const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
       const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '&copy; OpenTopoMap contributors' });
       L.control.layers({ OpenStreetMap: osm, 'Ảnh vệ tinh': satellite, 'Địa hình': terrain }, null, { position: 'topright', collapsed: true }).addTo(map);
-      await Promise.all(webgisState.layerDefs.filter(def => def.is_public !== false && def.visible === true).map(def => webgisEnsureLayerLoaded(def.id)));
+      const layersToLoad = webgisState.layerDefs.filter(def =>
+        def.is_public !== false &&
+        (def.visible === true || def.default_visible === true || Number(def.feature_count || 0) > 0)
+      );
+      if (layersToLoad.length) {
+        StartupScreen?.setStatus?.(`Đang nạp ${layersToLoad.length} lớp dữ liệu WebGIS...`);
+        await Promise.all(layersToLoad.map(def => webgisEnsureLayerLoaded(def.id, { strict: options.requireLayerData === true })));
+      }
       webgisRebuildOverlays();
       webgisBindEvents();
       webgisUpdateAdminUi();
@@ -5239,6 +5300,15 @@ const StartupScreen = (() => {
     if (status) status.textContent = text;
   }
 
+  function show(text = 'Đang kiểm tra máy chủ') {
+    if (!screen) return;
+    clearInterval(timer);
+    screen.hidden = false;
+    screen.classList.remove('is-hidden');
+    document.body.classList.add('startup-active');
+    setStatus(text);
+  }
+
   function hide() {
     if (!screen) return;
     clearInterval(timer);
@@ -5267,6 +5337,27 @@ const StartupScreen = (() => {
     }
   }
 
+  async function waitForBackend() {
+    if (!canCheckBackend) return true;
+    while (true) {
+      attempts += 1;
+      try {
+        const response = await fetch('/health', {
+          cache: 'no-store',
+          headers: { Accept: 'application/json' }
+        });
+        if (response.status === 200) {
+          setStatus('Máy chủ đã sẵn sàng, đang nạp dữ liệu WebGIS...');
+          return true;
+        }
+        setStatus(`Máy chủ đang khởi động (${response.status})`);
+      } catch (error) {
+        setStatus(attempts <= 1 ? 'Đang đánh thức máy chủ' : 'Máy chủ chưa sẵn sàng, thử lại sau 3 giây');
+      }
+      await new Promise(resolve => window.setTimeout(resolve, intervalMs));
+    }
+  }
+
   function start() {
     if (!screen) return;
     if (!canCheckBackend) {
@@ -5278,7 +5369,7 @@ const StartupScreen = (() => {
     timer = window.setInterval(checkHealth, intervalMs);
   }
 
-  return { start, hide, checkHealth };
+  return { start, show, hide, checkHealth, waitForBackend, setStatus };
 })();
 StartupScreen.start();
 let libraryDocuments = [];
@@ -7208,6 +7299,13 @@ function setActiveModuleLabel(label) {
   if (el) el.textContent = label || 'Trang chủ';
 }
 
+function closeUtilityMenus() {
+  const sideMenu = $('#sideUtilitiesMenu');
+  const homeMenu = $('#homeUtilitiesMenu');
+  if (sideMenu) sideMenu.hidden = true;
+  if (homeMenu) homeMenu.hidden = true;
+}
+
 function showHomePage() {
   setActiveModuleLabel('Trang chủ');
   document.body.classList.add('home-mode');
@@ -7219,6 +7317,7 @@ function showHomePage() {
   $('#aiPanel').hidden = true;
   $('#libraryAccessPanel').hidden = true;
   $('#importLog').hidden = true;
+  closeUtilityMenus();
   closeMainMenu();
 }
 
@@ -7230,6 +7329,7 @@ function showLandTransferPage() {
   document.body.classList.remove('webgis-mode');
   document.body.classList.remove('ai-webgis-assistant');
   $('#libraryAccessPanel').hidden = true;
+  closeUtilityMenus();
   closeMainMenu();
   recalc();
 }
@@ -7248,36 +7348,56 @@ function showDocumentLibraryPage() {
   $('#reportPanel').hidden = true;
   $('#aiPanel').hidden = true;
   $('#importLog').hidden = true;
+  closeUtilityMenus();
   closeMainMenu();
   updateLibrarySessionUi();
   fetchLibraryDocuments().catch(error => alert(error.message || String(error)));
 }
 
-function showWebGisPage() {
-  setActiveModuleLabel('WebGIS quản lý dữ liệu đất đai');
-  document.body.classList.add('webgis-mode');
-  document.body.classList.remove('home-mode');
-  document.body.classList.remove('module-mode');
-  document.body.classList.remove('docs-mode');
-  document.body.classList.remove('ai-webgis-assistant');
-  $('#reportPanel').hidden = true;
-  $('#aiPanel').hidden = true;
-  $('#libraryAccessPanel').hidden = true;
-  $('#libraryAdminPanel').hidden = true;
-  $('#pdfReader').hidden = true;
-  $('#importLog').hidden = true;
+async function showWebGisPage() {
+  closeUtilityMenus();
   closeMainMenu();
-  webgisUpdateAdminUi();
-  initializeWebGIS().catch(error => {
+  StartupScreen.show('Đang chuẩn bị WebGIS và nạp dữ liệu layer...');
+  try {
+    await StartupScreen.waitForBackend();
+    setActiveModuleLabel('WebGIS quản lý dữ liệu đất đai');
+    document.body.classList.add('webgis-mode');
+    document.body.classList.remove('home-mode');
+    document.body.classList.remove('module-mode');
+    document.body.classList.remove('docs-mode');
+    document.body.classList.remove('ai-webgis-assistant');
+    $('#reportPanel').hidden = true;
+    $('#aiPanel').hidden = true;
+    $('#libraryAccessPanel').hidden = true;
+    $('#libraryAdminPanel').hidden = true;
+    $('#pdfReader').hidden = true;
+    $('#importLog').hidden = true;
+    webgisUpdateAdminUi();
+    await initializeWebGIS({ requireLayerData: true });
+    StartupScreen.hide();
+  } catch (error) {
     webgisSetSaveStatus('Không khởi động được WebGIS', true);
+    StartupScreen.setStatus('Chưa nạp được dữ liệu WebGIS. Hệ thống sẽ thử lại khi bạn mở lại WebGIS.');
+    document.body.classList.add('home-mode');
+    document.body.classList.remove('webgis-mode');
+    window.setTimeout(() => StartupScreen.hide(), 900);
     alert(error.message || String(error));
-  });
+  }
 }
 
 $('#sideHomeBtn').addEventListener('click', showHomePage);
-$('#sideLandTransferBtn').addEventListener('click', showLandTransferPage);
-$('#sideLibraryBtn').addEventListener('click', showDocumentLibraryPage);
+$('#sideUtilitiesBtn').addEventListener('click', event => {
+  event.stopPropagation();
+  const menu = $('#sideUtilitiesMenu');
+  menu.hidden = !menu.hidden;
+});
+$('#sideUtilityLandBtn').addEventListener('click', showLandTransferPage);
+$('#sideUtilityLibraryBtn').addEventListener('click', showDocumentLibraryPage);
 $('#sideWebGisBtn').addEventListener('click', showWebGisPage);
+$('#homeUtilitiesBtn').addEventListener('click', () => {
+  const menu = $('#homeUtilitiesMenu');
+  menu.hidden = !menu.hidden;
+});
 $('#homeLandTransferBtn').addEventListener('click', showLandTransferPage);
 $('#homeLibraryBtn').addEventListener('click', showDocumentLibraryPage);
 $('#homeWebGisBtn').addEventListener('click', showWebGisPage);
@@ -7365,14 +7485,19 @@ $('.sample-downloads > span').addEventListener('click', event => {
 $$('.tool-items, .sample-items').forEach(panel => {
   panel.addEventListener('click', event => event.stopPropagation());
 });
+$$('.side-utility-menu, .home-utility-menu').forEach(panel => {
+  panel.addEventListener('click', event => event.stopPropagation());
+});
 document.addEventListener('click', event => {
   if (!event.target.closest('.main-menu')) closeMainMenu();
   closeToolDropdowns();
+  if (!event.target.closest('#sideUtilitiesBtn') && !event.target.closest('#homeUtilitiesBtn')) closeUtilityMenus();
 });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
     closeMainMenu();
     closeToolDropdowns();
+    closeUtilityMenus();
   }
 });
 
