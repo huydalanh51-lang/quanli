@@ -3026,7 +3026,7 @@ def main() -> None:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phần mềm chu chuyển đất đai</title>
+<title>Phần mềm quản lý dữ liệu đất đai</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root {{
