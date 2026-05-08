@@ -18,6 +18,44 @@ OUT = BASE_DIR / "public" / "index.html"
 JSZIP = Path(r"C:\Users\QUANGHUY\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules\jszip\dist\jszip.min.js")
 LOGO = Path(r"C:\Users\QUANGHUY\Downloads\482087578_122221961630205345_1940337838885474762_n.jpg")
 HOME_BACKGROUND = Path(r"C:\Users\QUANGHUY\Downloads\ChatGPT Image 12_00_04 30 thg 4, 2026.png")
+WEB_LOGO_OUT = BASE_DIR / "public" / "webgis" / "logo-land-management.svg"
+
+LAND_MANAGEMENT_LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo quản lý dữ liệu đất đai">
+  <defs>
+    <linearGradient id="qBlue" x1="68" y1="76" x2="430" y2="438" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b4f83"/>
+      <stop offset="0.48" stop-color="#0f74b6"/>
+      <stop offset="1" stop-color="#06345f"/>
+    </linearGradient>
+    <linearGradient id="leafGreen" x1="165" y1="144" x2="333" y2="388" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a8d987"/>
+      <stop offset="0.5" stop-color="#32a267"/>
+      <stop offset="1" stop-color="#0c6b4a"/>
+    </linearGradient>
+    <linearGradient id="fieldGreen" x1="170" y1="319" x2="346" y2="436" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a9d98d"/>
+      <stop offset="1" stop-color="#0d6f50"/>
+    </linearGradient>
+    <filter id="softShadow" x="-18%" y="-18%" width="136%" height="136%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0f2f57" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#f8fbff"/>
+  <g filter="url(#softShadow)">
+    <path d="M389 375c-34 31-81 50-132 50-107 0-194-87-194-194S150 37 257 37c96 0 176 70 191 162h-73c-14-52-61-90-118-90-67 0-122 55-122 122s55 122 122 122c32 0 62-13 84-33l-51-51h145l19 144-65-38Z" fill="url(#qBlue)"/>
+    <circle cx="257" cy="231" r="132" fill="#ffffff"/>
+    <path d="M244 72c6 43 6 96-8 132-10 26-32 46-58 61 22-8 46-19 66-36v126h-43V187c0-46 19-83 43-115Z" fill="url(#leafGreen)"/>
+    <path d="M168 361 257 300l94 61-96 71-87-71Z" fill="url(#fieldGreen)"/>
+    <path d="M168 361 257 300l94 61m-142 31 86-62m-40 92-1-93m-54 6 94 65m-18-89 55 36" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M274 292h46v42h-46z" fill="#c48a3a"/>
+    <path d="M265 294 298 265l35 29" fill="none" stroke="#2f8f62" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M292 304h12v12h-12zm20 0h12v12h-12zm-20 18h12v12h-12zm20 18h12v12h-12z" fill="#fff8e8"/>
+    <path d="M337 285c26-39 54-34 75-80-42 3-65 19-75 80Zm19 26c33-12 51 3 77-24-33-12-58-4-77 24Zm-42-6c-9-33-31-43-39-80 35 14 48 36 39 80Z" fill="#66ba7f"/>
+    <path d="M337 343c3-55 16-100 56-133" fill="none" stroke="#2f8f62" stroke-width="8" stroke-linecap="round"/>
+    <path d="M111 285c33-30 65-59 102-86m128 14 82-54M118 164l82 36m198 119-70-50" fill="none" stroke="#c49a6c" stroke-width="5" stroke-linecap="round" opacity="0.8"/>
+    <path d="M206 190 186 172m12 42-34 8m34-8-23 27m169-51 31-14m-13 36 30 22m-30-22-2 38" fill="none" stroke="#0f74b6" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>"""
 
 LAND_NAME_FIXES = {
     "Đất côn trình thủy lợi": "Đất công trình thủy lợi",
@@ -3002,9 +3040,9 @@ def main() -> None:
     meta_json = json.dumps(meta, ensure_ascii=False).replace("</", "<\\/")
 
     jszip_js = JSZIP.read_text(encoding="utf-8")
-    logo_data_url = ""
-    if LOGO.exists():
-        logo_data_url = "data:image/jpeg;base64," + base64.b64encode(LOGO.read_bytes()).decode("ascii")
+    WEB_LOGO_OUT.parent.mkdir(parents=True, exist_ok=True)
+    WEB_LOGO_OUT.write_text(LAND_MANAGEMENT_LOGO_SVG, encoding="utf-8")
+    logo_data_url = "data:image/svg+xml;base64," + base64.b64encode(LAND_MANAGEMENT_LOGO_SVG.encode("utf-8")).decode("ascii")
     home_bg_data_url = ""
     if HOME_BACKGROUND.exists():
         home_bg_data_url = "data:image/png;base64," + base64.b64encode(HOME_BACKGROUND.read_bytes()).decode("ascii")
@@ -3183,16 +3221,15 @@ body.webgis-mode .appbar {{
   backdrop-filter: blur(14px);
 }}
 .side-logo {{
-  display: grid;
-  place-items: center;
+  display: block;
   width: 44px;
   height: 44px;
   margin: 0 auto 4px;
   border-radius: 14px;
-  color: #ffffff;
-  background: linear-gradient(135deg, #2563eb, #0ea5e9);
-  font-size: 20px;
-  font-weight: 800;
+  border: 1px solid rgba(191, 219, 254, 0.86);
+  background: #ffffff;
+  object-fit: contain;
+  padding: 3px;
   box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
 }}
 .side-nav {{
@@ -4648,11 +4685,12 @@ body.ai-webgis-assistant .ai-controls textarea {{
 .startup-brand-mark {{
   width: 34px;
   height: 34px;
-  display: grid;
-  place-items: center;
   border-radius: 11px;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  color: #fff;
+  display: block;
+  object-fit: contain;
+  background: #ffffff;
+  padding: 3px;
+  border: 1px solid rgba(147, 197, 253, 0.42);
   box-shadow: 0 12px 28px rgba(59, 130, 246, 0.35);
 }}
 .startup-title {{
@@ -5342,7 +5380,7 @@ body.startup-active {{
   <div class="startup-grid" aria-hidden="true"></div>
   <div class="startup-card">
     <div class="startup-pulse" aria-hidden="true"></div>
-    <div class="startup-brand"><span class="startup-brand-mark">DD</span> WebGIS</div>
+    <div class="startup-brand"><img class="startup-brand-mark" src="{logo_data_url}" alt=""> WebGIS</div>
     <h1 class="startup-title">Đang khởi động WebGIS</h1>
     <p class="startup-description">Máy chủ đang được đánh thức, vui lòng chờ trong giây lát...</p>
     <div class="startup-loader">
@@ -5353,7 +5391,7 @@ body.startup-active {{
 </section>
 <header class="appbar">
   <div class="brand">
-    <img class="brand-logo" src="{logo_data_url}" alt="Logo Nguyễn Quang Huy">
+    <img class="brand-logo" src="{logo_data_url}" alt="Logo phần mềm quản lý dữ liệu đất đai">
     <div class="brand-text">
       <div class="title">PHẦN MỀM QUẢN LÝ ĐẤT ĐAI</div>
       <div class="subtitle">Công cụ hỗ trợ lập, kiểm tra và xuất biểu chu chuyển sử dụng đất</div>
@@ -5472,7 +5510,7 @@ body.startup-active {{
   <input id="gtpInput" class="hidden-input" type="file" accept=".gtp,application/json">
 </header>
 <aside class="app-sidebar" aria-label="Điều hướng module">
-  <div class="side-logo" aria-hidden="true">ĐĐ</div>
+  <img class="side-logo" src="{logo_data_url}" alt="Logo phần mềm">
   <nav class="side-nav">
     <button id="sideHomeBtn" type="button" title="Trang chủ"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg></span><span>Trang chủ</span></button>
     <button id="sideUtilitiesBtn" type="button" title="Tiện ích"><span class="side-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"></path><path d="M4 12h16"></path><path d="M4 19h16"></path><path d="M8 5v14"></path><path d="M16 5v14"></path></svg></span><span>Tiện ích</span></button>
