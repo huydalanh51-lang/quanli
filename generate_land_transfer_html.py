@@ -1494,7 +1494,7 @@ function webgisUpdateAdminUi() {
   const loginPanel = webgisEl('webgisAdminLoginPanel');
   const adminBtn = webgisEl('webgisAdminBtn');
   const badge = webgisEl('webgisAdminSessionBadge');
-  if (adminBtn) adminBtn.textContent = logged ? 'Quản trị dữ liệu' : 'Đăng nhập admin';
+  if (adminBtn) adminBtn.textContent = logged ? 'Quản trị dữ liệu' : 'Đăng nhập';
   if (badge) {
     badge.hidden = !logged;
     badge.textContent = logged ? `Admin${webgisAdminUser ? ': ' + webgisAdminUser : ''}` : 'Admin';
