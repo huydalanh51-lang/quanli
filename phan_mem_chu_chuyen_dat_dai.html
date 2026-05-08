@@ -2883,6 +2883,165 @@ body.startup-active {
     width: auto;
     max-height: calc(100dvh - 154px);
   }
+  body.webgis-mode .appbar,
+  body.webgis-mode .app-sidebar,
+  body.webgis-mode .webgis-topbar,
+  body.webgis-mode .webgis-info,
+  body.webgis-mode .webgis-attr-panel,
+  body.webgis-mode .webgis-admin-panel {
+    display: none !important;
+  }
+  body.webgis-mode .webgis-page {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    height: 100dvh;
+    width: 100vw;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: #dbeafe;
+  }
+  body.webgis-mode .webgis-shell {
+    height: 100dvh;
+    border-radius: 0;
+  }
+  body.webgis-mode .webgis-workspace,
+  body.webgis-mode .webgis-page.layers-collapsed .webgis-workspace,
+  body.webgis-mode .webgis-page.info-collapsed .webgis-workspace,
+  body.webgis-mode .webgis-page.layers-collapsed.info-collapsed .webgis-workspace {
+    position: relative;
+    display: block;
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
+  }
+  body.webgis-mode .webgis-map-panel {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  body.webgis-mode .webgis-map {
+    height: 100%;
+    min-height: 0;
+  }
+  body.webgis-mode .webgis-sidebar {
+    position: absolute;
+    z-index: 650;
+    top: 12px;
+    right: 10px;
+    left: auto;
+    width: min(250px, calc(100vw - 56px));
+    max-height: min(45dvh, 310px);
+    overflow: auto;
+    display: block;
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(15, 47, 87, 0.20);
+  }
+  body.webgis-mode .webgis-sidebar > .webgis-panel:first-child {
+    display: block;
+    min-height: 0;
+    border-radius: 10px;
+    box-shadow: none;
+  }
+  body.webgis-mode .webgis-sidebar .webgis-panel-head {
+    min-height: 0;
+    padding: 8px 10px;
+    border-bottom-color: #dbe7f3;
+  }
+  body.webgis-mode .webgis-sidebar .webgis-panel-head h2 {
+    writing-mode: horizontal-tb;
+    font-size: 12px;
+  }
+  body.webgis-mode .webgis-sidebar .webgis-panel-actions,
+  body.webgis-mode #webgisFitAllBtn,
+  body.webgis-mode #webgisToggleSidebarBtn {
+    display: none !important;
+  }
+  body.webgis-mode .webgis-sidebar > .webgis-panel:first-child .webgis-panel-body {
+    display: block;
+    max-height: none;
+    padding: 8px;
+    overflow: visible;
+  }
+  body.webgis-mode .webgis-layer-list {
+    gap: 5px;
+  }
+  body.webgis-mode .webgis-layer-item {
+    grid-template-columns: auto 1fr;
+    padding: 6px;
+    border-radius: 8px;
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.96);
+  }
+  body.webgis-mode .webgis-layer-main label {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  body.webgis-mode .webgis-layer-count {
+    font-size: 10px;
+  }
+  body.webgis-mode .webgis-layer-actions {
+    display: none;
+  }
+  body.webgis-mode .webgis-layer-tools {
+    grid-column: 1 / 3;
+    gap: 6px;
+    font-size: 10px;
+  }
+  body.webgis-mode .webgis-map-tools {
+    top: 96px;
+    left: 8px;
+    right: auto;
+    max-width: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+  body.webgis-mode .webgis-map-tools .webgis-tool-divider,
+  body.webgis-mode .webgis-map-tools .webgis-tool-group:not(:first-child) {
+    display: none !important;
+  }
+  body.webgis-mode #webgisLocateBtn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 6px;
+    background: #fff;
+    color: #0f2f57;
+    font-size: 0;
+    box-shadow: 0 4px 12px rgba(15, 47, 87, 0.22);
+  }
+  body.webgis-mode #webgisLocateBtn::before {
+    content: "◎";
+    font-size: 18px;
+    line-height: 1;
+  }
+  body.webgis-mode .webgis-measure-badge {
+    display: none;
+  }
+  body.webgis-mode .webgis-coordinate-bar {
+    right: 8px;
+    bottom: 8px;
+    max-width: calc(100vw - 92px);
+    padding: 5px 7px;
+    font-size: 11px;
+  }
+  body.webgis-mode .leaflet-control-zoom {
+    margin-top: 12px !important;
+    margin-left: 8px !important;
+  }
+  body.webgis-mode .leaflet-control-layers {
+    margin-top: 12px !important;
+    margin-right: 8px !important;
+  }
 }
 </style>
 </head>
