@@ -978,6 +978,10 @@ body.webgis-mode .app-sidebar {
   flex-direction: row;
   height: 100vh;
   min-height: 0;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   background: #edf4fb;
 }
 .webgis-main-nav {
@@ -1229,54 +1233,6 @@ body.webgis-mode .app-sidebar {
 .webgis-detail-table th {
   padding: 8px 7px;
 }
-.webgis-legend-panel {
-  flex: 0 0 auto;
-}
-.webgis-legend-list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 7px;
-  font-size: 12px;
-  color: #334155;
-}
-.webgis-legend-list span {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.webgis-legend-list i {
-  width: 15px;
-  height: 15px;
-  border: 1px solid rgba(15,47,87,0.22);
-  border-radius: 4px;
-  flex: 0 0 auto;
-}
-.webgis-statusbar {
-  flex: 0 0 auto;
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 16px;
-  border-top: 1px solid #d9e6f3;
-  background: rgba(255,255,255,0.94);
-  color: #334155;
-  font-size: 12px;
-  font-weight: 700;
-}
-.webgis-statusbar div {
-  display: inline-flex;
-  align-items: center;
-  gap: 16px;
-}
-.webgis-system-status i {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34,197,94,0.16);
-}
 body.ai-webgis-assistant .ai-panel {
   inset: auto 22px 48px auto;
   width: 330px;
@@ -1489,24 +1445,8 @@ WEBGIS_HTML = r"""
             <p class="webgis-admin-note">Bật/tắt lớp ở sidebar, dùng thanh trong suốt để so sánh nền bản đồ và dữ liệu. Ô tìm kiếm hỗ trợ mã thửa, mã đất, chủ sử dụng, địa danh và loại quy hoạch.</p>
           </div>
         </section>
-        <section class="webgis-panel webgis-legend-panel">
-          <div class="webgis-panel-head">
-            <h3>Ch&#250; gi&#7843;i b&#7843;n &#273;&#7891;</h3>
-          </div>
-          <div class="webgis-panel-body webgis-legend-list">
-            <span><i style="background:#f59aaa"></i>&#272;&#7845;t &#7903;</span>
-            <span><i style="background:#ffff00"></i>&#272;&#7845;t n&#244;ng nghi&#7879;p</span>
-            <span><i style="background:#f5a623"></i>&#272;&#7845;t giao th&#244;ng</span>
-            <span><i style="background:#1e88e5"></i>&#272;&#7845;t th&#7911;y h&#7879;</span>
-            <span><i style="background:#a855f7"></i>&#272;&#7845;t c&#244;ng c&#7897;ng</span>
-          </div>
-        </section>
       </aside>
     </div>
-    <footer class="webgis-statusbar" aria-label="Trang thai he thong">
-      <div><span>Version 10.300</span><span>C&#7853;p nh&#7853;t: 15/05/2024 10:30</span></div>
-      <div class="webgis-system-status"><i></i>System status: Green</div>
-    </footer>
     <section id="webgisAttributePanel" class="webgis-attr-panel" hidden>
       <div class="webgis-attr-tools">
         <strong>Bảng thuộc tính</strong>
