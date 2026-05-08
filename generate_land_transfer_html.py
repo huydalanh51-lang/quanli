@@ -18,7 +18,9 @@ OUT = BASE_DIR / "public" / "index.html"
 JSZIP = Path(r"C:\Users\QUANGHUY\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules\jszip\dist\jszip.min.js")
 LOGO = Path(r"C:\Users\QUANGHUY\Downloads\482087578_122221961630205345_1940337838885474762_n.jpg")
 HOME_BACKGROUND = Path(r"C:\Users\QUANGHUY\Downloads\ChatGPT Image 12_00_04 30 thg 4, 2026.png")
-WEB_LOGO_OUT = BASE_DIR / "public" / "webgis" / "logo-land-management.svg"
+WEB_LOGO_SOURCE = Path(r"C:\Users\QUANGHUY\Pictures\Screenshots\Screenshot 2026-05-08 233110.png")
+WEB_LOGO_OUT = BASE_DIR / "public" / "webgis" / "logo-land-management.png"
+WEB_LOGO_FALLBACK_OUT = BASE_DIR / "public" / "webgis" / "logo-land-management.svg"
 
 LAND_MANAGEMENT_LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo quản lý dữ liệu đất đai">
   <defs>
@@ -2853,6 +2855,52 @@ def display_value(value, code: str = "", col: int | None = None) -> str:
     return LAND_NAME_FIXES.get(text.strip(), text)
 
 
+def build_web_logo_asset() -> tuple[bytes, str]:
+    WEB_LOGO_OUT.parent.mkdir(parents=True, exist_ok=True)
+    if WEB_LOGO_SOURCE.exists():
+        try:
+            from PIL import Image
+
+            img = Image.open(WEB_LOGO_SOURCE).convert("RGBA")
+            # Remove the screenshot border and excess paper background so the mark reads well at header size.
+            if img.width > 10 and img.height > 10:
+                img = img.crop((4, 4, img.width - 4, img.height - 4))
+
+            rgb = img.convert("RGB")
+            mask = Image.new("L", rgb.size, 0)
+            pixels = rgb.load()
+            mask_pixels = mask.load()
+            for y in range(rgb.height):
+                for x in range(rgb.width):
+                    r, g, b = pixels[x, y]
+                    luminance = 0.299 * r + 0.587 * g + 0.114 * b
+                    saturation = max(r, g, b) - min(r, g, b)
+                    if saturation > 18 or luminance < 232:
+                        mask_pixels[x, y] = 255
+
+            bbox = mask.getbbox()
+            if bbox:
+                pad = 28
+                left = max(0, bbox[0] - pad)
+                top = max(0, bbox[1] - pad)
+                right = min(img.width, bbox[2] + pad)
+                bottom = min(img.height, bbox[3] + pad)
+                img = img.crop((left, top, right, bottom))
+
+            side = max(img.width, img.height)
+            canvas = Image.new("RGBA", (side, side), (255, 255, 255, 0))
+            canvas.alpha_composite(img, ((side - img.width) // 2, (side - img.height) // 2))
+            canvas = canvas.resize((512, 512), Image.Resampling.LANCZOS)
+            canvas.save(WEB_LOGO_OUT, "PNG", optimize=True)
+            return WEB_LOGO_OUT.read_bytes(), "image/png"
+        except Exception:
+            shutil.copy2(WEB_LOGO_SOURCE, WEB_LOGO_OUT)
+            return WEB_LOGO_OUT.read_bytes(), "image/png"
+
+    WEB_LOGO_FALLBACK_OUT.write_text(LAND_MANAGEMENT_LOGO_SVG, encoding="utf-8")
+    return LAND_MANAGEMENT_LOGO_SVG.encode("utf-8"), "image/svg+xml"
+
+
 def main() -> None:
     wb = openpyxl.load_workbook(SOURCE, data_only=False)
     ws = wb["Sheet1"]
@@ -3040,9 +3088,8 @@ def main() -> None:
     meta_json = json.dumps(meta, ensure_ascii=False).replace("</", "<\\/")
 
     jszip_js = JSZIP.read_text(encoding="utf-8")
-    WEB_LOGO_OUT.parent.mkdir(parents=True, exist_ok=True)
-    WEB_LOGO_OUT.write_text(LAND_MANAGEMENT_LOGO_SVG, encoding="utf-8")
-    logo_data_url = "data:image/svg+xml;base64," + base64.b64encode(LAND_MANAGEMENT_LOGO_SVG.encode("utf-8")).decode("ascii")
+    logo_bytes, logo_mime = build_web_logo_asset()
+    logo_data_url = f"data:{logo_mime};base64," + base64.b64encode(logo_bytes).decode("ascii")
     home_bg_data_url = ""
     if HOME_BACKGROUND.exists():
         home_bg_data_url = "data:image/png;base64," + base64.b64encode(HOME_BACKGROUND.read_bytes()).decode("ascii")
