@@ -967,31 +967,413 @@ body.webgis-mode .leaflet-control-layers {
     display: flex;
   }
 }
+
+
+/* Professional SaaS/WebGIS layout refresh. Keeps map/data logic untouched. */
+body.webgis-mode .appbar,
+body.webgis-mode .app-sidebar {
+  display: none !important;
+}
+.webgis-page {
+  flex-direction: row;
+  height: 100vh;
+  min-height: 0;
+  background: #edf4fb;
+}
+.webgis-main-nav {
+  flex: 0 0 92px;
+  width: 92px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 10px;
+  background: linear-gradient(180deg, #08345f 0%, #075899 52%, #0b3d73 100%);
+  color: #eaf4ff;
+  box-shadow: 12px 0 30px rgba(8, 52, 95, 0.18);
+}
+.webgis-main-nav-logo {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.96);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+}
+.webgis-main-nav-logo img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 13px;
+}
+.webgis-main-nav nav {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+.webgis-main-nav button {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  min-height: 64px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 7px 5px;
+  background: transparent;
+  color: rgba(234,244,255,0.84);
+  font: 800 11px/1.12 Inter, "Segoe UI", Arial, sans-serif;
+  cursor: pointer;
+}
+.webgis-main-nav button:hover,
+.webgis-main-nav button.active {
+  border-color: rgba(147,197,253,0.36);
+  background: rgba(59,130,246,0.34);
+  color: #ffffff;
+}
+.webgis-nav-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+.webgis-shell {
+  min-width: 0;
+  border-radius: 0;
+  background: #edf4fb;
+}
+.webgis-topbar {
+  grid-template-columns: minmax(330px, 0.92fr) minmax(380px, 640px) auto;
+  min-height: 76px;
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.94);
+  border-bottom: 1px solid #d9e6f3;
+  box-shadow: 0 8px 24px rgba(15, 47, 87, 0.08);
+  backdrop-filter: blur(12px);
+}
+.webgis-brandline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.webgis-brand-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  border-radius: 13px;
+  background: #fff;
+  border: 1px solid #dbeafe;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.16);
+  flex: 0 0 auto;
+}
+.webgis-title strong {
+  font-size: 17px;
+  color: #0b2f57;
+  line-height: 1.15;
+}
+.webgis-title span {
+  margin-top: 2px;
+  color: #4f6f8d;
+  font-size: 12px;
+  font-weight: 700;
+}
+.webgis-stats {
+  margin-top: 6px;
+}
+.webgis-stat {
+  min-height: 22px;
+  padding: 2px 8px;
+  background: #f5faff;
+  font-size: 11px;
+}
+.webgis-search {
+  align-items: center;
+}
+.webgis-search input {
+  height: 42px;
+  border-radius: 13px;
+  padding: 9px 14px;
+  font-size: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 7px 18px rgba(15, 47, 87, 0.06);
+}
+.webgis-search .primary {
+  height: 42px;
+  border-radius: 12px;
+  background: #0f766e;
+  box-shadow: 0 10px 22px rgba(15,118,110,0.20);
+}
+.webgis-actions {
+  gap: 7px;
+  flex-wrap: nowrap;
+}
+.webgis-actions button {
+  height: 38px;
+  border-radius: 11px;
+  background: #f8fbff;
+  box-shadow: 0 8px 18px rgba(15,47,87,0.08);
+  white-space: nowrap;
+}
+.webgis-actions .ai-action {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+.webgis-actions .admin-action {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+}
+.webgis-save-status {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  white-space: nowrap;
+}
+.webgis-save-status::before {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.16);
+}
+.webgis-workspace {
+  grid-template-columns: 292px minmax(560px, 1fr) 312px;
+  gap: 12px;
+  padding: 12px;
+  background: #edf4fb;
+}
+.webgis-page.layers-collapsed .webgis-workspace {
+  grid-template-columns: 44px minmax(560px, 1fr) 312px;
+}
+.webgis-page.info-collapsed .webgis-workspace {
+  grid-template-columns: 292px minmax(560px, 1fr) 44px;
+}
+.webgis-panel {
+  border-color: #cfe0f2;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.97);
+  box-shadow: 0 12px 28px rgba(15,47,87,0.08);
+}
+.webgis-panel-head {
+  min-height: 48px;
+  padding: 10px 12px;
+}
+.webgis-panel-head h2,
+.webgis-panel-head h3 {
+  color: #0b2f57;
+  font-size: 15px;
+  font-weight: 900;
+}
+.webgis-panel-body {
+  padding: 10px;
+}
+.webgis-layer-list {
+  gap: 8px;
+}
+.webgis-layer-item {
+  grid-template-columns: 18px 1fr auto;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 13px;
+  background: #fbfdff;
+  box-shadow: none;
+}
+.webgis-layer-main label {
+  font-size: 12px;
+  line-height: 1.18;
+}
+.webgis-layer-count {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.webgis-layer-tools {
+  gap: 8px;
+  font-size: 11px;
+}
+.webgis-layer-tools span {
+  min-width: 44px;
+}
+.webgis-icon-btn {
+  width: 30px;
+  min-width: 30px;
+  height: 30px !important;
+  border-radius: 10px !important;
+}
+.webgis-symbol {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+}
+.webgis-map-panel {
+  border-radius: 16px;
+  border-color: #c7d9eb;
+  background: #dce9f5;
+  box-shadow: 0 16px 34px rgba(15,47,87,0.14);
+}
+.webgis-map-tools {
+  top: 14px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 14px 30px rgba(15,47,87,0.16);
+}
+.webgis-map-tools button {
+  height: 32px;
+  padding: 0 11px;
+  font-size: 12px;
+}
+.webgis-detail-table th {
+  width: 118px;
+  background: #f5faff;
+  color: #526b86;
+}
+.webgis-detail-table td,
+.webgis-detail-table th {
+  padding: 8px 7px;
+}
+.webgis-legend-panel {
+  flex: 0 0 auto;
+}
+.webgis-legend-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  font-size: 12px;
+  color: #334155;
+}
+.webgis-legend-list span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.webgis-legend-list i {
+  width: 15px;
+  height: 15px;
+  border: 1px solid rgba(15,47,87,0.22);
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+.webgis-statusbar {
+  flex: 0 0 auto;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px;
+  border-top: 1px solid #d9e6f3;
+  background: rgba(255,255,255,0.94);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+.webgis-statusbar div {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
+.webgis-system-status i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.16);
+}
+body.ai-webgis-assistant .ai-panel {
+  inset: auto 22px 48px auto;
+  width: 330px;
+  max-height: 430px;
+}
+body.ai-webgis-assistant .ai-card {
+  border-color: #fed7aa;
+  border-radius: 16px;
+  box-shadow: 0 18px 42px rgba(194,65,12,0.18);
+}
+body.ai-webgis-assistant .ai-head {
+  background: #fff7ed;
+  color: #c2410c;
+}
+body.ai-webgis-assistant .ai-messages {
+  max-height: 170px;
+  background: #fffaf5;
+}
+body.ai-webgis-assistant .ai-message {
+  border-radius: 12px;
+  border-color: #fed7aa;
+}
+body.ai-webgis-assistant .ai-controls textarea {
+  min-height: 42px;
+  border-radius: 12px;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+@media (max-width: 1180px) {
+  .webgis-topbar {
+    grid-template-columns: 1fr;
+  }
+  .webgis-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) {
+  .webgis-main-nav {
+    display: none;
+  }
+  .webgis-workspace {
+    grid-template-columns: 1fr;
+  }
+  .webgis-info,
+  .webgis-sidebar {
+    max-height: 190px;
+  }
+  body.ai-webgis-assistant .ai-panel {
+    inset: auto 12px 44px 12px;
+    width: auto;
+  }
+}
 """
 
 WEBGIS_HTML = r"""
 <main id="webgisPage" class="webgis-page" aria-label="WebGis">
+  <aside class="webgis-main-nav" aria-label="Thanh menu WebGIS">
+    <div class="webgis-main-nav-logo">
+      <img src="__WEBGIS_LOGO__" alt="Logo phan mem quan ly dat dai">
+    </div>
+    <nav>
+      <button id="webgisNavHomeBtn" type="button" title="Trang chu"><span class="webgis-nav-icon">&#8962;</span><span>Trang ch&#7911;</span></button>
+      <button id="webgisNavDatabaseBtn" type="button" title="Co so du lieu"><span class="webgis-nav-icon">&#9678;</span><span>C&#417; s&#7903; d&#7919; li&#7879;u</span></button>
+      <button class="active" type="button" title="Ban do chuyen de"><span class="webgis-nav-icon">&#9671;</span><span>B&#7843;n &#273;&#7891; chuy&#234;n &#273;&#7873;</span></button>
+      <button id="webgisNavAnalysisBtn" type="button" title="Phan tich"><span class="webgis-nav-icon">&#9637;</span><span>Ph&#226;n t&#237;ch</span></button>
+      <button id="webgisNavReportBtn" type="button" title="Bao cao"><span class="webgis-nav-icon">&#9636;</span><span>B&#225;o c&#225;o</span></button>
+      <button id="webgisNavSystemBtn" type="button" title="He thong"><span class="webgis-nav-icon">&#9881;</span><span>H&#7879; th&#7889;ng</span></button>
+    </nav>
+  </aside>
   <section class="webgis-shell">
     <header class="webgis-topbar">
       <div class="webgis-title">
-        <strong>WEBGIS QUẢN LÝ DỮ LIỆU ĐẤT ĐAI</strong>
-        <span>Hiển thị, tra cứu và quản lý dữ liệu bản đồ hiện trạng/quy hoạch</span>
-        <div class="webgis-stats" aria-label="Thống kê dữ liệu WebGIS">
-          <span id="webgisLayerCount" class="webgis-stat">0 lớp</span>
-          <span id="webgisFeatureCount" class="webgis-stat">0 đối tượng</span>
-          <span id="webgisVisibleCount" class="webgis-stat">0 đang bật</span>
+        <div class="webgis-brandline">
+          <img class="webgis-brand-logo" src="__WEBGIS_LOGO__" alt="Logo phan mem quan ly dat dai">
+          <div>
+            <strong>PH&#7846;N M&#7872;M QU&#7842;N L&#221; &#272;&#7844;T &#272;AI (WebGIS)</strong>
+            <span>WebGIS qu&#7843;n l&#253; d&#7919; li&#7879;u &#273;&#7845;t &#273;ai</span>
+          </div>
+        </div>
+        <div class="webgis-stats" aria-label="Thong ke du lieu WebGIS">
+          <span id="webgisLayerCount" class="webgis-stat">0 l&#7899;p</span>
+          <span id="webgisFeatureCount" class="webgis-stat">0 &#273;&#7889;i t&#432;&#7907;ng</span>
+          <span id="webgisVisibleCount" class="webgis-stat">0 &#273;ang b&#7853;t</span>
         </div>
       </div>
       <div class="webgis-search">
-        <input id="webgisSearchInput" type="search" placeholder="Tìm mã thửa, chủ sử dụng, mã đất, địa danh, quy hoạch">
+        <input id="webgisSearchInput" type="search" placeholder="T&#236;m ki&#7871;m th&#7917;a &#273;&#7845;t, ch&#7911; s&#7917; d&#7909;ng, &#273;&#7883;a danh...">
         <button id="webgisSearchBtn" class="primary" type="button">Tìm</button>
         <div id="webgisSearchResults" class="webgis-search-results" hidden></div>
       </div>
       <div class="webgis-actions">
-        <span id="webgisSaveStatus" class="webgis-save-status">Chưa nạp dữ liệu</span>
-        <button id="webgisAiBtn" type="button">Trợ lý AI</button>
-        <button id="webgisOpenTableBtn" type="button">Bảng thuộc tính</button>
-        <button id="webgisAdminBtn" class="admin-action" type="button">Quản trị dữ liệu</button>
+        <span id="webgisSaveStatus" class="webgis-save-status">Ch&#432;a n&#7841;p d&#7919; li&#7879;u</span>
+        <button id="webgisAiBtn" class="ai-action" type="button">Tr&#7907; l&#253; AI</button>
+        <button id="webgisSupportBtn" type="button">H&#7895; tr&#7907;</button>
+        <button id="webgisAccountBtn" type="button">T&#224;i kho&#7843;n</button>
+        <button id="webgisAdminBtn" class="admin-action" type="button">&#272;&#259;ng nh&#7853;p</button>
+        <button id="webgisOpenTableBtn" type="button" hidden>B&#7843;ng thu&#7897;c t&#237;nh</button>
       </div>
     </header>
     <div class="webgis-workspace">
@@ -1107,8 +1489,24 @@ WEBGIS_HTML = r"""
             <p class="webgis-admin-note">Bật/tắt lớp ở sidebar, dùng thanh trong suốt để so sánh nền bản đồ và dữ liệu. Ô tìm kiếm hỗ trợ mã thửa, mã đất, chủ sử dụng, địa danh và loại quy hoạch.</p>
           </div>
         </section>
+        <section class="webgis-panel webgis-legend-panel">
+          <div class="webgis-panel-head">
+            <h3>Ch&#250; gi&#7843;i b&#7843;n &#273;&#7891;</h3>
+          </div>
+          <div class="webgis-panel-body webgis-legend-list">
+            <span><i style="background:#f59aaa"></i>&#272;&#7845;t &#7903;</span>
+            <span><i style="background:#ffff00"></i>&#272;&#7845;t n&#244;ng nghi&#7879;p</span>
+            <span><i style="background:#f5a623"></i>&#272;&#7845;t giao th&#244;ng</span>
+            <span><i style="background:#1e88e5"></i>&#272;&#7845;t th&#7911;y h&#7879;</span>
+            <span><i style="background:#a855f7"></i>&#272;&#7845;t c&#244;ng c&#7897;ng</span>
+          </div>
+        </section>
       </aside>
     </div>
+    <footer class="webgis-statusbar" aria-label="Trang thai he thong">
+      <div><span>Version 10.300</span><span>C&#7853;p nh&#7853;t: 15/05/2024 10:30</span></div>
+      <div class="webgis-system-status"><i></i>System status: Green</div>
+    </footer>
     <section id="webgisAttributePanel" class="webgis-attr-panel" hidden>
       <div class="webgis-attr-tools">
         <strong>Bảng thuộc tính</strong>
@@ -1534,13 +1932,22 @@ function webgisUpdateAdminUi() {
   const loginPanel = webgisEl('webgisAdminLoginPanel');
   const adminBtn = webgisEl('webgisAdminBtn');
   const badge = webgisEl('webgisAdminSessionBadge');
-  if (adminBtn) adminBtn.textContent = logged ? 'Quản trị dữ liệu' : 'Đăng nhập';
+  if (adminBtn) adminBtn.textContent = logged ? 'T\u00e0i kho\u1ea3n' : '\u0110\u0103ng nh\u1eadp';
   if (badge) {
     badge.hidden = !logged;
     badge.textContent = logged ? `Admin${webgisAdminUser ? ': ' + webgisAdminUser : ''}` : 'Admin';
   }
   if (!logged && adminPanel) adminPanel.hidden = true;
   if (logged && loginPanel) loginPanel.hidden = true;
+}
+
+
+function openWebgisAdminPanel() {
+  if (!webgisRequireAdmin()) return;
+  webgisEl('webgisAdminPanel').hidden = !webgisEl('webgisAdminPanel').hidden;
+  webgisEl('webgisAdminLoginPanel').hidden = true;
+  webgisRenderAdminLayerList();
+  webgisInvalidateSize(80);
 }
 
 function webgisShowAdminLogin(message = '') {
@@ -2482,11 +2889,21 @@ function webgisBindEvents() {
     if (event.target?.dataset?.webgisDetailExport) webgisExportSelectedFeatureInfo();
   });
   webgisEl('webgisHomeBtn')?.addEventListener('click', showHomePage);
-  webgisEl('webgisAiBtn').addEventListener('click', () => openAiAssistant('webgis'));
-  webgisEl('webgisOpenTableBtn').addEventListener('click', () => {
+  webgisEl('webgisNavHomeBtn')?.addEventListener('click', showHomePage);
+  webgisEl('webgisAiBtn')?.addEventListener('click', () => openAiAssistant('webgis'));
+  webgisEl('webgisNavAnalysisBtn')?.addEventListener('click', () => openAiAssistant('webgis'));
+  webgisEl('webgisSupportBtn')?.addEventListener('click', () => {
+    webgisEl('webgisFeatureDetail')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+  webgisEl('webgisAccountBtn')?.addEventListener('click', () => openWebgisAdminPanel());
+  webgisEl('webgisNavSystemBtn')?.addEventListener('click', () => openWebgisAdminPanel());
+  webgisEl('webgisNavReportBtn')?.addEventListener('click', () => webgisExportSelectedFeatureInfo());
+  const openAttrTable = () => {
     webgisEl('webgisAttributePanel').hidden = false;
     webgisRenderAttributeTable();
-  });
+  };
+  webgisEl('webgisOpenTableBtn')?.addEventListener('click', openAttrTable);
+  webgisEl('webgisNavDatabaseBtn')?.addEventListener('click', openAttrTable);
   webgisEl('webgisCloseTableBtn').addEventListener('click', () => webgisEl('webgisAttributePanel').hidden = true);
   webgisEl('webgisAttrLayer').addEventListener('change', webgisRenderAttributeTable);
   webgisEl('webgisAttrSearch').addEventListener('input', webgisRenderAttributeTable);
@@ -2509,13 +2926,7 @@ function webgisBindEvents() {
     const row = event.target.closest('tr[data-feature-id]');
     if (row) webgisZoomToFeature(row.dataset.featureId);
   });
-  webgisEl('webgisAdminBtn').addEventListener('click', () => {
-    if (!webgisRequireAdmin()) return;
-    webgisEl('webgisAdminPanel').hidden = !webgisEl('webgisAdminPanel').hidden;
-    webgisEl('webgisAdminLoginPanel').hidden = true;
-    webgisRenderAdminLayerList();
-    webgisInvalidateSize(80);
-  });
+  webgisEl('webgisAdminBtn').addEventListener('click', openWebgisAdminPanel);
   webgisEl('webgisCloseAdminBtn').addEventListener('click', () => webgisEl('webgisAdminPanel').hidden = true);
   webgisEl('webgisAdminLayerList').addEventListener('click', async event => {
     const layerId = event.target?.dataset?.webgisLayerDelete;
@@ -3113,6 +3524,7 @@ def main() -> None:
     webgis_sample_json_pretty = json.dumps(WEBGIS_SAMPLE_DATA, ensure_ascii=False, indent=2)
     (webgis_data_dir / "sample-land-data.geojson").write_text(webgis_sample_json_pretty, encoding="utf-8")
     webgis_sample_json = json.dumps(WEBGIS_SAMPLE_DATA, ensure_ascii=False).replace("</", "<\\/")
+    webgis_html = WEBGIS_HTML.replace("__WEBGIS_LOGO__", logo_data_url)
     doc = f"""<!doctype html>
 <html lang="vi">
 <head>
@@ -5627,7 +6039,7 @@ body.startup-active {{
     <div id="libraryEmpty" class="library-empty" hidden>Chưa có tài liệu phù hợp.</div>
   </section>
 </main>
-{WEBGIS_HTML}
+{webgis_html}
 <section id="libraryAccessPanel" class="library-access" hidden>
   <div class="library-access-card">
     <div class="library-admin-actions">
@@ -8187,8 +8599,8 @@ function openAiAssistant(mode = 'land-transfer') {{
   document.body.classList.toggle('ai-webgis-assistant', isWebgis);
   $('#aiPanelTitle').textContent = isWebgis ? 'Trợ lý AI WebGIS' : 'Trợ lý AI';
   $('#aiIntroMessage').textContent = isWebgis
-    ? 'Anh có thể hỏi: “Layer nào đang bật?”, “Tóm tắt đối tượng đang chọn”, “Thuộc tính nào đang được phép hiển thị?”, hoặc “Nhận xét nhanh dữ liệu hiện trạng/quy hoạch trên bản đồ”.'
-    : 'Anh có thể hỏi: “Kiểm tra giúp tôi bảng này có lệch tổng không?”, “LUC tăng giảm thế nào?”, hoặc “Viết nhận xét ngắn về biến động đất”.';
+    ? 'G\u1ee3i \u00fd nhanh: \u201cTh\u1eeda \u0111\u1ea5t n\u00e0y c\u00f3 quy ho\u1ea1ch g\u00ec?\u201d ho\u1eb7c \u201cTra c\u1ee9u gi\u00e1 \u0111\u1ea5t khu v\u1ef1c n\u00e0y\u201d. Anh c\u0169ng c\u00f3 th\u1ec3 h\u1ecfi v\u1ec1 layer \u0111ang b\u1eadt, thu\u1ed9c t\u00ednh \u0111ang hi\u1ec3n th\u1ecb ho\u1eb7c \u0111\u1ed1i t\u01b0\u1ee3ng \u0111ang ch\u1ecdn.'
+    : 'Anh c\u00f3 th\u1ec3 h\u1ecfi: \u201cKi\u1ec3m tra gi\u00fap t\u00f4i b\u1ea3ng n\u00e0y c\u00f3 l\u1ec7ch t\u1ed5ng kh\u00f4ng?\u201d, \u201cLUC t\u0103ng gi\u1ea3m th\u1ebf n\u00e0o?\u201d, ho\u1eb7c \u201cVi\u1ebft nh\u1eadn x\u00e9t ng\u1eafn v\u1ec1 bi\u1ebfn \u0111\u1ed9ng \u0111\u1ea5t\u201d.';
   $('#aiQuestion').placeholder = isWebgis
     ? 'Nhập câu hỏi về WebGIS, layer, thuộc tính hoặc đối tượng đang chọn'
     : 'Nhập câu hỏi cho AI';
