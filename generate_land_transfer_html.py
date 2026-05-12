@@ -785,8 +785,13 @@ WEBGIS_CSS = r"""
   gap: 6px;
 }
 .webgis-admin-layer-grid input[type="number"],
-.webgis-admin-layer-grid input[type="text"] {
+.webgis-admin-layer-grid input[type="text"],
+.webgis-admin-layer-grid input[type="color"] {
   width: 100%;
+}
+.webgis-admin-layer-grid input[type="color"] {
+  min-height: 34px;
+  padding: 3px;
 }
 .webgis-field-config,
 .webgis-field-config-empty {
@@ -1561,6 +1566,7 @@ let webgisState = {
   map: null,
   layerDefs: [],
   overlayLayers: new Map(),
+  maskLayers: new Map(),
   featureLayers: new Map(),
   featureCache: new Map(),
   loadedLayerIds: new Set(),
@@ -1656,6 +1662,11 @@ function webgisNormalizeOpacity(value) {
   return Math.max(0, Math.min(1, normalized));
 }
 
+function webgisNormalizeColor(value, fallback = '#ffffff') {
+  const text = String(value || '').trim();
+  return /^#[0-9a-fA-F]{6}$/.test(text) ? text : fallback;
+}
+
 function webgisNormalizeBoolean(value, defaultValue) {
   if (value === undefined || value === null) return defaultValue;
   if (typeof value === 'string') return !['false', '0', 'no', 'off'].includes(value.trim().toLowerCase());
@@ -1747,6 +1758,11 @@ function webgisNormalizeLayerDefs(savedDefs = [], deletedLayerIds = []) {
       default_visible: defaultVisible,
       allow_user_toggle: webgisNormalizeBoolean(saved.allow_user_toggle, true),
       opacity: webgisNormalizeOpacity(saved.opacity ?? 1),
+      mask_enabled: webgisNormalizeBoolean(saved.mask_enabled, false),
+      mask_inner_color: webgisNormalizeColor(saved.mask_inner_color, '#ffffff'),
+      mask_inner_opacity: webgisNormalizeOpacity(saved.mask_inner_opacity ?? 0.08),
+      mask_outer_color: webgisNormalizeColor(saved.mask_outer_color, '#000000'),
+      mask_outer_opacity: webgisNormalizeOpacity(saved.mask_outer_opacity ?? 0.58),
       sort_order: Number.isFinite(Number(saved.sort_order)) ? Number(saved.sort_order) : webgisLayerDefs.findIndex(item => item.id === def.id) + 1,
       category: String(saved.category || def.category || 'Chung'),
       visible_fields: webgisNormalizeFieldList(saved.visible_fields),
@@ -1765,6 +1781,11 @@ function webgisNormalizeLayerDefs(savedDefs = [], deletedLayerIds = []) {
       allow_user_toggle: webgisNormalizeBoolean(def.allow_user_toggle, true),
       visible: webgisNormalizeBoolean(def.default_visible, def.visible === true),
       opacity: webgisNormalizeOpacity(def.opacity ?? 1),
+      mask_enabled: webgisNormalizeBoolean(def.mask_enabled, false),
+      mask_inner_color: webgisNormalizeColor(def.mask_inner_color, '#ffffff'),
+      mask_inner_opacity: webgisNormalizeOpacity(def.mask_inner_opacity ?? 0.08),
+      mask_outer_color: webgisNormalizeColor(def.mask_outer_color, '#000000'),
+      mask_outer_opacity: webgisNormalizeOpacity(def.mask_outer_opacity ?? 0.58),
       sort_order: Number.isFinite(Number(def.sort_order)) ? Number(def.sort_order) : defaults.length + 1,
       category: String(def.category || 'Chung'),
       visible_fields: webgisNormalizeFieldList(def.visible_fields),
@@ -1796,6 +1817,11 @@ function webgisStatePayload() {
       default_visible: def.default_visible === true,
       allow_user_toggle: def.allow_user_toggle !== false,
       opacity: webgisNormalizeOpacity(def.opacity),
+      mask_enabled: def.mask_enabled === true,
+      mask_inner_color: webgisNormalizeColor(def.mask_inner_color, '#ffffff'),
+      mask_inner_opacity: webgisNormalizeOpacity(def.mask_inner_opacity ?? 0.08),
+      mask_outer_color: webgisNormalizeColor(def.mask_outer_color, '#000000'),
+      mask_outer_opacity: webgisNormalizeOpacity(def.mask_outer_opacity ?? 0.58),
       sort_order: Number(def.sort_order || 0),
       category: def.category || 'Chung',
       visible_fields: webgisNormalizeFieldList(def.visible_fields),
@@ -2112,14 +2138,66 @@ function webgisStyle(feature) {
   const layerDef = webgisState.layerDefs.find(def => def.id === layerId);
   const opacity = webgisNormalizeOpacity(layerDef?.opacity ?? webgisEl(`webgisOpacity_${layerId}`)?.value ?? 1);
   const isLine = ['LineString', 'MultiLineString'].includes(feature.geometry?.type);
+  const useMask = layerDef?.mask_enabled === true && !isLine;
   return {
     color,
     weight: layerId === 'administrative' ? 3 : isLine ? 4 : 1.6,
     dashArray: layerId === 'administrative' ? '8 5' : '',
     opacity: Math.max(0.15, opacity),
-    fillColor: color,
-    fillOpacity: isLine ? 0 : Math.min(0.55, opacity * 0.55)
+    fillColor: useMask ? webgisNormalizeColor(layerDef?.mask_inner_color, '#ffffff') : color,
+    fillOpacity: isLine ? 0 : (useMask
+      ? webgisNormalizeOpacity(layerDef?.mask_inner_opacity ?? 0.08)
+      : Math.min(0.55, opacity * 0.55))
   };
+}
+
+function webgisPolygonMaskRings(feature) {
+  const geometry = feature?.geometry || {};
+  if (geometry.type === 'Polygon') return Array.isArray(geometry.coordinates?.[0]) ? [geometry.coordinates[0]] : [];
+  if (geometry.type === 'MultiPolygon') {
+    return (geometry.coordinates || [])
+      .map(polygon => Array.isArray(polygon?.[0]) ? polygon[0] : null)
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function webgisMaskRingToLatLngs(ring) {
+  return (ring || [])
+    .map(coord => Array.isArray(coord) && Number.isFinite(Number(coord[0])) && Number.isFinite(Number(coord[1]))
+      ? [Number(coord[1]), Number(coord[0])]
+      : null)
+    .filter(Boolean);
+}
+
+function webgisBuildBoundaryMask(def) {
+  if (!webgisState.map || def?.mask_enabled !== true) return null;
+  const holes = (webgisState.featureCache.get(def.id) || [])
+    .flatMap(webgisPolygonMaskRings)
+    .map(webgisMaskRingToLatLngs)
+    .filter(ring => ring.length >= 4);
+  if (!holes.length) return null;
+  const world = [[-85, -180], [-85, 180], [85, 180], [85, -180], [-85, -180]];
+  return L.polygon([world, ...holes], {
+    pane: 'webgisMaskPane',
+    stroke: false,
+    interactive: false,
+    fillRule: 'evenodd',
+    fillColor: webgisNormalizeColor(def.mask_outer_color, '#000000'),
+    fillOpacity: webgisNormalizeOpacity(def.mask_outer_opacity ?? 0.58)
+  });
+}
+
+function webgisRefreshLayerMask(layerId) {
+  const existing = webgisState.maskLayers.get(layerId);
+  if (existing && webgisState.map) webgisState.map.removeLayer(existing);
+  webgisState.maskLayers.delete(layerId);
+  const def = webgisState.layerDefs.find(layer => layer.id === layerId);
+  if (!def || def.is_public === false || def.visible !== true || !webgisState.loadedLayerIds.has(def.id)) return;
+  const mask = webgisBuildBoundaryMask(def);
+  if (!mask) return;
+  webgisState.maskLayers.set(layerId, mask);
+  mask.addTo(webgisState.map);
 }
 
 function webgisLayerDefById(layerId) {
@@ -2325,12 +2403,19 @@ function webgisBuildOverlayLayer(def) {
 
 function webgisRebuildOverlays() {
   if (!webgisState.map) return;
+  webgisState.maskLayers.forEach(layer => webgisState.map.removeLayer(layer));
+  webgisState.maskLayers.clear();
   webgisState.overlayLayers.forEach(layer => webgisState.map.removeLayer(layer));
   webgisState.overlayLayers.clear();
   webgisState.featureLayers.clear();
   webgisState.layerDefs
     .filter(def => def.is_public !== false && def.visible === true && webgisState.loadedLayerIds.has(def.id))
     .forEach(def => {
+    const mask = webgisBuildBoundaryMask(def);
+    if (mask) {
+      webgisState.maskLayers.set(def.id, mask);
+      mask.addTo(webgisState.map);
+    }
     const layer = webgisBuildOverlayLayer(def);
     webgisState.overlayLayers.set(def.id, layer);
     layer.addTo(webgisState.map);
@@ -2383,8 +2468,21 @@ function webgisRenderAdminLayerList() {
         <label class="switch-line"><input type="checkbox" data-webgis-admin-field="is_public" data-layer="${webgisEscape(def.id)}" ${def.is_public !== false ? 'checked' : ''}> Hien thi cho nguoi dung</label>
         <label class="switch-line"><input type="checkbox" data-webgis-admin-field="default_visible" data-layer="${webgisEscape(def.id)}" ${def.default_visible === true ? 'checked' : ''}> Bat mac dinh</label>
         <label class="switch-line"><input type="checkbox" data-webgis-admin-field="allow_user_toggle" data-layer="${webgisEscape(def.id)}" ${def.allow_user_toggle !== false ? 'checked' : ''}> Cho phep bat/tat</label>
+        <label class="switch-line"><input type="checkbox" data-webgis-admin-field="mask_enabled" data-layer="${webgisEscape(def.id)}" ${def.mask_enabled === true ? 'checked' : ''}> Mat na nen ranh gioi</label>
         <label>Do trong suot
           <input type="range" min="0" max="1" step="0.05" value="${webgisNormalizeOpacity(def.opacity)}" data-webgis-admin-field="opacity" data-layer="${webgisEscape(def.id)}">
+        </label>
+        <label>Nen trong
+          <input type="color" value="${webgisNormalizeColor(def.mask_inner_color, '#ffffff')}" data-webgis-admin-field="mask_inner_color" data-layer="${webgisEscape(def.id)}">
+        </label>
+        <label>Do mo nen trong
+          <input type="range" min="0" max="1" step="0.05" value="${webgisNormalizeOpacity(def.mask_inner_opacity ?? 0.08)}" data-webgis-admin-field="mask_inner_opacity" data-layer="${webgisEscape(def.id)}">
+        </label>
+        <label>Nen ngoai
+          <input type="color" value="${webgisNormalizeColor(def.mask_outer_color, '#000000')}" data-webgis-admin-field="mask_outer_color" data-layer="${webgisEscape(def.id)}">
+        </label>
+        <label>Do mo nen ngoai
+          <input type="range" min="0" max="1" step="0.05" value="${webgisNormalizeOpacity(def.mask_outer_opacity ?? 0.58)}" data-webgis-admin-field="mask_outer_opacity" data-layer="${webgisEscape(def.id)}">
         </label>
         <label>Thu tu
           <input type="number" value="${Number(def.sort_order || 0)}" data-webgis-admin-field="sort_order" data-layer="${webgisEscape(def.id)}">
@@ -2404,6 +2502,11 @@ function webgisLayerMetadataPayload(def) {
     default_visible: def.default_visible === true,
     allow_user_toggle: def.allow_user_toggle !== false,
     opacity: webgisNormalizeOpacity(def.opacity),
+    mask_enabled: def.mask_enabled === true,
+    mask_inner_color: webgisNormalizeColor(def.mask_inner_color, '#ffffff'),
+    mask_inner_opacity: webgisNormalizeOpacity(def.mask_inner_opacity ?? 0.08),
+    mask_outer_color: webgisNormalizeColor(def.mask_outer_color, '#000000'),
+    mask_outer_opacity: webgisNormalizeOpacity(def.mask_outer_opacity ?? 0.58),
     sort_order: Number(def.sort_order || 0),
     category: def.category || 'Chung',
     visible_fields: webgisNormalizeFieldList(def.visible_fields)
@@ -2451,6 +2554,9 @@ function webgisRemoveLayerLocally(layerId) {
   const layer = webgisState.overlayLayers.get(normalizedLayerId);
   if (layer && webgisState.map) webgisState.map.removeLayer(layer);
   webgisState.overlayLayers.delete(normalizedLayerId);
+  const mask = webgisState.maskLayers.get(normalizedLayerId);
+  if (mask && webgisState.map) webgisState.map.removeLayer(mask);
+  webgisState.maskLayers.delete(normalizedLayerId);
   webgisState.featureCache.delete(normalizedLayerId);
   webgisState.loadedLayerIds.delete(normalizedLayerId);
   webgisState.features = webgisState.features.filter(feature => String(feature.properties?.layer || '') !== normalizedLayerId);
@@ -2539,10 +2645,12 @@ function webgisFitAll() {
 
 function webgisUpdateLayerStyle(layerId) {
   const layer = webgisState.overlayLayers.get(layerId);
-  if (!layer) return;
-  layer.eachLayer(child => {
-    if (child.feature && child.setStyle) child.setStyle(webgisStyle(child.feature));
-  });
+  if (layer) {
+    layer.eachLayer(child => {
+      if (child.feature && child.setStyle) child.setStyle(webgisStyle(child.feature));
+    });
+  }
+  webgisRefreshLayerMask(layerId);
 }
 
 function webgisTextForFeature(feature) {
@@ -2736,6 +2844,11 @@ async function webgisImportGeoJson() {
     allow_user_toggle: true,
     visible: true,
     opacity: 1,
+    mask_enabled: false,
+    mask_inner_color: '#ffffff',
+    mask_inner_opacity: 0.08,
+    mask_outer_color: '#000000',
+    mask_outer_opacity: 0.58,
     sort_order: nextSort,
     category,
     feature_count: features.length,
@@ -2926,7 +3039,7 @@ function webgisBindEvents() {
     if (!layerId || !field) return;
     const def = webgisState.layerDefs.find(layer => layer.id === layerId);
     if (!def) return;
-    if (['is_public', 'default_visible', 'allow_user_toggle'].includes(field)) {
+    if (['is_public', 'default_visible', 'allow_user_toggle', 'mask_enabled'].includes(field)) {
       def[field] = event.target.checked;
       if (field === 'is_public' && !def.is_public) def.visible = false;
       if (field === 'default_visible') def.visible = event.target.checked;
@@ -2939,20 +3052,32 @@ function webgisBindEvents() {
     } else if (field === 'opacity') {
       def.opacity = webgisNormalizeOpacity(event.target.value);
       webgisUpdateLayerStyle(layerId);
+    } else if (field === 'mask_inner_opacity' || field === 'mask_outer_opacity') {
+      def[field] = webgisNormalizeOpacity(event.target.value);
+      webgisUpdateLayerStyle(layerId);
+    } else if (field === 'mask_inner_color' || field === 'mask_outer_color') {
+      def[field] = webgisNormalizeColor(event.target.value, field === 'mask_inner_color' ? '#ffffff' : '#000000');
+      webgisUpdateLayerStyle(layerId);
     }
     webgisRenderLayerList();
     webgisRenderAdminLayerList();
     webgisRebuildOverlays();
-    webgisScheduleLayerMetadataPatch(layerId, ['category', 'sort_order', 'opacity'].includes(field) ? 500 : 50);
+    webgisScheduleLayerMetadataPatch(layerId, ['category', 'sort_order', 'opacity', 'mask_inner_opacity', 'mask_outer_opacity', 'mask_inner_color', 'mask_outer_color'].includes(field) ? 500 : 50);
   });
   webgisEl('webgisAdminLayerList').addEventListener('input', event => {
     const layerId = event.target?.dataset?.layer;
     const field = event.target?.dataset?.webgisAdminField;
-    if (!layerId || !['opacity', 'sort_order', 'category'].includes(field)) return;
+    if (!layerId || !['opacity', 'sort_order', 'category', 'mask_inner_opacity', 'mask_outer_opacity', 'mask_inner_color', 'mask_outer_color'].includes(field)) return;
     const def = webgisState.layerDefs.find(layer => layer.id === layerId);
     if (!def) return;
     if (field === 'opacity') {
       def.opacity = webgisNormalizeOpacity(event.target.value);
+      webgisUpdateLayerStyle(layerId);
+    } else if (field === 'mask_inner_opacity' || field === 'mask_outer_opacity') {
+      def[field] = webgisNormalizeOpacity(event.target.value);
+      webgisUpdateLayerStyle(layerId);
+    } else if (field === 'mask_inner_color' || field === 'mask_outer_color') {
+      def[field] = webgisNormalizeColor(event.target.value, field === 'mask_inner_color' ? '#ffffff' : '#000000');
       webgisUpdateLayerStyle(layerId);
     } else if (field === 'sort_order') {
       def.sort_order = Number(event.target.value || 0);
@@ -3014,6 +3139,9 @@ async function initializeWebGIS(options = {}) {
       webgisPrimeFeatureCache(initialFeatures);
       const map = L.map('webgisMap', { zoomControl: false, preferCanvas: true }).setView([21.0405, 105.8520], 15);
       webgisState.map = map;
+      const maskPane = map.createPane('webgisMaskPane');
+      maskPane.style.zIndex = '390';
+      maskPane.style.pointerEvents = 'none';
       L.control.zoom({ position: 'bottomright' }).addTo(map);
       const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
       const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 19, maxZoom: 22, attribution: 'Tiles &copy; Esri' });

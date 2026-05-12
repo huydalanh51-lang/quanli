@@ -232,6 +232,11 @@ function normalizeWebgisOpacity(value) {
   return Math.max(0, Math.min(1, normalized));
 }
 
+function normalizeWebgisColor(value, fallback = '#ffffff') {
+  const text = String(value || '').trim();
+  return /^#[0-9a-fA-F]{6}$/.test(text) ? text : fallback;
+}
+
 function normalizeWebgisFieldList(value) {
   if (value === undefined || value === null) return null;
   const values = Array.isArray(value) ? value : String(value).split(',');
@@ -255,6 +260,11 @@ function normalizeWebgisLayerDef(rawDef, index = 0) {
     default_visible: defaultVisible,
     allow_user_toggle: normalizeWebgisBoolean(rawDef?.allow_user_toggle, true),
     opacity: normalizeWebgisOpacity(rawDef?.opacity),
+    mask_enabled: normalizeWebgisBoolean(rawDef?.mask_enabled, false),
+    mask_inner_color: normalizeWebgisColor(rawDef?.mask_inner_color, '#ffffff'),
+    mask_inner_opacity: normalizeWebgisOpacity(rawDef?.mask_inner_opacity ?? 0.08),
+    mask_outer_color: normalizeWebgisColor(rawDef?.mask_outer_color, '#000000'),
+    mask_outer_opacity: normalizeWebgisOpacity(rawDef?.mask_outer_opacity ?? 0.58),
     sort_order: Number.isFinite(Number(rawDef?.sort_order)) ? Number(rawDef.sort_order) : index + 1,
     category: String(rawDef?.category || 'Chung'),
     visible_fields: normalizeWebgisFieldList(rawDef?.visible_fields),
@@ -387,12 +397,14 @@ async function updateWebgisLayerMetadata(id, layerId, patch) {
     layer = normalizeWebgisLayerDef({ id: normalizedLayerId, label: normalizedLayerId, custom: true }, data.layerDefs.length);
     data.layerDefs.push(layer);
   }
-  const allowed = ['label', 'color', 'is_public', 'default_visible', 'allow_user_toggle', 'opacity', 'sort_order', 'category', 'visible_fields'];
+  const allowed = ['label', 'color', 'is_public', 'default_visible', 'allow_user_toggle', 'opacity', 'mask_enabled', 'mask_inner_color', 'mask_inner_opacity', 'mask_outer_color', 'mask_outer_opacity', 'sort_order', 'category', 'visible_fields'];
   for (const key of allowed) {
     if (!Object.prototype.hasOwnProperty.call(patch || {}, key)) continue;
-    if (key === 'opacity') layer.opacity = normalizeWebgisOpacity(patch[key]);
+    if (key === 'opacity' || key === 'mask_inner_opacity' || key === 'mask_outer_opacity') layer[key] = normalizeWebgisOpacity(patch[key]);
+    else if (key === 'mask_inner_color') layer.mask_inner_color = normalizeWebgisColor(patch[key], '#ffffff');
+    else if (key === 'mask_outer_color') layer.mask_outer_color = normalizeWebgisColor(patch[key], '#000000');
     else if (key === 'visible_fields') layer.visible_fields = normalizeWebgisFieldList(patch[key]);
-    else if (['is_public', 'default_visible', 'allow_user_toggle'].includes(key)) layer[key] = normalizeWebgisBoolean(patch[key], key !== 'default_visible');
+    else if (['is_public', 'default_visible', 'allow_user_toggle', 'mask_enabled'].includes(key)) layer[key] = normalizeWebgisBoolean(patch[key], key !== 'default_visible');
     else if (key === 'sort_order') layer.sort_order = Number.isFinite(Number(patch[key])) ? Number(patch[key]) : layer.sort_order;
     else layer[key] = String(patch[key] ?? '').trim();
   }
