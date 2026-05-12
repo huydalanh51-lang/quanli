@@ -13,7 +13,11 @@ from openpyxl.utils import get_column_letter
 
 
 BASE_DIR = Path(r"D:\Codex\Tools")
-SOURCE = Path(r"C:\Users\QUANGHUY\Downloads\Bieu_chu_chuyen_dat_dai_mau_cong_thuc.xlsx")
+SOURCE_CANDIDATES = [
+    Path(r"C:\Users\QUANGHUY\Downloads\Bieu_chu_chuyen_dat_dai_mau_cong_thuc.xlsx"),
+    BASE_DIR / "Dulieu" / "chu_chuyen_dat_dai.xlsx",
+]
+SOURCE = next((path for path in SOURCE_CANDIDATES if path.exists()), SOURCE_CANDIDATES[0])
 OUT = BASE_DIR / "public" / "index.html"
 JSZIP = Path(r"C:\Users\QUANGHUY\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules\jszip\dist\jszip.min.js")
 LOGO = Path(r"C:\Users\QUANGHUY\Downloads\482087578_122221961630205345_1940337838885474762_n.jpg")
@@ -3254,7 +3258,7 @@ def build_web_logo_asset() -> tuple[bytes, str]:
 
 def main() -> None:
     wb = openpyxl.load_workbook(SOURCE, data_only=False)
-    ws = wb["Sheet1"]
+    ws = wb["Sheet1"] if "Sheet1" in wb.sheetnames else wb[wb.sheetnames[0]]
     previous_plan_values = {}
     total_columns = ws.max_column + 3
 
@@ -4805,6 +4809,9 @@ body.compact-zero-cols col.compact-hidden,
 body.compact-zero-cols td.compact-hidden {{
   display: none !important;
 }}
+body.hide-unchanged-rows #landTable tr.unchanged-row-hidden {{
+  display: none !important;
+}}
 td.hover-row::after,
 td.hover-col::after {{
   content: "";
@@ -6136,6 +6143,10 @@ body.startup-active {{
     <input id="compactColumnsToggle" type="checkbox">
     Ẩn cột không phát sinh
   </label>
+  <label class="view-options">
+    <input id="hideUnchangedRowsToggle" type="checkbox">
+    L&#432;&#7907;c b&#7887; d&#242;ng kh&#244;ng bi&#7871;n &#273;&#7897;ng
+  </label>
 </section>
 <main class="table-wrap">
 <table id="landTable">
@@ -6157,6 +6168,7 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const storageKey = 'land-transfer-html-v1';
 const hideZeroKey = 'land-transfer-hide-zero';
 const compactColumnsKey = 'land-transfer-compact-zero-cols';
+const hideUnchangedRowsKey = 'land-transfer-hide-unchanged-rows';
 const projectId = 'default';
 const apiBase = '/api/projects';
 const libraryApiBase = '/api/library';
@@ -7288,6 +7300,7 @@ function recalc() {{
 
   updateWarnings({{ currentArea: refreshedCalc.currentArea, matrixLeaf: refreshedCalc.matrixLeaf }});
   updateCompactColumns();
+  updateUnchangedRows();
 }}
 
 function updateWarnings(calc) {{
@@ -7354,6 +7367,42 @@ function applyCompactColumnsState(enabled) {{
   if (checkbox) checkbox.checked = enabled;
   localStorage.setItem(compactColumnsKey, enabled ? '1' : '0');
   updateCompactColumns();
+}}
+
+function rowSelfHasMovement(code) {{
+  const row = rowsByCode[code];
+  if (!row || row === meta.dttnRow) return true;
+  const tol = meta.tolerance;
+  const change = Math.abs(getAuto(row, meta.changeCol));
+  const decrease = Math.abs(getAuto(row, meta.decreaseCol));
+  return change > tol || decrease > tol;
+}}
+
+function rowHasMovementInTree(code, seen = new Set()) {{
+  if (!code || seen.has(code)) return false;
+  seen.add(code);
+  if (rowSelfHasMovement(code)) return true;
+  return (directChildren[code] || []).some(child => rowHasMovementInTree(child, seen));
+}}
+
+function updateUnchangedRows() {{
+  const enabled = document.body.classList.contains('hide-unchanged-rows');
+  document.querySelectorAll('#landTable tr').forEach(tr => {{
+    const firstCell = tr.querySelector('td[data-row]');
+    if (!firstCell) return;
+    const row = Number(firstCell.dataset.row || 0);
+    const code = rowCodes[String(row)];
+    const canHide = enabled && row > meta.dttnRow && row < meta.totalIncreaseRow && code && !rowHasMovementInTree(code);
+    tr.classList.toggle('unchanged-row-hidden', Boolean(canHide));
+  }});
+}}
+
+function applyHideUnchangedRowsState(enabled) {{
+  document.body.classList.toggle('hide-unchanged-rows', enabled);
+  const checkbox = $('#hideUnchangedRowsToggle');
+  if (checkbox) checkbox.checked = enabled;
+  localStorage.setItem(hideUnchangedRowsKey, enabled ? '1' : '0');
+  updateUnchangedRows();
 }}
 
 function download(name, type, text) {{
@@ -8595,6 +8644,9 @@ $('#hideZeroToggle').addEventListener('change', event => {{
 $('#compactColumnsToggle').addEventListener('change', event => {{
   applyCompactColumnsState(event.currentTarget.checked);
 }});
+$('#hideUnchangedRowsToggle').addEventListener('change', event => {{
+  applyHideUnchangedRowsState(event.currentTarget.checked);
+}});
 
 let hoverRow = null;
 let hoverCol = null;
@@ -8811,6 +8863,7 @@ if (saved) applyInputs(JSON.parse(saved));
 normalizeAllInputs();
 applyHideZeroState(localStorage.getItem(hideZeroKey) === '1');
 applyCompactColumnsState(localStorage.getItem(compactColumnsKey) === '1');
+applyHideUnchangedRowsState(localStorage.getItem(hideUnchangedRowsKey) === '1');
 updateLibrarySessionUi();
 $('#statusMissing').textContent = meta.missingCodes.length ? `Thiếu mã: ${{meta.missingCodes.join(', ')}}` : 'Đủ mã nhập';
 $('#statusMissing').classList.toggle('warn', meta.missingCodes.length > 0);
