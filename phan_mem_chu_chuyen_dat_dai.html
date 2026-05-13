@@ -1586,6 +1586,38 @@ body.ai-webgis-assistant .ai-controls textarea {
   border-radius: 12px;
   font-family: Inter, "Segoe UI", Arial, sans-serif;
 }
+.webgis-mobile-ai-btn {
+  display: none;
+  position: fixed;
+  right: 14px;
+  bottom: 86px;
+  z-index: 6500;
+  width: 58px;
+  height: 58px;
+  border: 1px solid #fed7aa;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  color: #c2410c;
+  box-shadow: 0 18px 36px rgba(194, 65, 12, 0.22);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1px;
+  font-weight: 900;
+}
+.webgis-mobile-ai-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 20px 42px rgba(194, 65, 12, 0.28);
+}
+.webgis-mobile-ai-icon {
+  font-size: 23px;
+  line-height: 1;
+}
+.webgis-mobile-ai-btn span:last-child {
+  font-size: 11px;
+  line-height: 1;
+}
 @media (max-width: 1180px) {
   .webgis-topbar {
     grid-template-columns: 1fr;
@@ -1609,6 +1641,24 @@ body.ai-webgis-assistant .ai-controls textarea {
   body.ai-webgis-assistant .ai-panel {
     inset: auto 12px 44px 12px;
     width: auto;
+  }
+  body.webgis-mode .webgis-mobile-ai-btn {
+    display: flex;
+  }
+  body.ai-webgis-assistant .webgis-mobile-ai-btn {
+    display: none;
+  }
+  body.webgis-mode.ai-webgis-assistant .ai-panel {
+    inset: auto 10px 10px 10px;
+    z-index: 7000;
+    width: auto;
+    max-height: min(70dvh, 470px);
+  }
+  body.webgis-mode.ai-webgis-assistant .ai-card {
+    max-height: min(70dvh, 470px);
+  }
+  body.webgis-mode.ai-webgis-assistant .ai-messages {
+    max-height: calc(70dvh - 230px);
   }
 }
 
@@ -3845,6 +3895,10 @@ body.startup-active {
       </div>
     </section>
   </section>
+  <button id="webgisMobileAiBtn" class="webgis-mobile-ai-btn" type="button" aria-label="M&#7903; tr&#7907; l&#253; AI WebGIS" title="Tr&#7907; l&#253; AI">
+    <span class="webgis-mobile-ai-icon" aria-hidden="true">&#129302;</span>
+    <span>AI</span>
+  </button>
 </main>
 
 <section id="libraryAccessPanel" class="library-access" hidden>
@@ -5541,6 +5595,7 @@ function webgisBindEvents() {
   webgisEl('webgisHomeBtn')?.addEventListener('click', showHomePage);
   webgisEl('webgisNavHomeBtn')?.addEventListener('click', showHomePage);
   webgisEl('webgisAiBtn')?.addEventListener('click', () => openAiAssistant('webgis'));
+  webgisEl('webgisMobileAiBtn')?.addEventListener('click', () => openAiAssistant('webgis'));
   webgisEl('webgisNavAnalysisBtn')?.addEventListener('click', () => openAiAssistant('webgis'));
   webgisEl('webgisSupportBtn')?.addEventListener('click', () => {
     webgisEl('webgisFeatureDetail')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -8173,7 +8228,8 @@ function openAiAssistant(mode = 'land-transfer') {
     : 'Nhập câu hỏi cho AI';
   $('#aiPanel').hidden = false;
   refreshAiStatus();
-  $('#aiQuestion').focus();
+  const shouldFocusQuestion = !(isWebgis && window.matchMedia?.('(max-width: 760px)').matches);
+  if (shouldFocusQuestion) $('#aiQuestion').focus();
 }
 
 async function sendAiQuestion() {
