@@ -4224,6 +4224,7 @@ const webgisAdminUserKey = 'webgis-admin-user';
 let webgisSaveTimer = 0;
 let webgisAdminToken = localStorage.getItem(webgisAdminTokenKey) || '';
 let webgisAdminUser = localStorage.getItem(webgisAdminUserKey) || '';
+let webgisSampleDataCache = null;
 
 function webgisEl(id) {
   return document.getElementById(id);
@@ -4380,7 +4381,7 @@ function webgisNormalizeLayerDefs(savedDefs = [], deletedLayerIds = []) {
     const saved = savedById.get(def.id) || {};
     const hasDefaultVisible = Object.prototype.hasOwnProperty.call(saved, 'default_visible');
     const hasLegacyVisible = Object.prototype.hasOwnProperty.call(saved, 'visible');
-    const defaultVisible = hasDefaultVisible ? webgisNormalizeBoolean(saved.default_visible, false) : (hasLegacyVisible ? saved.visible !== false : false);
+    const defaultVisible = hasDefaultVisible ? webgisNormalizeBoolean(saved.default_visible, false) : (hasLegacyVisible ? saved.visible !== false : def.visible === true);
     return {
       ...def,
       ...saved,
@@ -4640,6 +4641,27 @@ function webgisLoadLocal() {
   }
 }
 
+function webgisSampleData() {
+  if (webgisSampleDataCache) return webgisSampleDataCache;
+  try {
+    const element = document.getElementById('webgisSampleData');
+    const parsed = element ? JSON.parse(element.textContent || '{}') : {};
+    webgisSampleDataCache = {
+      type: 'FeatureCollection',
+      features: Array.isArray(parsed.features) ? parsed.features : []
+    };
+  } catch (error) {
+    webgisSampleDataCache = { type: 'FeatureCollection', features: [] };
+  }
+  return webgisSampleDataCache;
+}
+
+function webgisSampleFeaturesForLayer(layerId) {
+  const normalizedLayerId = String(layerId || '');
+  return webgisNormalizeFeatures(webgisSampleData())
+    .filter(feature => String(feature.properties?.layer || '') === normalizedLayerId);
+}
+
 function webgisSetLayerFeatureCache(layerId, features) {
   const normalizedLayerId = String(layerId || '');
   if (webgisState.deletedLayerIds.has(normalizedLayerId)) return [];
@@ -4673,13 +4695,24 @@ async function webgisEnsureLayerLoaded(layerId, options = {}) {
       cache: 'no-store',
       headers: webgisAdminHeaders()
     });
-    if (!response.ok) throw new Error(await response.text());
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      const error = new Error(payload.error || `Khong nap duoc du lieu layer ${normalizedLayerId}`);
+      error.status = response.status;
+      throw error;
+    }
     const payload = await response.json();
     return webgisSetLayerFeatureCache(normalizedLayerId, payload.features || []);
   } catch (error) {
-    if (options.strict) throw error;
+    const fallbackFeatures = webgisSampleFeaturesForLayer(normalizedLayerId);
+    if (fallbackFeatures.length) {
+      const loaded = webgisSetLayerFeatureCache(normalizedLayerId, fallbackFeatures);
+      webgisSetSaveStatus('Dang dung du lieu mau WebGIS vi server thieu du lieu layer', true);
+      return loaded;
+    }
+    if (options.strict && error.status !== 404) throw error;
     webgisSetLayerFeatureCache(normalizedLayerId, []);
-    webgisSetSaveStatus(`Khong nap duoc du lieu layer ${normalizedLayerId}`, true);
+    webgisSetSaveStatus(`Layer ${normalizedLayerId} chua co du lieu tren server`, true);
     return [];
   }
 }
@@ -5763,7 +5796,7 @@ async function initializeWebGIS(options = {}) {
   }
   webgisState.initializing = (async () => {
     try {
-      const sample = JSON.parse(document.getElementById('webgisSampleData').textContent);
+      const sample = webgisSampleData();
       const savedData = await webgisLoadSavedData();
       webgisState.layerDefs = webgisNormalizeLayerDefs(savedData?.layerDefs, savedData?.deletedLayerIds);
       webgisState.features = [];
@@ -7871,7 +7904,7 @@ async function showWebGisPage() {
     document.body.classList.add('home-mode');
     document.body.classList.remove('webgis-mode');
     window.setTimeout(() => StartupScreen.hide(), 900);
-    alert(error.message || String(error));
+    console.error(error);
   }
 }
 
